@@ -8,7 +8,7 @@ def remove_0x(address: str) -> str:
 
 
 def public_key_to_address(key_bytes: bytes) -> bytes:
-    ''' Derive an address from public key.
+    ''' Derive an address from a public key (uncompressed, starts with 0x04).
 
     Args:
         key_bytes (bytes): bytes that represent a public key.
@@ -17,7 +17,7 @@ def public_key_to_address(key_bytes: bytes) -> bytes:
         bytes: bytes that represents the address.
     '''
     buffer = key_bytes[1:] # Get rid of the 0x04 (first byte) at the beginning.
-    return keccak256([buffer])[12:]
+    return keccak256([buffer])[0][12:]
 
 
 def is_address(address: str) -> bool:
@@ -59,7 +59,6 @@ def to_checksum_address(address: str) -> str:
     hash = h.hex()
 
     parts = ['0x']
-
     for idx, value in enumerate(body):
         if int(hash[idx], 16) >= 8:
             parts.append(value.upper())

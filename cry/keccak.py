@@ -1,4 +1,4 @@
-import sha3
+import sha3 # pysha3
 from typing import List, Tuple
 
 def keccak256(list_of_bytes: List[bytes]) -> Tuple[bytes, int]:
