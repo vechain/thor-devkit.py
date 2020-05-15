@@ -1,5 +1,12 @@
+'''
+Address
+
+Address related operations and verifications.
+'''
+
 import re
 from .keccak import keccak256
+
 
 def remove_0x(address: str) -> str:
     ''' Remove the 0x if any. Returns the string without 0x '''
@@ -12,20 +19,21 @@ def public_key_to_address(key_bytes: bytes) -> bytes:
 
     Args:
         key_bytes (bytes): bytes that represent a public key.
-    
+
     Returns:
         bytes: bytes that represents the address.
     '''
-    buffer = key_bytes[1:] # Get rid of the 0x04 (first byte) at the beginning.
+    # Get rid of the 0x04 (first byte) at the beginning.
+    buffer = key_bytes[1:]
     return keccak256([buffer])[0][12:]
 
 
 def is_address(address: str) -> bool:
     ''' Check if a text string is valid address.
-    
+
     Args:
         address (str): The address string to be checked. (should begin with '0x')
-    
+
     Returns:
         (bool): If it is valid address.
     '''
@@ -36,12 +44,13 @@ def is_address(address: str) -> bool:
     else:
         return False
 
+
 def to_checksum_address(address: str) -> str:
     ''' Turn address to checksum address that is compatible with eip-55
 
     Args:
         address (str): The address string to be checked. (should begin with '0x')
-    
+
     Returns:
         (str): The address that is properly capitalized.
 
@@ -52,7 +61,7 @@ def to_checksum_address(address: str) -> str:
     if not is_address(address):
         raise ValueError('The address is not valid.')
 
-    body = remove_0x(address) # remove '0x'.
+    body = remove_0x(address)  # remove '0x'.
     body = body.lower()
 
     h, _ = keccak256([body.encode("ascii")])
@@ -64,5 +73,5 @@ def to_checksum_address(address: str) -> str:
             parts.append(value.upper())
         else:
             parts.append(value)
-    
+
     return ''.join(parts)

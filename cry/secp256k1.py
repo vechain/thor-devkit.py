@@ -2,8 +2,10 @@ from ecdsa import SigningKey, SECP256k1
 from eth_keys import KeyAPI
 
 
-MAX = bytes.fromhex('fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141')
+MAX = bytes.fromhex(
+    'fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141')
 ZERO = bytes.fromhex('0' * 64)
+
 
 def is_valid_private_key(priv_key: bytes) -> bool:
     '''Verify if a private key is good.
@@ -13,7 +15,7 @@ def is_valid_private_key(priv_key: bytes) -> bool:
     '''
     if priv_key == ZERO:
         return False
-    
+
     if priv_key >= MAX:
         return False
 
@@ -62,9 +64,10 @@ def sign(msg_hash: bytes, priv_key: bytes) -> bytes:
 
     r = sig.r.to_bytes(32, byteorder='big')
     s = sig.s.to_bytes(32, byteorder='big')
-    v = sig.v.to_bytes(1, byteorder='big') # public key recovery bit.
+    v = sig.v.to_bytes(1, byteorder='big')  # public key recovery bit.
 
-    return b''.join([r, s, v]) # 32 + 32 + 1 bytes
+    return b''.join([r, s, v])  # 32 + 32 + 1 bytes
+
 
 def recover(msg_hash: bytes, sig: bytes) -> bytes:
     '''
@@ -72,7 +75,7 @@ def recover(msg_hash: bytes, sig: bytes) -> bytes:
     Args:
         msg_hash (bytes): The message hash.
         sig (bytes): The signature.
-    
+
     Returns:
         (bytes): public key in uncompressed format.
 
@@ -86,10 +89,11 @@ def recover(msg_hash: bytes, sig: bytes) -> bytes:
 
     if len(sig) != 65:
         raise ValueError('Signature must be 65 bytes.')
-    
+
     if not (sig[64] == 0 or sig[64] == 1):
         raise ValueError('Signature last byte must be 0 or 1')
 
     pk = KeyAPI().ecdsa_recover(msg_hash, KeyAPI.Signature(signature_bytes=sig))
 
-    return  bytes([4])+ pk.to_bytes() # uncompressed should have first byte = 04
+    # uncompressed should have first byte = 04
+    return bytes([4]) + pk.to_bytes()

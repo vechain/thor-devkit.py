@@ -1,6 +1,6 @@
 # VeChain Thor Devkit in Python 3
 
-Python 3 Library to assist development on VeChain.
+Python 3 Library to assist development on VeChain. Python 3.6+
 
 # Install
 ```bash
