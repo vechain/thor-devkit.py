@@ -1,9 +1,19 @@
 '''
 Keystore
 
-encrypt, decrypt and verify a keystore file.
-'''
+Encrypt, decrypt and verify a keystore.
 
+The "keystore" should contain following format:
+
+{
+    address: string
+    crypto: object
+    id: string
+    version: number
+}
+
+'''
+import re
 import eth_keyfile
 
 N = 131072  # aka. work_factor
@@ -41,19 +51,44 @@ def decrypt(keystore: dict, password: bytes) -> bytes:
     '''
     return eth_keyfile.decode_keyfile_json(keystore, password)
 
-# def normalize(keystore: dict) -> dict:
-#     '''
-#     Normalize the keystore key:value pairs.
-#     Make each value in lower case.
-#     '''
-#     pass
+
+def _normalize(keystore: dict) -> dict:
+    '''
+    Normalize the keystore key:value pairs.
+    Make each value in lower case.
+    '''
+    pass
 
 
-# def validate(keystore: dict) -> bool:
-#     '''
-#     Validate the format of a key store.
+ADDRESS_RE = re.compile('^[0-9a-f]{40}$', re.I)
 
-#     Returns:
-#         (bool): True/False
-#     '''
-#     pass
+
+def _validate(keystore: dict) -> bool:
+    '''
+    Validate the format of a key store.
+
+    Returns:
+        (bool): True/False
+    '''
+    if keystore.get('version') != 3:
+        raise ValueError('unsupported version {}'.format(keystore.version))
+
+    if not ADDRESS_RE.match(keystore.get('address')):
+        raise ValueError(
+            'invalid address {}, should be 40 characters and alphanumero.'.format(keystore.address))
+
+    if not keystore.get('id'):
+        raise ValueError('Need "id" field.')
+
+    if not keystore.get('crypto'):
+        raise ValueError('Need "crypto" field.')
+
+    return True
+
+
+def well_formed(keystore: dict) -> bool:
+    '''
+    Validate if the keystore is in good shape (roughly).
+
+    '''
+    return _validate(keystore)

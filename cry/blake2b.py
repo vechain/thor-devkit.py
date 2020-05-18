@@ -8,7 +8,8 @@ from typing import List, Tuple
 
 
 def blake2b256(list_of_bytes: List[bytes]) -> Tuple[bytes, int]:
-    '''Computes black2b flavor hash, output 256 bits / 32 bytes.
+    '''
+    Computes a hash in black2b flavor, the output is 256 bits / 32 bytes.
 
     Args:
         list_of_bytes: A list of bytes.
