@@ -9,7 +9,7 @@ pip3 install thor-devkit
 
 # Get Started
 ```python
-import thor-devkit
+import thor_devkit
 ```
 
 # Involve in Development
@@ -53,5 +53,5 @@ keccak256: 256 bits = 32 bytes = 64 in hex string
 message hash: 32 bytes.
 signature: 65 bytes. (last bit as recovery parameter)
 
-seed (used to derive bip32 keys): 64 bytes.
+seed (used to derive bip32 master key): 64 bytes.
 ```
