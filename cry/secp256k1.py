@@ -7,8 +7,9 @@ MAX = bytes.fromhex(
 ZERO = bytes.fromhex('0' * 64)
 
 
-def is_valid_private_key(priv_key: bytes) -> bool:
-    '''Verify if a private key is good.
+def _is_valid_private_key(priv_key: bytes) -> bool:
+    '''
+    Verify if a private key is good.
 
     Returns:
         bool: True if the private key is valid.
@@ -22,6 +23,20 @@ def is_valid_private_key(priv_key: bytes) -> bool:
     return True
 
 
+def _is_valid_message_hash(msg_hash: bytes) -> bool:
+    '''
+    Verify if a message hash is in correct format (as in terms of VeChain).
+
+    Args:
+        msg_hash (bytes): The msg hash to be processed.
+
+    Returns:
+        (bool): If the message hash is in correct format or not.
+    '''
+
+    return len(msg_hash) == 32
+
+
 def generate_privateKey() -> bytes:
     '''Create a random number (32 bytes) as private key.
 
@@ -30,7 +45,7 @@ def generate_privateKey() -> bytes:
     '''
     while True:
         _a = SigningKey.generate(curve=SECP256k1)
-        if is_valid_private_key(_a.to_string()):
+        if _is_valid_private_key(_a.to_string()):
             return _a.to_string()
 
 
@@ -40,7 +55,7 @@ def derive_publicKey(priv_key: bytes) -> bytes:
         bytes: The public key (uncompressed) in bytes,
                which starts with b'04'.
     '''
-    if not is_valid_private_key(priv_key):
+    if not _is_valid_private_key(priv_key):
         raise ValueError('Private Key not valid.')
 
     _a = SigningKey.from_string(priv_key, curve=SECP256k1)
@@ -57,7 +72,7 @@ def sign(msg_hash: bytes, priv_key: bytes) -> bytes:
         (bytes): The signing result.
 
     '''
-    if not is_valid_private_key(priv_key):
+    if not _is_valid_private_key(priv_key):
         raise ValueError('Private Key not valid.')
 
     sig = KeyAPI().ecdsa_sign(msg_hash, KeyAPI.PrivateKey(priv_key))
@@ -84,7 +99,7 @@ def recover(msg_hash: bytes, sig: bytes) -> bytes:
                     or recovery bit is bad, 
                     or cannot recover (sig and msg_hash doesn't match).
     '''
-    if len(msg_hash) != 32:
+    if not _is_valid_message_hash(msg_hash):
         raise ValueError('Message Hash must be 32 bytes.')
 
     if len(sig) != 65:
