@@ -14,6 +14,26 @@ import thor-devkit
 
 # Involve in Development
 
+## Caveat
+
+Bip32 depends on the `ripemd160` hash library. Of which you should make sure it is installed on your system.
+
+```bash
+openssl list-message-digest-algorithms
+```
+
+and on Python3 :
+
+```python
+
+> python3
+
+> import hashlib
+
+> print hashlib.algorithms_available
+
+```
+
 ## Project Layout
 ```
 ```
