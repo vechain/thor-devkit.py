@@ -24,7 +24,6 @@ The following is the "first" key pair on the "external" node chain.
 m / 44' / 818' / 0' / 0 / 0
 
 '''
-import hashlib
 from typing import List
 from .mnemonic import derive_seed
 from .address import public_key_to_address
@@ -41,22 +40,11 @@ FINGER_PRINT_MASTER_KEY = bytes.fromhex('00000000')
 CHILD_NUMBER_MASTER_KEY = bytes.fromhex('00000000')
 
 
-def _is_uncompressed_public_key(p: bytes):
-    if len(p) != 65:
-        raise ValueError('public key uncompressed should be 65 bytes.')
-
-    if p[0] != b'\x04':
-        raise ValueError('public key should begin with 0x04 as first byte.')
-
-
 def _strip_0x04(p: bytes):
-    _is_uncompressed_public_key(p)
-    return p[1:]
-
-
-def _strip_path(p: str):
-    if p.startswith('m/') or p.startswith('M/'):
-        return p[2:]
+    if len(p) == 65:
+        return p[1:]
+    else:
+        return p
 
 
 class HDNode():
@@ -67,15 +55,15 @@ class HDNode():
     def __init__(self, bip32_ctx: Bip32):
         '''
         HDNode constructor, it is not recommended to use this directly.
-        To construct an HDNode, use classmethods below instead.
+        To construct an HDNode, use staticmethods below instead.
 
         Keyword Arguments:
             bip32_ctx {bip_utils.Bip32} -- bip_utils.Bip32 (default: {None})
         '''
         self.bip32_ctx = bip32_ctx
 
-    @classmethod
-    def from_seed(seed: bytes, init_path=VET_EXTERNAL_PATH) -> HDNode:
+    @staticmethod
+    def from_seed(seed: bytes, init_path=VET_EXTERNAL_PATH):
         '''
         Construct an HD Node from a seed (64 bytes).
         The init_path is m/44'/818'/0'/0 for starting.
@@ -96,12 +84,11 @@ class HDNode():
         -------
         HDNode
         '''
-        bip32_ctx = Bip32.FromSeed(seed)
-        bip32_ctx = bip32_ctx.DerivePath(_strip_path(init_path))
+        bip32_ctx = Bip32.FromSeedAndPath(seed, init_path)
         return HDNode(bip32_ctx)
 
-    @classmethod
-    def from_mnemonic(words: List[str], init_path=VET_EXTERNAL_PATH) -> HDNode:
+    @staticmethod
+    def from_mnemonic(words: List[str], init_path=VET_EXTERNAL_PATH):
         '''
         Construct an HD Node from a set of words.
         The init_path is m/44'/818'/0'/0 for starting.
@@ -119,18 +106,20 @@ class HDNode():
             {HDNode} -- The HDNode itself.
         '''
         seed = derive_seed(words)  # 64 bytes
-        bip32_ctx = Bip32.FromSeed(seed)
-        bip32_ctx = bip32_ctx.DerivePath(_strip_path(init_path))
+        bip32_ctx = Bip32.FromSeedAndPath(seed, init_path)
         return HDNode(bip32_ctx)
 
-    @classmethod
-    def from_public_key(pub: bytes, chain_code: bytes) -> HDNode:
+    @staticmethod
+    def from_public_key(pub: bytes, chain_code: bytes):
         '''
         Construct an HD Node from a uncompressed public key. (starts with 0x04)
 
         Arguments:
             pub {bytes} -- uncompressed public key in bytes.
             chain_code {bytes} -- 32 bytes
+
+        Returns:
+            {HDNode} -- The HDNode itself.
         '''
         # parts
         net_version = VERSION_MAINNET_PUBLIC
@@ -142,25 +131,25 @@ class HDNode():
 
         # assemble
         all_bytes = net_version + depth + fprint + index + chain + key_bytes
-
         # double sha-256 checksum
-        checksum = hashlib.sha256().update(all_bytes).digest()
-        checksum = hashlib.sha256().update(checksum).digest()
-
-        xpub_str = Base58Encoder.Encode(all_bytes + checksum)
-
-        bip32_ctx = Bip32.FromExtendedKey(xpub)
+        xpub_str = Base58Encoder.CheckEncode(all_bytes)
+        bip32_ctx = Bip32.FromExtendedKey(xpub_str)
         return HDNode(bip32_ctx)
 
-    @classmethod
-    def from_private_key(priv: bytes, chain_code: bytes) -> HDNode:
+    @staticmethod
+    def from_private_key(priv: bytes, chain_code: bytes):
         '''
         Construct an HD Node from a private key.
 
         Arguments:
             priv {bytes} -- privte key in bytes.
             chain_code {bytes} -- 32 bytes
+        
+        Returns:
+            {HDNode} -- The HDNode itself.
         '''
+
+        print('input priv', len(priv))
         # parts
         net_version = VERSION_MAINNET_PRIVATE
         depth = DEPTH_MASTER_NODE
@@ -171,17 +160,13 @@ class HDNode():
 
         # assemble
         all_bytes = net_version + depth + fprint + index + chain + key_bytes
-
         # double sha-256 checksum
-        checksum = hashlib.sha256().update(all_bytes).digest()
-        checksum = hashlib.sha256().update(checksum).digest()
+        xpriv = Base58Encoder.CheckEncode(all_bytes)
+        bip32_ctx = Bip32.FromExtendedKey(xpriv)
 
-        xpriv_str = Base58Encoder.Encode(all_bytes + checksum)
-
-        bip32_ctx = Bip32.FromExtendedKey(xpriv_str)
         return HDNode(bip32_ctx)
 
-    def derive(self, index: int, hardened: bool = False) -> HDNode:
+    def derive(self, index: int):
         '''
         Derive the child HD Node from current HD Node.
 
@@ -196,16 +181,16 @@ class HDNode():
 
         Keyword Arguments:
             hardened {bool} -- [description] (default: {False})
+        
+        Returns:
+            {HDNode} -- The HDNode itself.
         '''
 
-        if hardened:
-            index = Bip32Utils.HardenIndex(index)
-
-        bip32_ctx = self.bip32_ctx.ChildKey(index)
+        bip32_ctx = self.bip32_ctx.DerivePath(str(index))
 
         return HDNode(bip32_ctx)
 
-    def public_key() -> bytes:
+    def public_key(self) -> bytes:
         '''
         Get current node's public key in uncompressed format bytes.
         (starts with 0x04)
@@ -215,9 +200,9 @@ class HDNode():
         bytes
             The uncompressed public key.
         '''
-        return self.bip32_ctx.PublicKey().RawUncompressed()
+        return b'\x04' + self.bip32_ctx.PublicKey().RawUncompressed().ToBytes()
 
-    def private_key() -> bytes:
+    def private_key(self) -> bytes:
         '''
         Get current node's private key in bytes format.
         If this node was publicly derived,
@@ -228,9 +213,9 @@ class HDNode():
         bytes
             The private key in bytes.
         '''
-        return self.bip32_ctx.PrivateKey().Raw()
+        return self.bip32_ctx.PrivateKey().Raw().ToBytes()
 
-    def chain_code() -> bytes:
+    def chain_code(self) -> bytes:
         '''
         Get the chaincode of current HD node.
 
@@ -241,7 +226,7 @@ class HDNode():
         '''
         return self.bip32_ctx.Chain()
 
-    def address() -> bytes:
+    def address(self) -> bytes:
         '''
         Get the common address format.
 
@@ -250,9 +235,9 @@ class HDNode():
         bytes
             The address in bytes. (without prefix 0x)
         '''
-        return public_key_to_address(this.public_key())
+        return public_key_to_address(self.public_key())
 
-    def finger_print() -> bytes:
+    def finger_print(self) -> bytes:
         '''
         Get the finger print of current HD Node public key.
 
