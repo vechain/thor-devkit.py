@@ -10,7 +10,7 @@ from bip_utils import Bip32
 
 # m / purpose' / coin_type' / account' / change / address_index
 # Derive path for the VET:
-# m / 44' / 818' / 0' / 0' /<index>
+# m / 44' / 818' / 0' / 0 /<index>
 VET_PATH = 'm/44\'/818\'/0\'/0'
 
 
