@@ -32,7 +32,8 @@ def is_address(address: str) -> bool:
     ''' Check if a text string is valid address.
 
     Args:
-        address (str): The address string to be checked. (should begin with '0x')
+        address (str): The address string to be checked. 
+        Should begin with '0x'.
 
     Returns:
         (bool): If it is valid address.
@@ -49,7 +50,8 @@ def to_checksum_address(address: str) -> str:
     ''' Turn address to checksum address that is compatible with eip-55
 
     Args:
-        address (str): The address string to be checked. (should begin with '0x')
+        address (str): The address string to be checked.
+        Should begin with '0x'.
 
     Returns:
         (str): The address that is properly capitalized.

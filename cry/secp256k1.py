@@ -108,7 +108,10 @@ def recover(msg_hash: bytes, sig: bytes) -> bytes:
     if not (sig[64] == 0 or sig[64] == 1):
         raise ValueError('Signature last byte must be 0 or 1')
 
-    pk = KeyAPI().ecdsa_recover(msg_hash, KeyAPI.Signature(signature_bytes=sig))
+    pk = KeyAPI().ecdsa_recover(
+                msg_hash,
+                KeyAPI.Signature(signature_bytes=sig)
+            )
 
     # uncompressed should have first byte = 04
     return bytes([4]) + pk.to_bytes()

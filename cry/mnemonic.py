@@ -8,10 +8,12 @@ from typing import List
 from mnemonic import Mnemonic
 from bip_utils import Bip32
 
+# BIP-44 specified path notation:
 # m / purpose' / coin_type' / account' / change / address_index
+
 # Derive path for the VET:
-# m / 44' / 818' / 0' / 0 /<index>
-VET_PATH = 'm/44\'/818\'/0\'/0'
+# m / 44' / 818' / 0' / 0 /<address_index>
+VET_PATH = "m/44'/818'/0'/0"
 
 
 def _get_key_path(base_path: str, index: int = 0) -> str:
