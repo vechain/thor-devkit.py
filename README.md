@@ -16,7 +16,7 @@ import thor_devkit
 
 ## Caveat
 
-Bip32 depends on the `ripemd160` hash library. Of which you should make sure it is installed on your system.
+`Bip32` depends on the `ripemd160` hash library, which should be installed on your system.
 
 ```bash
 openssl list-message-digest-algorithms
@@ -38,9 +38,13 @@ and on Python3 :
 ```
 ```
 
+## Comments
+
+`Numpy` style.
+
 ## Testing
 ```bash
-python3 -m pytest
+python3 -m pytest -vv
 ```
 
 ## Data Structure
