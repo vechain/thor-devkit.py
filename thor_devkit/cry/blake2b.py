@@ -11,12 +11,15 @@ def blake2b256(list_of_bytes: List[bytes]) -> Tuple[bytes, int]:
     '''
     Computes a hash in black2b flavor, the output is 256 bits / 32 bytes.
 
-    Args:
-        list_of_bytes: A list of bytes.
+    Parameters
+    ----------
+    list_of_bytes : List[bytes]
+        The list of bytes, waited to be hashed.
 
-    Returns:
-        (bytes, int): Hash value in bytes and length of bytes.
-
+    Returns
+    -------
+    Tuple[bytes, int]
+        Hash result in bytes and the length of bytes.
     '''
 
     m = hashlib.blake2b(digest_size=32)

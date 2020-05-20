@@ -49,7 +49,10 @@ def _strip_0x04(p: bytes):
 
 class HDNode():
     '''
-    The HD Node that is able to derive child HD Node.
+    HD Node that is able to derive child HD Node.
+
+    Please use static methods provided in this class to construct
+    new nodes rather than instantiate one by hand.
     '''
 
     def __init__(self, bip32_ctx: Bip32):
@@ -57,9 +60,11 @@ class HDNode():
         HDNode constructor, it is not recommended to use this directly.
         To construct an HDNode, use staticmethods below instead.
 
-        Keyword Arguments:
-            bip32_ctx {bip_utils.Bip32} -- bip_utils.Bip32 (default: {None})
+        Parameters
+        ----------
+        bip32_ctx : Bip32
         '''
+
         self.bip32_ctx = bip32_ctx
 
     @staticmethod
@@ -69,7 +74,8 @@ class HDNode():
         The init_path is m/44'/818'/0'/0 for starting.
         or you can simply put in 44'/818'/0'/0
 
-        Note:
+        Note
+        ----
             The seed will be further developed into
             a "m" secret key and "chain code".
 
@@ -83,6 +89,7 @@ class HDNode():
         Returns
         -------
         HDNode
+            A new HDNode.
         '''
         bip32_ctx = Bip32.FromSeedAndPath(seed, init_path)
         return HDNode(bip32_ctx)
@@ -91,20 +98,27 @@ class HDNode():
     def from_mnemonic(words: List[str], init_path=VET_EXTERNAL_PATH):
         '''
         Construct an HD Node from a set of words.
-        The init_path is m/44'/818'/0'/0 for starting.
-        or you can simply put in 44'/818'/0'/0
+        The init_path is m/44'/818'/0'/0 by default on VeChain.
 
-        Note:
+        Note
+        ----
             The words will generate a seed,
             which will be further developed into
             a "m" secret key and "chain code".
 
-        Arguments:
-            words {List[str]} -- Mnemonic words.
+        Parameters
+        ----------
+        words : List[str]
+            Mnemonic words, usually 12 words.
+        init_path : str, optional
+            The initial derivation path, by default VET_EXTERNAL_PATH
 
-        Returns:
-            {HDNode} -- The HDNode itself.
+        Returns
+        -------
+        HDNode
+            A new HDNode.
         '''
+
         seed = derive_seed(words)  # 64 bytes
         bip32_ctx = Bip32.FromSeedAndPath(seed, init_path)
         return HDNode(bip32_ctx)
@@ -112,14 +126,20 @@ class HDNode():
     @staticmethod
     def from_public_key(pub: bytes, chain_code: bytes):
         '''
-        Construct an HD Node from a uncompressed public key. (starts with 0x04)
+        Construct an HD Node from an uncompressed public key.
+        (starts with 0x04 as first byte)
 
-        Arguments:
-            pub {bytes} -- uncompressed public key in bytes.
-            chain_code {bytes} -- 32 bytes
+        Parameters
+        ----------
+        pub : bytes
+            An uncompressed public key in bytes.
+        chain_code : bytes
+            32 bytes
 
-        Returns:
-            {HDNode} -- The HDNode itself.
+        Returns
+        -------
+        HDNode
+            A new HDNode.
         '''
         # parts
         net_version = VERSION_MAINNET_PUBLIC
@@ -141,12 +161,17 @@ class HDNode():
         '''
         Construct an HD Node from a private key.
 
-        Arguments:
-            priv {bytes} -- privte key in bytes.
-            chain_code {bytes} -- 32 bytes
-        
-        Returns:
-            {HDNode} -- The HDNode itself.
+        Parameters
+        ----------
+        priv : bytes
+            The privte key in bytes.
+        chain_code : bytes
+            32 bytes of random number you choose.
+
+        Returns
+        -------
+        HDNode
+            A new HDNode.
         '''
 
         print('input priv', len(priv))
@@ -170,20 +195,22 @@ class HDNode():
         '''
         Derive the child HD Node from current HD Node.
 
-        Note:
+        Note
+        ----
             private key -> private key.
             private key -> public key.
             public key -> public key. 
             public key -> private key. (CAN NOT!)
 
-        Arguments:
-            index {int} -- [description]
+        Parameters
+        ----------
+        index : int
+            Which key index (0,1,2... 2^32-1) to derive.
 
-        Keyword Arguments:
-            hardened {bool} -- [description] (default: {False})
-        
-        Returns:
-            {HDNode} -- The HDNode itself.
+        Returns
+        -------
+        HDNode
+            A New HDNode.
         '''
 
         bip32_ctx = self.bip32_ctx.DerivePath(str(index))

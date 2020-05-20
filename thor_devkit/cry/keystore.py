@@ -28,12 +28,17 @@ def encrypt(private_key: bytes, password: bytes) -> dict:
     Encrypt a private key to a keystore.
     The keystore is a json-style python dict.
 
-    Args:
-        private_key: A private key in bytes.
-        password: A password.
+    Parameters
+    ----------
+    private_key : bytes
+        A private key in bytes.
+    password : bytes
+        A password.
 
-    Returns:
-        (dict): A keystore, a json-style dict object.
+    Returns
+    -------
+    dict
+        A keystore
     '''
     return eth_keyfile.create_keyfile_json(private_key, password, 3, "scrypt", N)
 
@@ -42,12 +47,17 @@ def decrypt(keystore: dict, password: bytes) -> bytes:
     '''
     Decrypt a keystore into a private key (bytes).
 
-    Args:
-        keystore: A json-style dict.
-        password: A password.
+    Parameters
+    ----------
+    keystore : dict
+        A keystore.
+    password : bytes
+        A password.
 
-    Returns:
-        (bytes): A private key in bytes.
+    Returns
+    -------
+    bytes
+        A private key in bytes.
     '''
     return eth_keyfile.decode_keyfile_json(keystore, password)
 
@@ -56,8 +66,18 @@ def _normalize(keystore: dict) -> dict:
     '''
     Normalize the keystore key:value pairs.
     Make each value in lower case.
+
+    Parameters
+    ----------
+    keystore : dict
+        A keystore.
+
+    Returns
+    -------
+    dict
+        A keystore.
     '''
-    pass
+    return keystore
 
 
 ADDRESS_RE = re.compile('^[0-9a-f]{40}$', re.I)
@@ -67,8 +87,20 @@ def _validate(keystore: dict) -> bool:
     '''
     Validate the format of a key store.
 
-    Returns:
-        (bool): True/False
+    Parameters
+    ----------
+    keystore : dict
+        A keystore.
+
+    Returns
+    -------
+    bool
+        True/False
+
+    Raises
+    ------
+    ValueError
+        If is not in good shape then throw.
     '''
     if keystore.get('version') != 3:
         raise ValueError('unsupported version {}'.format(keystore.version))
@@ -90,5 +122,15 @@ def well_formed(keystore: dict) -> bool:
     '''
     Validate if the keystore is in good shape (roughly).
 
+    Parameters
+    ----------
+    keystore : dict
+        A keystore.
+
+    Returns
+    -------
+    bool
+        True/False
     '''
+
     return _validate(keystore)
