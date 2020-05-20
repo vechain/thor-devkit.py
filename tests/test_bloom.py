@@ -1,23 +1,23 @@
-from thor_devkit import bloom
+from thor_devkit import Bloom
 
 
 def test_estimate():
-    assert bloom.Bloom.estimate_k(1) == 16
-    assert bloom.Bloom.estimate_k(100) == 14
-    assert bloom.Bloom.estimate_k(200) == 7
-    assert bloom.Bloom.estimate_k(300) == 5
-    assert bloom.Bloom.estimate_k(400) == 4
-    assert bloom.Bloom.estimate_k(500) == 3
+    assert Bloom.estimate_k(1) == 16
+    assert Bloom.estimate_k(100) == 14
+    assert Bloom.estimate_k(200) == 7
+    assert Bloom.estimate_k(300) == 5
+    assert Bloom.estimate_k(400) == 4
+    assert Bloom.estimate_k(500) == 3
 
 
 def test_add():
-    b = bloom.Bloom(14)
+    b = Bloom(14)
     b.add(bytes('hello world', 'UTF-8'))
     assert b.bits.hex() == '00000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000004000000000000000000040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000001000000000000020000000000000000000000000008000000000000000000000000000000080000000100000000000000000000040020000000000080000000000000000000080000000000000000000000000'
 
 
 def test_test():
-    b = bloom.Bloom(14)
+    b = Bloom(14)
     for i in range(0, 100):
         b.add(bytes(str(i), 'UTF-8'))
 
