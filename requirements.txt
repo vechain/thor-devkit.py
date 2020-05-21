@@ -5,3 +5,4 @@ eth-keys==0.3.3
 mnemonic==0.19
 bip-utils==1.0.5
 eth-keyfile==0.5.1
+rlp==1.2.0
