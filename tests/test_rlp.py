@@ -32,6 +32,11 @@ def test_numericKind_encode():
         kind.serialize('0x12345678123456780')
 
     # We won't hit this exception because big int are safe in Python.
+    # Max Integer problem in Javascript: 2^53 -1
+    # https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/isSafeInteger
+    # No such problem in Python:
+    # https://stackoverflow.com/questions/7604966/maximum-and-minimum-values-for-ints
+    #
     # with pytest.raises(SerializationError):
     #     kind.serialize(2 ** 64)
 
@@ -118,19 +123,19 @@ def test_noneableFixedBlobKind_encode():
 
     with pytest.raises(SerializationError):
         kind.serialize('0x11')
-    
+
     with pytest.raises(SerializationError):
         kind.serialize('0x1234567890')
-    
+
     with pytest.raises(SerializationError):
         kind.serialize('0x1234567')
-    
+
     with pytest.raises(Exception):
         kind.serialize(1)
-    
+
     with pytest.raises(SerializationError):
         kind.serialize('0x')
-    
+
 
 def test_noneableFixedBlobKind_decode():
     kind = m_rlp.NoneableFixedBlobKind(4)
