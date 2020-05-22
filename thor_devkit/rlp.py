@@ -81,6 +81,7 @@ class NumericKind(BigEndianInt):
         max_bytes : int
             Max bytes in the encoded result. (not enough then prepend 0)
         '''
+        self.max_bytes = max_bytes
         super().__init__(l=max_bytes)
 
     def serialize(self, obj: Union[str, int]) -> bytes:
@@ -108,10 +109,47 @@ class NumericKind(BigEndianInt):
         if _is_pure_int(obj):
             number = obj
 
-        return super().serialize(number)
+        # remove leading 0 from bytes sequence.
+        result_bytes = super().serialize(number)
+        byte_list = [x for x in result_bytes if x != 0]
+        return bytes(byte_list)
 
-    def deserialize(self, serial):
-        pass
+    def deserialize(self, serial) -> int:
+        '''
+        Deserialize bytes to int.
+
+        Parameters
+        ----------
+        serial : [type]
+            bytes
+
+        Returns
+        -------
+        int
+            integer
+
+        Raises
+        ------
+        DeserializationError
+            If bytes contain leading 0.
+        '''
+        if len(serial) > 0 and serial[0] == 0:
+            raise DeserializationError(
+                "Leading 0 should be removed from bytes",
+                serial
+            )
+
+        # add leading 0 to bytes sequence if width is set.
+        if self.max_bytes:
+            byte_list = [x for x in serial]
+            length = len(byte_list)
+            missed = self.max_bytes - length
+            if missed:
+                byte_list = [0] * missed + byte_list
+            serial2 = bytes(byte_list)
+        else:
+            serial2 = serial
+        return super().deserialize(serial2)
 
 
 def pack(obj, profile):
