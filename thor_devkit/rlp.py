@@ -152,6 +152,172 @@ class NumericKind(BigEndianInt):
         return super().deserialize(serial2)
 
 
+class BlobKind():
+    '''
+    This is a pre-defined type for '0x....' like hex strings,
+    which shouldn't be interpreted as a number, usually an identifier.
+
+    like: address, block_ref, data to smart contract.
+    '''
+
+    def serialize(self, obj: str) -> bytes:
+        '''
+        Serialize a '0x...' string to bytes.
+
+        Parameters
+        ----------
+        obj : str
+            '0x...' style string.
+
+        Returns
+        -------
+        bytes
+            the "item" that can be rlp encodeded.
+        '''
+        if not _is_hex_string(obj):
+            raise SerializationError('expect 0x... style string', obj)
+
+        if len(obj) % 2 != 0:
+            raise SerializationError(
+                'expect 0x... style string of even length.', obj)
+
+        obj2 = obj[2:]  # remove '0x'
+
+        return bytes.fromhex(obj2)
+
+    def deserialize(self, serial: bytes) -> str:
+        '''
+        Deserialize bytes to '0x...' string.
+
+        Parameters
+        ----------
+        serial : bytes
+            the bytes.
+
+        Returns
+        -------
+        str
+            string of style '0x...'
+        '''
+
+        return '0x' + serial.hex()
+
+
+class FixedBlobKind(BlobKind):
+    '''
+    This is a pre-defined type for '0x....' like hex strings,
+    which shouldn't be interpreted as a number, usually an identifier.
+
+    like: address, block_ref, data to smart contract.
+
+    Note
+    ----
+        This kind has a fixed length of bytes.
+        (also means the input hex is fixed length)
+    '''
+
+    def __init__(self, byte_length):
+        self.byte_length = byte_length
+
+    def serialize(self, obj: str) -> bytes:
+        # 0x counts for 2 chars. 1 bytes = 2 hex char.
+        allowed_hex_length = self.byte_length * 2 + 2
+
+        if len(obj) != allowed_hex_length:
+            raise SerializationError(
+                "Max allowed string length {}".format(allowed_hex_length),
+                obj
+            )
+
+        return super().serialize(obj)
+
+    def deserialize(self, serial: bytes) -> str:
+        if len(serial) != self.byte_length:
+            raise DeserializationError(
+                "Bytes should be {} long.".format(self.byte_length),
+                serial
+            )
+
+        return super().deserialize(serial)
+
+
+class NoneableFixedBlobKind(FixedBlobKind):
+    '''
+    This is a pre-defined type for '0x....' like hex strings,
+    which shouldn't be interpreted as a number, usually an identifier.
+
+    like: address, block_ref, data to smart contract.
+
+    Note
+    ----
+        This kind has a fixed length of bytes.
+        (also means the input hex is fixed length)
+
+        For this kind, input can be None.
+        Then decoded is also None.
+    '''
+
+    def __init__(self, byte_length):
+        super().__init__(byte_length)
+
+    def serialize(self, obj: str = None) -> bytes:
+        if obj is None:
+            return bytes(0)
+
+        return super().serialize(obj)
+
+    def deserialize(self, serial: bytes) -> str:
+        if len(serial) == 0:
+            return None
+
+        return super().deserialize(serial)
+
+
+class CompactFixedBlobKind(FixedBlobKind):
+    '''
+    This is a pre-defined type for '0x....' like strings,
+    which shouldn't be interpreted as a number, usually an identifier.
+
+    like: address, block_ref, data to smart contract.
+
+    Note
+    ----
+        When encode, the result fixed length bytes will be
+        removed of leading zeros. i.e. 000123 -> 123
+
+        When decode, it expects the input bytes length <= fixed_length.
+        and it pads the leading zeros back. Output '0x{0}paddingxxx...'
+    '''
+
+    def __init__(self, byte_length):
+        super().__init__(byte_length)
+
+    def serialize(self, obj: str) -> bytes:
+        b = super().serialize(obj)
+        b_list = [x for x in b if x != 0]
+        if (len(b_list) == 0):
+            return bytes(0)
+        else:
+            return bytes(b_list)
+
+    def deserialize(self, serial: bytes) -> str:
+        if (len(serial) > self.byte_length):
+            raise DeserializationError(
+                "Bytes too long, only need {}".format(self.byte_length),
+                serial
+            )
+
+        if len(serial) == 0 or serial[0] == 0:
+            raise DeserializationError(
+                "No leading zeros. And byte sequence length should be > 0",
+                serial
+            )
+
+        missing = self.byte_length - len(serial)
+        b_list = [0] * missing + [x for x in serial]
+        return super().deserialize(bytes(b_list))
+
+
 def pack(obj, profile):
     pass
 

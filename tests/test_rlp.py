@@ -52,3 +52,106 @@ def test_numericKind_decode():
 
     with pytest.raises(DeserializationError):
         kind.deserialize(bytes([0, 1, 2]))
+
+
+def test_blobKind_encode():
+    kind = m_rlp.BlobKind()
+    assert kind.serialize('0x1234567890').hex() == '1234567890'
+
+    with pytest.raises(SerializationError, match=".+even.+"):
+        kind.serialize('0x1')
+
+    with pytest.raises(SerializationError):
+        kind.serialize('0xxy')
+
+    with pytest.raises(Exception):
+        kind.serialize(1)
+
+
+def test_blobKind_decode():
+    kind = m_rlp.BlobKind()
+
+    assert kind.deserialize(bytes([1, 2, 3, 4, 5])) == '0x0102030405'
+
+
+def test_fixedBlob_encode():
+    kind = m_rlp.FixedBlobKind(4)
+
+    assert kind.serialize('0x12345678').hex() == '12345678'
+
+    with pytest.raises(SerializationError):
+        kind.serialize('0x1234567z')
+
+    with pytest.raises(SerializationError):
+        kind.serialize('0x1234567890')
+
+    with pytest.raises(SerializationError):
+        kind.serialize('0x1234567')
+
+    with pytest.raises(Exception):
+        kind.serialize(1)
+
+    with pytest.raises(Exception):
+        kind.serialize(None)
+
+
+def test_fixedBlob_decode():
+    kind = m_rlp.FixedBlobKind(4)
+
+    assert kind.deserialize(bytes([1, 2, 3, 4])) == '0x01020304'
+
+    with pytest.raises(DeserializationError):
+        kind.deserialize(bytes([0, 0]))
+
+    with pytest.raises(DeserializationError):
+        kind.deserialize(bytes(0))
+
+
+def test_noneableFixedBlobKind_encode():
+    kind = m_rlp.NoneableFixedBlobKind(4)
+
+    assert kind.serialize(None).hex() == ''
+    assert kind.serialize('0x12345678').hex() == '12345678'
+
+    with pytest.raises(SerializationError):
+        kind.serialize('0x1234567z')
+
+    with pytest.raises(SerializationError):
+        kind.serialize('0x11')
+    
+    with pytest.raises(SerializationError):
+        kind.serialize('0x1234567890')
+    
+    with pytest.raises(SerializationError):
+        kind.serialize('0x1234567')
+    
+    with pytest.raises(Exception):
+        kind.serialize(1)
+    
+    with pytest.raises(SerializationError):
+        kind.serialize('0x')
+    
+
+def test_noneableFixedBlobKind_decode():
+    kind = m_rlp.NoneableFixedBlobKind(4)
+
+    assert kind.deserialize(bytes(0)) is None
+    assert kind.deserialize(bytes([1, 2, 3, 4])) == '0x01020304'
+
+    with pytest.raises(DeserializationError):
+        kind.deserialize(bytes([0, 0]))
+
+
+def test_compact_fixed_blobkind_encode():
+    kind = m_rlp.CompactFixedBlobKind(4)
+    assert kind.serialize('0x00112233').hex() == '112233'
+
+
+def test_compact_fixed_blobkind_decode():
+    kind = m_rlp.CompactFixedBlobKind(4)
+    assert kind.deserialize(bytes([1])) == '0x00000001'
+
+
+def test_compact_fixed_blobkind_encode_with_zero():
+    kind = m_rlp.CompactFixedBlobKind(4)
+    assert kind.serialize('0x00000000').hex() == ''
