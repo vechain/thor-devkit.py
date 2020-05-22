@@ -3,6 +3,22 @@ from rlp.exceptions import DeserializationError, SerializationError
 from thor_devkit import rlp as m_rlp
 
 
+def test_bytesKind():
+    kind = m_rlp.BytesKind()
+
+    assert kind.serialize(bytes.fromhex('ff')) == b'\xff'
+    assert kind.serialize(bytes.fromhex('01ff')) == b'\x01\xff'
+
+    assert kind.deserialize(bytes.fromhex('ff')) == b'\xff'
+    assert kind.deserialize(bytes.fromhex('01ff')) == b'\x01\xff'
+
+    with pytest.raises(SerializationError):
+        kind.serialize(1)
+
+    with pytest.raises(SerializationError):
+        kind.serialize('0x1234')
+
+
 def test_numericKind_encode():
     # Set up a max 8 bytes width NumericKind.
     kind = m_rlp.NumericKind(8)
