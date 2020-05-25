@@ -61,8 +61,68 @@ def _is_pure_str(a: str) -> bool:
     return type(a) == str
 
 
+
 class ScalarKind():
     pass
+
+
+class BytesKind(ScalarKind):
+    '''
+    Convert bytes type of Python object to RLP "item".
+    '''
+    @classmethod
+    def is_valid_type(cls, obj):
+        return isinstance(obj, (bytes, bytearray))
+
+    def serialize(self, obj: bytes) -> bytes:
+        '''
+        Serialize the object into a RLP encode-able "item".
+
+        Parameters
+        ----------
+        obj : bytes
+            The input.
+
+        Returns
+        -------
+        bytes
+            The "item" in bytes.
+
+        Raises
+        ------
+        SerializationError
+            raise if input is not bytes.
+        '''
+        if not self.is_valid_type(obj):
+            raise SerializationError(
+                'type of "obj" param is not right, bytes required.', obj)
+
+        return obj
+
+    def deserialize(self, serial: bytes) -> bytes:
+        '''
+        De-serialize a RLP "item" back to bytes.
+
+        Parameters
+        ----------
+        serial : bytes
+            The input.
+
+        Returns
+        -------
+        bytes
+            Original bytes.
+
+        Raises
+        ------
+        DeserializationError
+            raise if input is not bytes.
+        '''
+        if not self.is_valid_type(serial):
+            raise DeserializationError(
+                'type of "serial" param is not right, bytes required.', serial)
+
+        return serial
 
 
 class NumericKind(ScalarKind, BigEndianInt):

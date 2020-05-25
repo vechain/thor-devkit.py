@@ -3,6 +3,22 @@ from rlp.exceptions import DeserializationError, SerializationError
 from thor_devkit import rlp as m_rlp
 
 
+def test_bytesKind():
+    kind = m_rlp.BytesKind()
+
+    assert kind.serialize(bytes.fromhex('ff')) == b'\xff'
+    assert kind.serialize(bytes.fromhex('01ff')) == b'\x01\xff'
+
+    assert kind.deserialize(bytes.fromhex('ff')) == b'\xff'
+    assert kind.deserialize(bytes.fromhex('01ff')) == b'\x01\xff'
+
+    with pytest.raises(SerializationError):
+        kind.serialize(1)
+
+    with pytest.raises(SerializationError):
+        kind.serialize('0x1234')
+
+
 def test_numericKind_encode():
     # Set up a max 8 bytes width NumericKind.
     kind = m_rlp.NumericKind(8)
@@ -32,6 +48,11 @@ def test_numericKind_encode():
         kind.serialize('0x12345678123456780')
 
     # We won't hit this exception because big int are safe in Python.
+    # Max Integer problem in Javascript: 2^53 -1
+    # https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Number/isSafeInteger
+    # No such problem in Python:
+    # https://stackoverflow.com/questions/7604966/maximum-and-minimum-values-for-ints
+    #
     # with pytest.raises(SerializationError):
     #     kind.serialize(2 ** 64)
 
@@ -118,19 +139,19 @@ def test_noneableFixedBlobKind_encode():
 
     with pytest.raises(SerializationError):
         kind.serialize('0x11')
-    
+
     with pytest.raises(SerializationError):
         kind.serialize('0x1234567890')
-    
+
     with pytest.raises(SerializationError):
         kind.serialize('0x1234567')
-    
+
     with pytest.raises(Exception):
         kind.serialize(1)
-    
+
     with pytest.raises(SerializationError):
         kind.serialize('0x')
-    
+
 
 def test_noneableFixedBlobKind_decode():
     kind = m_rlp.NoneableFixedBlobKind(4)
