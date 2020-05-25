@@ -61,7 +61,11 @@ def _is_pure_str(a: str) -> bool:
     return type(a) == str
 
 
-class NumericKind(BigEndianInt):
+class ScalarKind():
+    pass
+
+
+class NumericKind(ScalarKind, BigEndianInt):
     '''
     This is a pre-defined type for Number-like objects.
 
@@ -152,7 +156,7 @@ class NumericKind(BigEndianInt):
         return super().deserialize(serial2)
 
 
-class BlobKind():
+class BlobKind(ScalarKind):
     '''
     This is a pre-defined type for '0x....' like hex strings,
     which shouldn't be interpreted as a number, usually an identifier.
