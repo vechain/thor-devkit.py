@@ -20,7 +20,7 @@ The encoded result is bytes. The encoded methods is called RLP.
  item +-------> |RPL encoded|
                 +-----------+
 
-But in the real world, the inputs are not pure bytes.
+But in the real world, the inputs are not pure bytes nor lists.
 Some are of complex key-value pairs like dict.
 Some are of "0x123" form of number.
 
@@ -59,7 +59,6 @@ def _is_pure_int(a: int) -> bool:
 
 def _is_pure_str(a: str) -> bool:
     return type(a) == str
-
 
 
 class ScalarKind():
@@ -382,9 +381,41 @@ class CompactFixedBlobKind(FixedBlobKind):
         return super().deserialize(bytes(b_list))
 
 
-def pack(obj, profile):
+def _pack(obj: dict, profile: dict) -> bytes:
+    '''
+    Pack a Python dict according to profile structure.
+    The packing result is RLP encode-able.
+
+    Parameters
+    ----------
+    obj : dict
+        The dict object waiting to be packed.
+    profile : dict
+        The instructions about how to pack.
+
+    Returns
+    -------
+    bytes
+        The encoded bytes.
+    '''
     pass
 
 
-def unpack(packed, profile):
+def _unpack(packed: bytes, profile: dict) -> dict:
+    '''
+    Unpack some bytes back to Python dict,
+    according to the given profile.
+
+    Parameters
+    ----------
+    packed : bytes
+        The bytes waiting to be decoded.
+    profile : dict
+        The instructions about how to unpack.
+
+    Returns
+    -------
+    dict
+        The return dict.
+    '''
     pass
