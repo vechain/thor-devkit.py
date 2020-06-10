@@ -31,11 +31,15 @@ real world object => "item" conversion.
  "real world object" +--------------> item
 
 '''
+from typing import Tuple
 from typing import Union
+from typing import List
+from typing import Any
 import re
 from rlp.sedes import BigEndianInt
 from rlp.exceptions import DeserializationError, SerializationError
-
+from rlp import encode as rlp_encode
+from rlp import decode as rlp_decode
 
 def _is_hex_string(a: str) -> bool:
     c = re.compile('^0x[0-9a-f]+$', re.I)
@@ -381,41 +385,141 @@ class CompactFixedBlobKind(FixedBlobKind):
         return super().deserialize(bytes(b_list))
 
 
-def _pack(obj: dict, profile: dict) -> bytes:
-    '''
-    Pack a Python dict according to profile structure.
-    The packing result is RLP encode-able.
-
-    Parameters
-    ----------
-    obj : dict
-        The dict object waiting to be packed.
-    profile : dict
-        The instructions about how to pack.
-
-    Returns
-    -------
-    bytes
-        The encoded bytes.
-    '''
+class BaseWrapper():
+    ''' BaseWrapper is a container for complex types to be encode/decoded. '''
     pass
 
 
-def _unpack(packed: bytes, profile: dict) -> dict:
-    '''
-    Unpack some bytes back to Python dict,
-    according to the given profile.
+class DictWrapper(BaseWrapper):
+    ''' DictWrapper is a container for parsing dict like objects. '''
+    def __init__(self, list_of_tuples: List[Tuple[str, Union[BaseWrapper, ScalarKind]]]):
+        '''Constructor
+
+        Parameters
+        ----------
+        list_of_tuples : List[Tuple[str, Union[BaseWrapper, ScalarKind]]]
+            A list of tuples.
+            eg. [(key, codec), (key, codec) ... ])
+            key is a string.
+            codec is either a BaseWrapper, or a ScalarKind.
+        '''
+        self.keys = [x[0] for x in list_of_tuples]
+        self.codecs = [x[1] for x in list_of_tuples]
+
+
+class ListWrapper(BaseWrapper):
+    ''' ListWrapper is a container for parsing list like objects. '''
+    def __init__(self, list_of_codecs: List[Union[BaseWrapper, ScalarKind]]):
+        '''Constructor
+
+        Parameters
+        ----------
+        list_of_codecs : List[Union[BaseWrapper, ScalarKind]]
+            A list of codecs.
+            eg. [codec, codec, codec...]
+            codec is either a BaseWrapper, or a ScalarKind.
+        '''
+        self.codecs = list_of_codecs
+
+
+def pack(obj, wrapper: Union[BaseWrapper, ScalarKind]) -> Union[bytes, List]:
+    '''Pack a Python object according to wrapper.
 
     Parameters
     ----------
-    packed : bytes
-        The bytes waiting to be decoded.
-    profile : dict
-        The instructions about how to unpack.
+    obj : Any
+        A dict, a list, or a string/int/any...
+    wrapper : Union[BaseWrapper, ScalarKind]
+        A Wrapper.
 
     Returns
     -------
-    dict
-        The return dict.
+    Union[bytes, List]
+        Returns either the bytes if obj is a basic type,
+        or a list if obj is dict/list.
+
+    Raises
+    ------
+    Exception
+        If the wrapper/codec is unknown.
     '''
-    pass
+    # Simple wrapper: ScalarKind
+    if isinstance(wrapper, ScalarKind):
+        return wrapper.serialize(obj)
+
+    # Complicated wrapper: BaseWrapper
+    if isinstance(wrapper, BaseWrapper):
+        if isinstance(wrapper, DictWrapper):
+            r = []
+            for (key, codec) in zip(wrapper.keys, wrapper.codecs):
+                r.append( pack(obj[key], codec) )
+            return r
+
+        if isinstance(wrapper, ListWrapper):
+            r = []
+            for (item, codec) in zip(obj, wrapper.codecs):
+                r.append( pack(item, codec) )
+            return r
+        
+        raise Exception('codec type is unknown.')
+
+    # Wrapper type is unknown, raise.
+    raise Exception('wrapper type is unknown.')
+
+
+def unpack(packed: Union[List, bytes], wrapper: Union[BaseWrapper, ScalarKind]) -> Union[dict, List, Any]:
+    '''Unpack a serialized thing back into a dict/list or a Python basic type.
+
+    Parameters
+    ----------
+    packed : Union[List, bytes]
+        A list of RLP encoded or pure bytes.
+    wrapper : Union[BaseWrapper, ScalarKind]
+        The Wrapper.
+
+    Returns
+    -------
+    Union[dict, List, Any]
+        dict/list if the wrapper instruction is dict/list,
+        Python basic type if input is bytes.
+
+    Raises
+    ------
+    Exception
+        If the wrapper/codec is unknown.
+    '''
+    # Simple wrapper: ScalarKind
+    if isinstance(wrapper, ScalarKind):
+        return wrapper.deserialize(packed)
+    
+    # Complicated wrapper: BaseWrapper
+    if isinstance(wrapper, BaseWrapper):
+        if isinstance(wrapper, DictWrapper):
+            r = {}
+            for (blob, key, codec) in zip(packed, wrapper.keys, wrapper.codecs):
+                r[key] = unpack(blob, codec)
+            return r
+
+        if isinstance(wrapper, ListWrapper):
+            r = []
+            for (blob, codec) in zip(packed, wrapper.codecs):
+                r.append( unpack(blob, codec) )
+            return r
+
+        raise Exception('codec type is unknown.')
+
+    # Wrapper type is unknown, raise.
+    raise Exception('wrapper type is unknown.')
+
+
+class ComplexCodec(object):
+    def __init__(self, wrapper: BaseWrapper):
+        self.wrapper = wrapper
+
+    def encode(self, data: Any) -> bytes:
+        packed = pack(data, self.wrapper)
+        return rlp_encode(packed)
+
+    def decode(self, data: bytes):
+        to_be_unpacked = rlp_decode(data)
+        return unpack(to_be_unpacked, self.wrapper)

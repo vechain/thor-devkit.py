@@ -176,3 +176,80 @@ def test_compact_fixed_blobkind_decode():
 def test_compact_fixed_blobkind_encode_with_zero():
     kind = m_rlp.CompactFixedBlobKind(4)
     assert kind.serialize('0x00000000').hex() == ''
+
+
+def test_rlp_complex():
+    my_data = {
+        "foo": 123,
+        "bar": '0x12345678',
+        "baz": [
+            { "x": '0x11', "y": 1234 },
+            { "x": '0x12', "y": 5678 }
+        ]
+    }
+
+    my_wrapper = m_rlp.DictWrapper([
+        ("foo", m_rlp.NumericKind()),
+        ("bar", m_rlp.FixedBlobKind(4)),
+        ("baz", m_rlp.ListWrapper([
+            m_rlp.DictWrapper([
+                ("x", m_rlp.BlobKind()),
+                ("y", m_rlp.NumericKind())
+            ]),
+            m_rlp.DictWrapper([
+                ("x", m_rlp.BlobKind()),
+                ("y", m_rlp.NumericKind())
+            ])
+        ]))
+    ])
+
+    cc = m_rlp.ComplexCodec(my_wrapper)
+
+    assert cc.encode(my_data).hex() == 'd17b8412345678cac4118204d2c41282162e'
+
+    assert cc.decode(bytes.fromhex('d17b8412345678cac4118204d2c41282162e')) == my_data
+
+
+def test_rlp_complex_strange():
+    my_data = {
+        "foo": 123,
+        "bar": '0x12345678',
+        "baz": [
+            { "x": '0x11', "y": 1234 },
+            { "x": '0x12', "y": 5678 },
+            789,
+            [
+                123,
+                {
+                    "a": 1
+                }
+            ]
+        ]
+    }
+
+    my_wrapper = m_rlp.DictWrapper([
+        ("foo", m_rlp.NumericKind()),
+        ("bar", m_rlp.FixedBlobKind(4)),
+        ("baz", m_rlp.ListWrapper([
+            m_rlp.DictWrapper([
+                ("x", m_rlp.BlobKind()),
+                ("y", m_rlp.NumericKind())
+            ]),
+            m_rlp.DictWrapper([
+                ("x", m_rlp.BlobKind()),
+                ("y", m_rlp.NumericKind())
+            ]),
+            m_rlp.NumericKind(),
+            m_rlp.ListWrapper([
+                m_rlp.NumericKind(),
+                m_rlp.DictWrapper([
+                    ("a", m_rlp.NumericKind())
+                ])
+            ])
+        ]))
+    ])
+
+    cc = m_rlp.ComplexCodec(my_wrapper)
+
+    my_bytes = cc.encode(my_data) # encode
+    assert cc.decode(my_bytes) == my_data # decode
