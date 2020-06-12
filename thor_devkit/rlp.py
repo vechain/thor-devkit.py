@@ -421,6 +421,19 @@ class ListWrapper(BaseWrapper):
         '''
         self.codecs = list_of_codecs
 
+class HomoListWrapper(BaseWrapper):
+    ''' HomoListWrapper is a container for parsing a list with identical types of items. '''
+    def __init__(self, codec: Union[BaseWrapper, ScalarKind]):
+        '''Constructor
+
+        Parameters
+        ----------
+        list_of_codecs : List[Union[BaseWrapper, ScalarKind]]
+            A list of codecs.
+            eg. [codec, codec, codec...]
+            codec is either a BaseWrapper, or a ScalarKind.
+        '''
+        self.codec = codec
 
 def pack(obj, wrapper: Union[BaseWrapper, ScalarKind]) -> Union[bytes, List]:
     '''Pack a Python object according to wrapper.
@@ -460,11 +473,17 @@ def pack(obj, wrapper: Union[BaseWrapper, ScalarKind]) -> Union[bytes, List]:
             for (item, codec) in zip(obj, wrapper.codecs):
                 r.append( pack(item, codec) )
             return r
-        
+
+        if isinstance(wrapper, HomoListWrapper):
+            r = []
+            for item in obj:
+                r.append( pack(item, wrapper.codec) )
+            return r
+
         raise Exception('codec type is unknown.')
 
     # Wrapper type is unknown, raise.
-    raise Exception('wrapper type is unknown.')
+    raise Exception('wrapper type is unknown.{}'.format(wrapper))
 
 
 def unpack(packed: Union[List, bytes], wrapper: Union[BaseWrapper, ScalarKind]) -> Union[dict, List, Any]:
@@ -504,6 +523,12 @@ def unpack(packed: Union[List, bytes], wrapper: Union[BaseWrapper, ScalarKind]) 
             r = []
             for (blob, codec) in zip(packed, wrapper.codecs):
                 r.append( unpack(blob, codec) )
+            return r
+        
+        if isinstance(wrapper, HomoListWrapper):
+            r = []
+            for blob in packed:
+                r.append( unpack(blob, wrapper.codec) )
             return r
 
         raise Exception('codec type is unknown.')

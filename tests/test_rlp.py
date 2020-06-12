@@ -191,16 +191,48 @@ def test_rlp_complex():
     my_wrapper = m_rlp.DictWrapper([
         ("foo", m_rlp.NumericKind()),
         ("bar", m_rlp.FixedBlobKind(4)),
-        ("baz", m_rlp.ListWrapper([
-            m_rlp.DictWrapper([
-                ("x", m_rlp.BlobKind()),
-                ("y", m_rlp.NumericKind())
-            ]),
-            m_rlp.DictWrapper([
-                ("x", m_rlp.BlobKind()),
-                ("y", m_rlp.NumericKind())
-            ])
-        ]))
+        ("baz", m_rlp.ListWrapper(
+                    list_of_codecs=[
+                        m_rlp.DictWrapper([
+                            ("x", m_rlp.BlobKind()),
+                            ("y", m_rlp.NumericKind())
+                        ]),
+                        m_rlp.DictWrapper([
+                            ("x", m_rlp.BlobKind()),
+                            ("y", m_rlp.NumericKind())
+                        ])
+                    ]
+                )
+        )
+    ])
+
+    cc = m_rlp.ComplexCodec(my_wrapper)
+
+    assert cc.encode(my_data).hex() == 'd17b8412345678cac4118204d2c41282162e'
+
+    assert cc.decode(bytes.fromhex('d17b8412345678cac4118204d2c41282162e')) == my_data
+
+
+def test_rlp_complex_homo():
+    my_data = {
+        "foo": 123,
+        "bar": '0x12345678',
+        "baz": [
+            { "x": '0x11', "y": 1234 },
+            { "x": '0x12', "y": 5678 }
+        ]
+    }
+
+    my_wrapper = m_rlp.DictWrapper([
+        ("foo", m_rlp.NumericKind()),
+        ("bar", m_rlp.FixedBlobKind(4)),
+        ("baz", m_rlp.HomoListWrapper(
+                    codec=m_rlp.DictWrapper([
+                        ("x", m_rlp.BlobKind()),
+                        ("y", m_rlp.NumericKind())
+                    ])
+                )
+        )
     ])
 
     cc = m_rlp.ComplexCodec(my_wrapper)
