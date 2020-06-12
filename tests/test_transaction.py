@@ -44,8 +44,7 @@ def test_unsigned():
 
     assert unsigned.get_id() is None
 
-    # TODO
-    # assert unsigned.get_intrinsic_gas() == 37432
+    assert unsigned.get_intrinsic_gas() == 37432
 
     body_1 = copy.deepcopy(body)
     body_1.clauses = []
@@ -61,8 +60,7 @@ def test_unsigned():
         )
     ]
 
-    # TODO
-    # assert transaction.Transaction(body_2).get_intrinsic_gas() == 53000
+    assert transaction.Transaction(body_2).get_intrinsic_gas() == 53000
 
     assert unsigned.get_signature() == None
 

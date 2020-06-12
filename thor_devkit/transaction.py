@@ -167,6 +167,7 @@ def data_gas(data: str) -> int:
         else:
             sum_up += NZ_GAS
 
+    print('sum_up', sum_up)
     return sum_up
 
 
@@ -196,7 +197,7 @@ def intrinsic_gas(clauses: List[Clause]) -> int:
 
     for clause in clauses:
         clause_sum = 0
-        if clause.to == None:  # contract create.
+        if clause.to:  # contract create.
             clause_sum += CLAUSE_GAS
         else:
             clause_sum += CLAUSE_CONTRACT_CREATION
