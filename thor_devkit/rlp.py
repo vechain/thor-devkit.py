@@ -41,6 +41,7 @@ from rlp.exceptions import DeserializationError, SerializationError
 from rlp import encode as rlp_encode
 from rlp import decode as rlp_decode
 
+
 def _is_hex_string(a: str) -> bool:
     c = re.compile('^0x[0-9a-f]+$', re.I)
     if c.match(a):
@@ -392,6 +393,7 @@ class BaseWrapper():
 
 class DictWrapper(BaseWrapper):
     ''' DictWrapper is a container for parsing dict like objects. '''
+
     def __init__(self, list_of_tuples: List[Tuple[str, Union[BaseWrapper, ScalarKind]]]):
         '''Constructor
 
@@ -408,7 +410,11 @@ class DictWrapper(BaseWrapper):
 
 
 class ListWrapper(BaseWrapper):
-    ''' ListWrapper is a container for parsing list like objects. '''
+    '''
+    ListWrapper is a container for parsing a list,
+    the items type in the list can be heterogeneous.
+    '''
+
     def __init__(self, list_of_codecs: List[Union[BaseWrapper, ScalarKind]]):
         '''Constructor
 
@@ -421,8 +427,13 @@ class ListWrapper(BaseWrapper):
         '''
         self.codecs = list_of_codecs
 
+
 class HomoListWrapper(BaseWrapper):
-    ''' HomoListWrapper is a container for parsing a list with identical types of items. '''
+    '''
+    HomoListWrapper is a container for parsing a list,
+    the items in the list are of the same type.
+    '''
+
     def __init__(self, codec: Union[BaseWrapper, ScalarKind]):
         '''Constructor
 
@@ -434,6 +445,7 @@ class HomoListWrapper(BaseWrapper):
             codec is either a BaseWrapper, or a ScalarKind.
         '''
         self.codec = codec
+
 
 def pack(obj, wrapper: Union[BaseWrapper, ScalarKind]) -> Union[bytes, List]:
     '''Pack a Python object according to wrapper.
@@ -465,19 +477,19 @@ def pack(obj, wrapper: Union[BaseWrapper, ScalarKind]) -> Union[bytes, List]:
         if isinstance(wrapper, DictWrapper):
             r = []
             for (key, codec) in zip(wrapper.keys, wrapper.codecs):
-                r.append( pack(obj[key], codec) )
+                r.append(pack(obj[key], codec))
             return r
 
         if isinstance(wrapper, ListWrapper):
             r = []
             for (item, codec) in zip(obj, wrapper.codecs):
-                r.append( pack(item, codec) )
+                r.append(pack(item, codec))
             return r
 
         if isinstance(wrapper, HomoListWrapper):
             r = []
             for item in obj:
-                r.append( pack(item, wrapper.codec) )
+                r.append(pack(item, wrapper.codec))
             return r
 
         raise Exception('codec type is unknown.')
@@ -510,7 +522,7 @@ def unpack(packed: Union[List, bytes], wrapper: Union[BaseWrapper, ScalarKind]) 
     # Simple wrapper: ScalarKind
     if isinstance(wrapper, ScalarKind):
         return wrapper.deserialize(packed)
-    
+
     # Complicated wrapper: BaseWrapper
     if isinstance(wrapper, BaseWrapper):
         if isinstance(wrapper, DictWrapper):
@@ -522,13 +534,13 @@ def unpack(packed: Union[List, bytes], wrapper: Union[BaseWrapper, ScalarKind]) 
         if isinstance(wrapper, ListWrapper):
             r = []
             for (blob, codec) in zip(packed, wrapper.codecs):
-                r.append( unpack(blob, codec) )
+                r.append(unpack(blob, codec))
             return r
-        
+
         if isinstance(wrapper, HomoListWrapper):
             r = []
             for blob in packed:
-                r.append( unpack(blob, wrapper.codec) )
+                r.append(unpack(blob, wrapper.codec))
             return r
 
         raise Exception('codec type is unknown.')
