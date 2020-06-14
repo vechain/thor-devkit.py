@@ -1,7 +1,7 @@
 '''
 Blake2b
 
-Blake2b hash functions.
+Blake2b hash function.
 '''
 import hashlib  # python3 lib/hashlib
 from typing import List, Tuple
@@ -19,7 +19,7 @@ def blake2b256(list_of_bytes: List[bytes]) -> Tuple[bytes, int]:
     Returns
     -------
     Tuple[bytes, int]
-        Hash result in bytes and the length of bytes.
+        Hash result in bytes and the length of bytes (32).
     '''
 
     m = hashlib.blake2b(digest_size=32)

@@ -1,7 +1,7 @@
 '''
 Keccak
 
-Keccak hash functions.
+Keccak hash function.
 '''
 
 import sha3  # pysha3

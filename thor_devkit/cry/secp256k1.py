@@ -1,3 +1,12 @@
+'''
+secp256k1 Elliptic Curve related functions.
+
+1) Generate a private Key.
+2) Derive uncompressed public key from private key.
+3) Sign a message hash using the private key, generate signature.
+4) Given the message hash and signature, recover the uncompressed public key.
+'''
+
 from ecdsa import SigningKey, SECP256k1
 from eth_keys import KeyAPI
 
@@ -32,7 +41,7 @@ def _is_valid_message_hash(msg_hash: bytes) -> bool:
 
     Parameters
     ----------
-    msg_hash : bytes
+    msg_hash: bytes
         The msg hash to be processed.
 
     Returns
@@ -45,7 +54,7 @@ def _is_valid_message_hash(msg_hash: bytes) -> bool:
 
 def generate_privateKey() -> bytes:
     '''
-    Create a random number (32 bytes) as private key.
+    Create a random number(32 bytes) as private key.
 
     Returns
     -------
@@ -60,17 +69,17 @@ def generate_privateKey() -> bytes:
 
 def derive_publicKey(priv_key: bytes) -> bytes:
     '''
-    Derive public key from a private key (uncompressed).
+    Derive public key from a private key(uncompressed).
 
     Parameters
     ----------
-    priv_key : bytes
+    priv_key: bytes
         The private key in bytes.
 
     Returns
     -------
     bytes
-        The public key (uncompressed) in bytes,
+        The public key(uncompressed) in bytes,
         which starts with 04.
 
     Raises
@@ -92,9 +101,9 @@ def sign(msg_hash: bytes, priv_key: bytes) -> bytes:
 
     Parameters
     ----------
-    msg_hash : bytes
+    msg_hash: bytes
         The message hash.
-    priv_key : bytes
+    priv_key: bytes
         The private key in bytes.
 
     Returns
@@ -126,9 +135,9 @@ def recover(msg_hash: bytes, sig: bytes) -> bytes:
 
     Parameters
     ----------
-    msg_hash : bytes
+    msg_hash: bytes
         The message hash.
-    sig : bytes
+    sig: bytes
         The signature.
 
     Returns
@@ -141,7 +150,7 @@ def recover(msg_hash: bytes, sig: bytes) -> bytes:
     ValueError
         If the signature is bad,
         or recovery bit is bad,
-        or cannot recover (sig and msg_hash doesn't match).
+        or cannot recover(sig and msg_hash doesn't match).
     '''
 
     if not _is_valid_message_hash(msg_hash):
@@ -154,9 +163,9 @@ def recover(msg_hash: bytes, sig: bytes) -> bytes:
         raise ValueError('Signature last byte must be 0 or 1')
 
     pk = KeyAPI().ecdsa_recover(
-                msg_hash,
-                KeyAPI.Signature(signature_bytes=sig)
-            )
+        msg_hash,
+        KeyAPI.Signature(signature_bytes=sig)
+    )
 
     # uncompressed should have first byte = 04
     return bytes([4]) + pk.to_bytes()

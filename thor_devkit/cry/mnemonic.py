@@ -1,7 +1,11 @@
 '''
-Mnemonic
+Mnemonic Module.
 
-Mnemonic generates words for user wallet.
+Generate/Validate a words used for mnemonic wallet.
+
+Derive the first private key from words.
+
+Derive the correct seed for BIP32.
 '''
 
 from typing import List

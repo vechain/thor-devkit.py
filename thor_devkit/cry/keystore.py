@@ -1,9 +1,9 @@
 '''
-Keystore
+Keystore Module.
 
 Encrypt, decrypt and verify a keystore.
 
-The "keystore" should contain following format:
+The "keystore" dict should contain following format:
 
 {
     address: string

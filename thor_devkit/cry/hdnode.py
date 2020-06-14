@@ -1,7 +1,7 @@
 '''
 HD nodes, HD wallets.
 
-Hierarchically Deterministic Wallets.
+Hierarchically Deterministic Wallets for VeChain.
 
 Relevant information: BIP32 and BIP44.
 BIP32: https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki
@@ -52,7 +52,7 @@ class HDNode():
     HD Node that is able to derive child HD Node.
 
     Please use static methods provided in this class to construct
-    new nodes rather than instantiate one by hand.
+    new instances rather than instantiate one by hand.
     '''
 
     def __init__(self, bip32_ctx: Bip32):

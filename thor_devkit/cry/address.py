@@ -1,7 +1,7 @@
 '''
-Address
+Address Module.
 
-Address related operations and verifications.
+VeChain "public key" and "address" related operations and verifications.
 '''
 
 import re
