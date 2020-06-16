@@ -167,7 +167,7 @@ def data_gas(data: str) -> int:
         else:
             sum_up += NZ_GAS
 
-    print('sum_up', sum_up)
+    # print('sum_up', sum_up)
     return sum_up
 
 

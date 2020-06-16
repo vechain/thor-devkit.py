@@ -174,7 +174,7 @@ class HDNode():
             A new HDNode.
         '''
 
-        print('input priv', len(priv))
+        # print('input priv', len(priv))
         # parts
         net_version = VERSION_MAINNET_PRIVATE
         depth = DEPTH_MASTER_NODE
