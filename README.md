@@ -1,8 +1,20 @@
 # VeChain Thor Devkit in Python 3
 
-Python 3 library to assist smooth development on VeChain.
+Python 3 (Python 3.6+) library to assist smooth development on VeChain.
 
-Python 3.6+
+It contains following modules:
+- Public key, private key, address conversion.
+- Mnemonic Wallets.
+- HD Wallet.
+- Keystore.
+- Various Hashing functions.
+- Signing messages.
+- Verify signature of messages.
+- Bloom filter.
+- Transaction Assembling (Multi-task Transaction, MTT supported).
+- Fee Delegation Transaction (VIP-191).
+- Self-signed Certificate (VIP-192).
+- ABI decoding/encoding of "functions" and "events"  in logs from VeChain.
 
 # Install
 ```bash
@@ -128,7 +140,11 @@ ks = {
 }
 password = b'123456'
 
+# Decrypt
 private_key = keystore.decrypt(ks, password)
+
+# Encrypt
+ks_backup = keystore.encrypt(private_key, password)
 ```
 
 ### Hash the Messages
