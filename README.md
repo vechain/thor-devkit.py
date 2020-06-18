@@ -16,6 +16,8 @@ It contains:
 - Self-signed Certificate (VIP-192).
 - ABI decoding/encoding of "functions" and "events"  in logs from VeChain.
 
+... and many more to come.
+
 # Install
 ```bash
 pip3 install thor-devkit
@@ -36,13 +38,12 @@ public_key = secp256k1.derive_publicKey(private_key)
 
 _address_bytes = cry.public_key_to_address(public_key)
 address = '0x' + _address_bytes.hex()
+
 print( address )
 # 0x86d8cd908e43bc0076bc99e19e1a3c6221436ad0
-
 print('is address?', cry.is_address(address))
 # is address? True
-
-print( cry.to_checksum_address(address) )
+print( cry.to_checksum_address(address) ) 
 # 0x86d8CD908e43BC0076Bc99e19E1a3c6221436aD0
 ```
 
@@ -60,11 +61,12 @@ flag = mnemonic.validate(words)
 print(flag)
 # True
 
+# Quickly get a Bip32 master seed for HD wallets. See below "HD Wallet".
 seed = mnemonic.derive_seed(words)
-# Get a Bip32 master seed for HD wallets. See below "HD Wallet".
 
+# Quickly get a private key.
 private_key = mnemonic.derive_private_key(words, 0)
-# Get a private key.
+
 
 ```
 
@@ -74,30 +76,30 @@ Hierarchical Deterministic Wallets [bip-32](https://github.com/bitcoin/bips/blob
 ```python
 from thor_devkit import cry
 
+# Construct an HD node from words. (Recommended)
 words = 'ignore empty bird silly journey junior ripple have guard waste between tenant'.split(' ')
 
-# Construct HD node from words. (Recommended)
 hd_node = cry.HDNode.from_mnemonic(words)
 
+# Or, construct HD node from seed. (Advanced)
 seed = '28bc19620b4fbb1f8892b9607f6e406fcd8226a0d6dc167ff677d122a1a64ef936101a644e6b447fd495677f68215d8522c893100d9010668614a68b3c7bb49f'
 
-# Or, construct HD node from seed. (Advanced)
 hd_node = cry.HDNode.from_seed(bytes.fromhex(seed))
 
-# Access its properties
+# Access the HD node's properties.
 priv = hd_node.private_key()
 pub = hd_node.public_key()
 addr = hd_node.address()
 cc = hd_node.chain_code()
 
-# Or, construct HD node from a give public key. (Advanced)
-# Notice: This HD node cannot derive "private" child HD node.
+# Or, construct HD node from a given public key. (Advanced)
+# Notice: This HD node cannot derive child HD node with "private key".
 hd_node = cry.HDNode.from_public_key(pub, cc)
 
 # Or, construct HD node from a given private key. (Advanced)
 hd_node = cry.HDNode.from_private_key(priv, cc)
 
-# Let it derive direct child HD nodes.
+# Let it derive further child HD nodes.
 for i in range(0, 3):
     print('addr:', '0x'+hd_node.derive(i).address().hex())
     print('priv:', hd_node.derive(i).private_key().hex())
@@ -222,7 +224,7 @@ body = transaction.Body(
     nonce=12345678
 )
 
-# Get an unsigned transaction.
+# Construct an unsigned transaction.
 tx = transaction.Transaction(body)
 
 # Access its properties.
@@ -241,12 +243,13 @@ signature = cry.secp256k1.sign(message_hash, priv_key)
 # Set the signature on the transaction.
 tx.set_signature(signature)
 
-# Tx is ready to send out.
-
-print(tx.get_origin()) # Sender is whom?
+# Tx is ready to be sent out.
+# Sender is whom?
+print(tx.get_origin())
 # 0xd989829d88b0ed1b06edf5c50174ecfa64f14a64
 
-print(tx.get_id()) # Tx id?
+# Tx id?
+print(tx.get_id())
 # 0xda90eaea52980bc4bb8d40cb2ff84d78433b3b4a6e7d50b75736c5e3e77b71ec
 ```
 
@@ -318,11 +321,12 @@ from thor_devkit import cry
 from thor_devkit.cry import secp256k1
 from thor_devkit import certificate
 
-# Who wants to sign the cert.
+# My address.
 address = '0xd989829d88b0ed1b06edf5c50174ecfa64f14a64'
-# Corresponding private key.
+# My corresponding private key.
 private_key = bytes.fromhex('7582be841ca040aa940fff6c05773129e135623e41acce3e0b8ba520dc1ae26a')
 
+# My cert.
 cert_dict = {
     'purpose': 'identification',
     'payload': {
@@ -334,10 +338,10 @@ cert_dict = {
     'signer': address
 }
 
-# Get a cert, without signature.
+# Construct a cert, without signature.
 cert = certificate.Certificate(**cert_dict)
 
-# The user signs the cert with private key.
+# Sign the cert with my private key.
 sig_bytes = secp256k1.sign(
     cry.blake2b256([
         certificate.encode(cert).encode('utf-8')
@@ -349,10 +353,11 @@ signature = '0x' + sig_bytes.hex()
 # Mount the signature onto the cert.
 cert_dict['signature'] = signature
 
-# Get a cert, with signature.
+# Construct a cert, with signature.
 cert2 = certificate.Certificate(**cert_dict)
+
+# Verify, if verify failed it will throw Exceptions.
 certificate.verify(cert2)
-# If verify failed it will throw Exceptions.
 ```
 
 ### ABI
