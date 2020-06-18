@@ -37,6 +37,7 @@ from typing import List as ListType
 from typing import Union
 import eth_utils
 import eth_abi
+from .cry import keccak256
 
 
 MUTABILITY = Schema(Any('pure', 'view', 'constant', 'payable', 'nonpayable'))
@@ -51,22 +52,22 @@ FUNC_PARAMETER = Schema({
 
 
 FUNCTION = Schema({
-    "type": "function",
-    "name": str,
-    Optional("constant"): bool,
-    "payable": bool,
-    "stateMutability": MUTABILITY,
-    "inputs": [FUNC_PARAMETER],
-    "outputs": [FUNC_PARAMETER]
+        "type": "function",
+        "name": str,
+        Optional("constant"): bool,
+        "payable": bool,
+        "stateMutability": MUTABILITY,
+        "inputs": [FUNC_PARAMETER],
+        "outputs": [FUNC_PARAMETER]
     },
     required=True
 )
 
 
 EVENT_PARAMETER = Schema({
-    "name": str,
-    "type": str,
-    "indexed": bool
+        "name": str,
+        "type": str,
+        "indexed": bool
     },
     required=True
 )
@@ -86,6 +87,15 @@ def is_dynamic_type(t: str):
         return True
     else:
         return False
+
+
+def dynamic_type_to_topic(t_type:str, value):
+    if t_type == 'string':
+        return '0x' + keccak256([bytes.fromhex(value)])[0].hex()
+    elif t_type == 'bytes':
+        return '0x' + keccak256([value])[0].hex()
+    else:
+        raise ValueError('complex value type {} is not supported yet, open an issue on Github.'.format(t_type))
 
 
 def calc_function_selector(abi_json: dict) -> bytes:
@@ -187,9 +197,88 @@ class Event():
         '''
         self._definition = EVENT(e_definition)
         self.signature = calc_event_topic(self._definition)
-    
-    def encode(self):
-        pass
+
+    def encode(self, params: Union[dict, ListType]) -> ListType:
+        '''Assemble indexed keys into topics.
+
+        Usage
+        -----
+
+        Commonly used to filter out logs of concerned topics,
+        eg. To filter out VIP180 transfer logs of a certain wallet, certain amount.
+
+        Parameters
+        ----------
+        params : Union[dict, ListType]
+            A dict/list of indexed param of the given event,
+            fill in None to occupy the position,
+            if you aren't sure about the value.
+
+            eg. For event:
+            
+            EventName(address from indexed, address to indexed, uint256 value)
+
+            the params can be: 
+            ['0xa32f..ff', '0x1f...ac']
+            or:
+            {'from': '0xa32f..ff', 'to': '0x1f...ac'}
+            or:
+            [None, '0x1f...ac']
+            or:
+            {'from': None, 'to': '0x1f...ac'}
+
+        Returns
+        -------
+        ListType
+            [description]
+
+        Raises
+        ------
+        ValueError
+            [description]
+        '''
+        topics = []
+
+        # not anonymous? topic[0] = signature.
+        if self._definition.get('anonymous', False) == False:
+            topics.append(self.signature)
+
+        indexed_params = [x for x in self._definition['inputs'] if x['indexed']]
+        has_no_name_param = any([True for x in indexed_params if not x['name']])
+
+        # Check #1
+        if type(params) != list and has_no_name_param:
+            raise ValueError('Event definition contains param without a name, use a list of params instead of dict.')
+
+        # Check #2
+        if type(params) == list and len(params) != len(indexed_params):
+            raise ValueError('Indexed params needs {} length, {} is given.'.format(len(indexed_params), len(params)))
+
+        # Check #3
+        if type(params) == dict and len(params.keys()) != len(indexed_params):
+            raise ValueError('Indexed params needs {} keys, {} is given.'.format(len(indexed_params), len(params.keys())))
+
+        if type(params) == list:
+            for param, definition in zip(params, indexed_params):
+                if is_dynamic_type( definition['type'] ):
+                    topics.append( dynamic_type_to_topic(definition['type'], param) )
+                else:
+                    topics.append( Coder.encode_single(definition['type'], param) )
+
+        if type(params) == dict:
+            for definition in indexed_params:
+                value = params.get(definition['name'], None)
+                if value is None:
+                    topics.append(value)
+                    continue
+
+                if is_dynamic_type( definition['type'] ):
+                    topics.append( dynamic_type_to_topic(definition['type'], value) )
+                else:
+                    topics.append( Coder.encode_single(definition['type'], value) )
+
+        return topics
+
 
     def decode(self, data: bytes, topics: ListType[bytes]):
         ''' Decode "data" according to the "topic"s.

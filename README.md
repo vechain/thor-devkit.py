@@ -7,55 +7,56 @@ Python 3 Library to assist development on VeChain. Python 3.6+
 pip3 install thor-devkit
 ```
 
+`Caveat: Bip32 depends on the ripemd160 hash library, which should be installed on your system.`
+
 # Get Started
 ```python
 import thor_devkit
-```
-
-# Involve in Development
-
-## Caveat
-
-`Bip32` depends on the `ripemd160` hash library, which should be installed on your system.
-
-```bash
-openssl list-message-digest-algorithms
-```
-
-and on Python3 :
-
-```python
-
-> python3
-
-> import hashlib
-
-> print hashlib.algorithms_available
 
 ```
 
-## Project Layout
-```
-```
+# Tweak the Code
 
-## Comments
-
-`Numpy` style.
+## Layout
+```
+.
+├── LICENSE
+├── README.md
+├── requirements.txt
+├── test.sh
+├── tests/
+└── thor_devkit/
+    ├── cry/
+    │   ├── __init__.py
+    │   ├── address.py
+    │   ├── blake2b.py
+    │   ├── hdnode.py
+    │   ├── keccak.py
+    │   ├── keystore.py
+    │   ├── mnemonic.py
+    │   └── secp256k1.py
+    ├── __init__.py
+    ├── abi.py
+    ├── bloom.py
+    ├── certificate.py
+    ├── rlp.py
+    └── transaction.py
+```
 
 ## Testing
 ```bash
-python3 -m pytest -vv
+./test.sh
 ```
 
-## Data Structure
-```
-private key: 32 bytes.
+## Knowledge
 
-address: 20 bytes = 40 in hex string
-keccak256: 256 bits = 32 bytes = 64 in hex string
-
-message hash: 32 bytes.
-signature: 65 bytes. (last bit as recovery parameter)
-
-seed (used to derive bip32 master key): 64 bytes.
-```
+|     Name     | Bytes |                  Description                   |
+| ------------ | ----- | ---------------------------------------------- |
+| private key  | 32    | random number                                  |
+| public key   | 65    | uncompressed, starts with "04"                 |
+| address      | 20    | derived from public key                        |
+| keccak256    | 32    | hash                                           |
+| blake2b256   | 32    | hash                                           |
+| message hash | 32    | hash of a message                              |
+| signature    | 65    | signing result, last bit as recovery parameter |
+| seed         | 64    | used to derive bip32 master key                |

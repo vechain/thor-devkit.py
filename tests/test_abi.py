@@ -160,6 +160,29 @@ def test_event():
         ]
     ) == { "0": 1, "1": "foo", "a1": 1, "a2": "foo" }
 
+    assert e.encode({
+        'a1': None,
+    }) == [
+        bytes.fromhex('47b78f0ec63d97830ace2babb45e6271b15a678528e901a9651e45b65105e6c2'),
+        None
+    ]
+
+    assert e.encode({
+        'a1': 1
+    }) == [
+        bytes.fromhex('47b78f0ec63d97830ace2babb45e6271b15a678528e901a9651e45b65105e6c2'),
+        bytes.fromhex('0000000000000000000000000000000000000000000000000000000000000001')
+    ]
+
+    with pytest.raises(ValueError):
+        assert e.encode({
+            'a1': 1,
+            'x': 3
+        }) == [
+            bytes.fromhex('47b78f0ec63d97830ace2babb45e6271b15a678528e901a9651e45b65105e6c2'),
+            bytes.fromhex('0000000000000000000000000000000000000000000000000000000000000001')
+        ]
+
     ee = abi.Event(e2)
     assert ee.decode(
         bytes.fromhex('00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000003666f6f0000000000000000000000000000000000000000000000000000000000'),
@@ -168,7 +191,24 @@ def test_event():
         ]
     ) == { "0": 1, "1": "foo", "a1": 1, "a2": "foo" }
 
+    assert ee.encode({
+        'a1': 1
+    }) == [
+        bytes.fromhex('0000000000000000000000000000000000000000000000000000000000000001')
+    ]
+
+    assert ee.encode([1]) == [
+        bytes.fromhex('0000000000000000000000000000000000000000000000000000000000000001')
+    ]
+
     eee = abi.Event(e3)
+    assert eee.encode({
+        'a1': 1
+    }) == [
+        bytes.fromhex('e96585649d926cc4f5031a6113d7494d766198c0ac68b04eb93207460f9d7fd2'),
+        bytes.fromhex('0000000000000000000000000000000000000000000000000000000000000001')
+    ]
+
     assert eee.decode(
         bytes.fromhex('00'),
         [
