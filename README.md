@@ -1,8 +1,8 @@
 # VeChain Thor Devkit in Python 3
 
-Python 3 (Python 3.6+) library to assist smooth development on VeChain.
+Python 3 (Python 3.6+) library to assist smooth development on VeChain for developers and hobbyists.
 
-It contains following modules:
+It contains:
 - Public key, private key, address conversion.
 - Mnemonic Wallets.
 - HD Wallet.
