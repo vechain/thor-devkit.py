@@ -286,7 +286,7 @@ delegated_body = transaction.Body(
 
 delegated_tx = transaction.Transaction(delegated_body)
 
-# Indicate it is a delegated hash.
+# Indicate it is a delegated Transaction using VIP-191.
 assert delegated_tx.is_delegated() == True
 
 # Sender
@@ -302,8 +302,10 @@ priv_2 = bytes.fromhex('0bfd6a863f347f4ef2cf2d09c3db7b343d84bb3e6fc8c201afee62de
 
 
 h = delegated_tx.get_signing_hash() # Sender hash to be signed.
-dh = delegated_tx.get_signing_hash(addr_1) # Gay Payer hash to be signed.
+dh = delegated_tx.get_signing_hash(addr_1) # Gas Payer hash to be signed.
 
+# Sender sign the hash.
+# Gas payer sign the hash.
 # Concat two parts to forge a legal signature.
 sig = cry.secp256k1.sign(h, priv_1) + cry.secp256k1.sign(dh, priv_2)
 
@@ -398,7 +400,7 @@ abi_dict = {
 # Verify if abi_dict is in good shape.
 f1 = abi.FUNCTION(abi_dict)
 
-# Get an abi instance.
+# Get a function instance of the abi.
 f = abi.Function(f1)
 
 # Get function selector:
