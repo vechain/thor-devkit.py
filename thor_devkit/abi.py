@@ -91,9 +91,9 @@ def is_dynamic_type(t: str):
 
 def dynamic_type_to_topic(t_type:str, value):
     if t_type == 'string':
-        return '0x' + keccak256([value.encode('utf-8')])[0].hex()
+        return keccak256([value.encode('utf-8')])[0]
     elif t_type == 'bytes':
-        return '0x' + keccak256([value])[0].hex()
+        return keccak256([value])[0]
     else:
         raise ValueError('complex value type {} is not supported yet, open an issue on Github.'.format(t_type))
 

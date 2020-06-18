@@ -219,4 +219,9 @@ def test_event():
     ) == { "0": 1, "a1": 1 }
 
     eeee = abi.Event(e4)
-    assert eeee.encode({ 'a1': 'hello' }) == [ eeee.signature, '0x'+cry.keccak256(['hello'.encode('utf-8')])[0].hex() ]
+    assert eeee.encode({
+        'a1': 'hello'
+    }) == [
+        eeee.signature,
+        cry.keccak256(['hello'.encode('utf-8')])[0]
+    ]
