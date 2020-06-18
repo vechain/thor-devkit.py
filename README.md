@@ -21,9 +21,9 @@ It contains:
 pip3 install thor-devkit
 ```
 
-***Caveat: Bip32 depends on the ripemd160 hash library, which should be installed on your system.`***
+***Caveat: Bip32 depends on the ripemd160 hash library, which should be present on your system.***
 
-# Get Started
+# Tutorial
 
 ### Private/Public Keys
 ```python
