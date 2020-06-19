@@ -20,7 +20,7 @@ It contains:
 
 # Install
 ```bash
-pip3 install thor-devkit
+pip3 install thor-devkit -U
 ```
 
 ***Caveat: Bip32 depends on the ripemd160 hash library, which should be present on your system.***
@@ -70,21 +70,28 @@ private_key = mnemonic.derive_private_key(words, 0)
 
 ```
 
-### HD Wallet
+### HD Wallet (BTC/ETH Multi-coins supported.)
 Hierarchical Deterministic Wallets [bip-32](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki) and [bip-44](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki).
 
 ```python
 from thor_devkit import cry
+from thor_devkit.cry import hdnode
 
 # Construct an HD node from words. (Recommended)
 words = 'ignore empty bird silly journey junior ripple have guard waste between tenant'.split(' ')
 
-hd_node = cry.HDNode.from_mnemonic(words)
+hd_node = cry.HDNode.from_mnemonic(
+    words,
+    init_path=hdnode.VET_EXTERNAL_PATH
+) # VET wallet, you can input other string values to generate BTC/ETH/... wallets.
 
 # Or, construct HD node from seed. (Advanced)
 seed = '28bc19620b4fbb1f8892b9607f6e406fcd8226a0d6dc167ff677d122a1a64ef936101a644e6b447fd495677f68215d8522c893100d9010668614a68b3c7bb49f'
 
-hd_node = cry.HDNode.from_seed(bytes.fromhex(seed))
+hd_node = cry.HDNode.from_seed(
+    bytes.fromhex(seed),
+    init_path=hdnode.VET_EXTERNAL_PATH
+) # VET wallet, you can input other string values to generate BTC/ETH/... wallets.
 
 # Access the HD node's properties.
 priv = hd_node.private_key()

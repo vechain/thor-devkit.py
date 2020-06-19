@@ -7,7 +7,7 @@ assert long_description
 
 setuptools.setup(
     name="thor-devkit",
-    version="0.9.0",
+    version="0.9.4",
     author="laalaguer",
     author_email="laalaguer@gmail.com",
     description="SDK to interact with VeChain Thor public blockchain.",
@@ -28,17 +28,6 @@ setuptools.setup(
         'Issue Tracker': 'https://github.com/laalaguer/thor-devkit.py/issues',
     },
     python_requires='>=3.6',
-    install_requires=[
-        "pysha3>=1.0.2",
-        "pytest>=5.4.2",
-        "ecdsa>=0.15",
-        "eth-keys>=0.3.3",
-        "mnemonic>=0.19",
-        "bip-utils>=1.0.5",
-        "eth-keyfile>=0.5.1",
-        "rlp>=1.2.0",
-        "eth-abi>=2.1.1",
-        "voluptuous>=0.11.7",
-    ],
+    install_requires=[x.strip() for x in open('requirements.txt')],
     packages=setuptools.find_packages(),
 )
