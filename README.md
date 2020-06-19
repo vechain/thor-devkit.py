@@ -2,21 +2,22 @@
 
 Python 3 (Python 3.6+) library to assist smooth development on VeChain for developers and hobbyists.
 
-It contains:
-- Public key, private key, address conversion.
-- Mnemonic Wallets.
-- HD Wallet.
-- Keystore.
-- Various Hashing functions.
-- Signing messages.
-- Verify signature of messages.
-- Bloom filter.
-- Transaction Assembling (Multi-task Transaction, **MTT**).
-- Fee Delegation Transaction (**VIP-191**).
-- Self-signed Certificate (**VIP-192**).
-- ABI decoding/encoding of "functions" and "events"  in logs from VeChain.
+|  Content                                                  |
+| --------------------------------------------------------- |
+| Public key, private key, address conversion.              |
+| Mnemonic Wallets.                                         |
+| HD Wallet.                                                |
+| Keystore.                                                 |
+| Various Hashing functions.                                |
+| Signing messages.                                         |
+| Verify signature of messages.                             |
+| Bloom filter.                                             |
+| Transaction Assembling (**Multi-task Transaction, MTT**). |
+| Fee Delegation Transaction (**VIP-191**).                 |
+| Self-signed Certificate (**VIP-192**).                    |
+| ABI decoding of "functions" and "events" in logs.         |
 
-... and will always be updated with the newest features on VeChain.
+... and will always be updated with the **newest** features on VeChain.
 
 # Install
 ```bash
@@ -25,7 +26,7 @@ pip3 install thor-devkit -U
 
 ***Caveat: Bip32 depends on the ripemd160 hash library, which should be present on your system.***
 
-# Tutorial
+# Tutorials
 
 ### Private/Public Keys
 ```python
