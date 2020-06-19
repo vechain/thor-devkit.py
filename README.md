@@ -11,12 +11,12 @@ It contains:
 - Signing messages.
 - Verify signature of messages.
 - Bloom filter.
-- Transaction Assembling (Multi-task Transaction, MTT supported).
-- Fee Delegation Transaction (VIP-191).
-- Self-signed Certificate (VIP-192).
+- Transaction Assembling (Multi-task Transaction, **MTT**).
+- Fee Delegation Transaction (**VIP-191**).
+- Self-signed Certificate (**VIP-192**).
 - ABI decoding/encoding of "functions" and "events"  in logs from VeChain.
 
-... and many more to come.
+... and will always be updated with the newest features on VeChain.
 
 # Install
 ```bash
@@ -70,7 +70,7 @@ private_key = mnemonic.derive_private_key(words, 0)
 
 ```
 
-### HD Wallet (BTC/ETH Multi-coins supported.)
+### HD Wallet (VET/BTC/ETH/LTC/EOS multi-coins supported.)
 Hierarchical Deterministic Wallets [bip-32](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki) and [bip-44](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki).
 
 ```python
@@ -118,7 +118,6 @@ for i in range(0, 3):
 # addr: 0x86231b5cdcbfe751b9ddcd4bd981fc0a48afe921
 # priv: 2ca054a50b53299ea3949f5362ee1d1cfe6252fbe30bea3651774790983e9348
 ```
-
 
 ### Keystore
 
