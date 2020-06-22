@@ -211,7 +211,7 @@ from thor_devkit import cry, transaction
 
 body = transaction.Body(
     chain_tag=1,
-    block_ref='0x00000000aabbccdd',
+    block_ref='0x00000000aabbccdd', # After which block this tx should appear.
     expiration=32,
     clauses=[
         transaction.Clause( # clause #1
@@ -235,12 +235,13 @@ body = transaction.Body(
 tx = transaction.Transaction(body)
 
 # Access its properties.
-tx.get_signing_hash() == cry.blake2b256([tx.encode()])[0]
-# True
-tx.get_signature() == None
-# True
-tx.get_origin() == None
-# True
+tx.get_signing_hash() == cry.blake2b256([tx.encode()])[0] # True
+
+tx.get_signature() == None # True
+
+tx.get_origin() == None # True
+
+tx.get_intrinsic_gas() == 37432 # estimate the gas this tx gonna cost.
 
 # Sign the transaction with a private key.
 priv_key = bytes.fromhex('7582be841ca040aa940fff6c05773129e135623e41acce3e0b8ba520dc1ae26a')
@@ -250,14 +251,21 @@ signature = cry.secp256k1.sign(message_hash, priv_key)
 # Set the signature on the transaction.
 tx.set_signature(signature)
 
-# Tx is ready to be sent out.
-# Sender is whom?
+# Tx origin?
 print(tx.get_origin())
 # 0xd989829d88b0ed1b06edf5c50174ecfa64f14a64
 
 # Tx id?
 print(tx.get_id())
 # 0xda90eaea52980bc4bb8d40cb2ff84d78433b3b4a6e7d50b75736c5e3e77b71ec
+
+# Tx encoded into bytes, ready to be sent out.
+encoded_bytes = tx.encode()
+
+# pretty print the encoded bytes.
+print('0x' + encoded_bytes.hex())
+
+# http POST transaction to send the encoded_bytes to VeChain...
 ```
 
 ### Transaction (VIP-191)
