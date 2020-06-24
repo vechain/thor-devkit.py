@@ -2,27 +2,27 @@ import copy
 import pytest
 from thor_devkit import cry, transaction
 
-body = transaction.Body(
-    chain_tag=1,
-    block_ref='0x00000000aabbccdd',
-    expiration=32,
-    clauses=[
-        transaction.Clause(
-            to='0x7567d83b7b8d80addcb281a71d54fc7b3364ffed',
-            value=10000,
-            data='0x000000606060'
-        ),
-        transaction.Clause(
-            to='0x7567d83b7b8d80addcb281a71d54fc7b3364ffed',
-            value=20000,
-            data='0x000000606060'
-        )
+body = {
+    "chainTag": 1,
+    "blockRef": '0x00000000aabbccdd',
+    "expiration": 32,
+    "clauses": [
+        {
+            "to": '0x7567d83b7b8d80addcb281a71d54fc7b3364ffed',
+            "value": 10000,
+            "data": '0x000000606060'
+        },
+        {
+            "to": '0x7567d83b7b8d80addcb281a71d54fc7b3364ffed',
+            "value": 20000,
+            "data": '0x000000606060'
+        }
     ],
-    gas_price_coef=128,
-    gas=21000,
-    depends_on=None,
-    nonce=12345678
-)
+    "gasPriceCoef": 128,
+    "gas": 21000,
+    "dependsOn": None,
+    "nonce": 12345678
+}
 
 unsigned = transaction.Transaction(body)
 unsigned_encoded = bytes.fromhex('f8540184aabbccdd20f840df947567d83b7b8d80addcb281a71d54fc7b3364ffed82271086000000606060df947567d83b7b8d80addcb281a71d54fc7b3364ffed824e208600000060606081808252088083bc614ec0')
@@ -47,17 +47,17 @@ def test_unsigned():
     assert unsigned.get_intrinsic_gas() == 37432
 
     body_1 = copy.deepcopy(body)
-    body_1.clauses = []
+    body_1['clauses'] = []
 
     assert transaction.Transaction(body_1).get_intrinsic_gas() == 21000
 
     body_2 = copy.deepcopy(body)
-    body_2.clauses = [
-        transaction.Clause(
-            to=None,
-            value=0,
-            data='0x'
-        )
+    body_2['clauses'] = [
+        {
+            "to": None,
+            "value": 0,
+            "data": '0x'
+        }
     ]
 
     assert transaction.Transaction(body_2).get_intrinsic_gas() == 53000
@@ -74,67 +74,67 @@ def test_unsigned():
 def test_invalid_body():
     with pytest.raises(Exception):
         body_1 = copy.deepcopy(body)
-        body_1.chain_tag = 256
+        body_1["chainTag"] = 256
         transaction.Transaction(body_1).encode()
     
     with pytest.raises(Exception):
         body_1 = copy.deepcopy(body)
-        body_1.chain_tag = -1
+        body_1["chainTag"] = -1
         transaction.Transaction(body_1).encode()
     
     with pytest.raises(Exception):
         body_1 = copy.deepcopy(body)
-        body_1.chain_tag = 1.1
+        body_1["chainTag"] = 1.1
         transaction.Transaction(body_1).encode()
     
     with pytest.raises(Exception):
         body_1 = copy.deepcopy(body)
-        body_1.block_ref = '0x'
+        body_1['blockRef'] = '0x'
         transaction.Transaction(body_1).encode()
     
     with pytest.raises(Exception):
         body_1 = copy.deepcopy(body)
-        body_1.block_ref = '0x' + '0' * 18
+        body_1['blockRef'] = '0x' + '0' * 18
         transaction.Transaction(body_1).encode()
     
     with pytest.raises(Exception):
         body_1 = copy.deepcopy(body)
-        body_1.expiration = 2 ** 32
+        body_1['expiration'] = 2 ** 32
         transaction.Transaction(body_1).encode()
     
     with pytest.raises(Exception):
         body_1 = copy.deepcopy(body)
-        body_1.expiration = -1
+        body_1['expiration'] = -1
         transaction.Transaction(body_1).encode()
     
     with pytest.raises(Exception):
         body_1 = copy.deepcopy(body)
-        body_1.expiration = 1.1
+        body_1['expiration'] = 1.1
         transaction.Transaction(body_1).encode()
 
     with pytest.raises(Exception):
         body_1 = copy.deepcopy(body)
-        body_1.gas_price_coef = 256
+        body_1['gasPriceCoef'] = 256
         transaction.Transaction(body_1).encode()
     
     with pytest.raises(Exception):
         body_1 = copy.deepcopy(body)
-        body_1.gas_price_coef = -1
+        body_1['gasPriceCoef'] = -1
         transaction.Transaction(body_1).encode()
 
     with pytest.raises(Exception):
         body_1 = copy.deepcopy(body)
-        body_1.gas_price_coef = 1.1
+        body_1['gasPriceCoef'] = 1.1
         transaction.Transaction(body_1).encode()
 
     with pytest.raises(Exception):
         body_1 = copy.deepcopy(body)
-        body_1.gas = '0x10000000000000000'
+        body_1['gas'] = '0x10000000000000000'
         transaction.Transaction(body_1).encode()
     
     with pytest.raises(Exception):
         body_1 = copy.deepcopy(body)
-        body_1.nonce = '0x10000000000000000'
+        body_1['nonce'] = '0x10000000000000000'
         transaction.Transaction(body_1).encode()
 
 def test_signed():
@@ -160,30 +160,30 @@ def test_incorrectly_signed():
     assert tx.get_origin() == None
     assert tx.get_id() == None
 
-delegated_body = transaction.Body(
-    chain_tag=1,
-    block_ref='0x00000000aabbccdd',
-    expiration=32,
-    clauses=[
-        transaction.Clause(
-            to='0x7567d83b7b8d80addcb281a71d54fc7b3364ffed',
-            value=10000,
-            data='0x000000606060'
-        ),
-        transaction.Clause(
-            to='0x7567d83b7b8d80addcb281a71d54fc7b3364ffed',
-            value=20000,
-            data='0x000000606060'
-        )
+delegated_body = {
+    "chainTag": 1,
+    "blockRef": '0x00000000aabbccdd',
+    "expiration": 32,
+    "clauses": [
+        {
+            "to": '0x7567d83b7b8d80addcb281a71d54fc7b3364ffed',
+            "value": 10000,
+            "data": '0x000000606060'
+        },
+        {
+            "to": '0x7567d83b7b8d80addcb281a71d54fc7b3364ffed',
+            "value": 20000,
+            "data": '0x000000606060'
+        }
     ],
-    gas_price_coef=128,
-    gas=21000,
-    depends_on=None,
-    nonce=12345678,
-    reserved=transaction.Reserved(
-        features=1
-    )
-)
+    "gasPriceCoef": 128,
+    "gas": 21000,
+    "dependsOn": None,
+    "nonce": 12345678,
+    "reserved": {
+        "features": 1
+    }
+}
 
 delegated_tx = transaction.Transaction(delegated_body)
 
