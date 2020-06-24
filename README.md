@@ -24,6 +24,10 @@ Python 3 (Python 3.6+) library to assist smooth development on VeChain for devel
 pip3 install thor-devkit -U
 ```
 
+# Changelog
+
+See [CHANGELOG.md](CHANGELOG.md)
+
 ***Caveat: Bip32 depends on the ripemd160 hash library, which should be present on your system.***
 
 # Tutorials
@@ -209,27 +213,27 @@ b.test(bytes('bye bye blue bird', 'UTF-8'))
 ```python
 from thor_devkit import cry, transaction
 
-body = transaction.Body(
-    chain_tag=1,
-    block_ref='0x00000000aabbccdd', # After which block this tx should appear.
-    expiration=32,
-    clauses=[
-        transaction.Clause( # clause #1
-            to='0x7567d83b7b8d80addcb281a71d54fc7b3364ffed',
-            value=10000,
-            data='0x000000606060'
-        ),
-        transaction.Clause( # clause #2
-            to='0x7567d83b7b8d80addcb281a71d54fc7b3364ffed',
-            value=20000,
-            data='0x000000606060'
-        )
+body = {
+    "chainTag": 1,
+    "blockRef": '0x00000000aabbccdd',
+    "expiration": 32,
+    "clauses": [
+        {
+            "to": '0x7567d83b7b8d80addcb281a71d54fc7b3364ffed',
+            "value": 10000,
+            "data": '0x000000606060'
+        },
+        {
+            "to": '0x7567d83b7b8d80addcb281a71d54fc7b3364ffed',
+            "value": 20000,
+            "data": '0x000000606060'
+        }
     ],
-    gas_price_coef=128,
-    gas=21000,
-    depends_on=None,
-    nonce=12345678
-)
+    "gasPriceCoef": 128,
+    "gas": 21000,
+    "dependsOn": None,
+    "nonce": 12345678
+}
 
 # Construct an unsigned transaction.
 tx = transaction.Transaction(body)
@@ -274,30 +278,30 @@ print('0x' + encoded_bytes.hex())
 ```python
 from thor_devkit import cry, transaction
 
-delegated_body = transaction.Body(
-    chain_tag=1,
-    block_ref='0x00000000aabbccdd',
-    expiration=32,
-    clauses=[
-        transaction.Clause(
-            to='0x7567d83b7b8d80addcb281a71d54fc7b3364ffed',
-            value=10000,
-            data='0x000000606060'
-        ),
-        transaction.Clause(
-            to='0x7567d83b7b8d80addcb281a71d54fc7b3364ffed',
-            value=20000,
-            data='0x000000606060'
-        )
+delegated_body = {
+    "chainTag": 1,
+    "blockRef": '0x00000000aabbccdd',
+    "expiration": 32,
+    "clauses": [
+        {
+            "to": '0x7567d83b7b8d80addcb281a71d54fc7b3364ffed',
+            "value": 10000,
+            "data": '0x000000606060'
+        },
+        {
+            "to": '0x7567d83b7b8d80addcb281a71d54fc7b3364ffed',
+            "value": 20000,
+            "data": '0x000000606060'
+        }
     ],
-    gas_price_coef=128,
-    gas=21000,
-    depends_on=None,
-    nonce=12345678,
-    reserved=transaction.Reserved(
-        features=1
-    )
-)
+    "gasPriceCoef": 128,
+    "gas": 21000,
+    "dependsOn": None,
+    "nonce": 12345678,
+    "reserved": {
+        "features": 1
+    }
+}
 
 delegated_tx = transaction.Transaction(delegated_body)
 

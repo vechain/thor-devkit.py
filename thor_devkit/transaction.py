@@ -3,7 +3,8 @@ Transaction class defines VeChain's multi-clause transaction (tx).
 
 This module defines data structure of a tx, and the encoding/decoding of tx data.
 '''
-from typing import Union, List, Optional
+from voluptuous import Schema, Any, Optional, REMOVE_EXTRA
+from typing import Union, List
 from copy import deepcopy
 from .rlp import NumericKind, CompactFixedBlobKind, NoneableFixedBlobKind, BlobKind, BytesKind
 from .rlp import DictWrapper, HomoListWrapper
@@ -39,113 +40,145 @@ UnsignedTxWrapper = DictWrapper(_params)
 # Signed Tx Wrapper
 SignedTxWrapper = DictWrapper( _params + [("signature", BytesKind())] )
 
+CLAUSE = Schema(
+    {
+        "to": Any(str, None), # Destination contract address, or set to None to create contract.
+        "value": Any(str, int), # VET to pass to the call.
+        "data": str
+    },
+    required=True,
+    extra=REMOVE_EXTRA
+)
 
-class Clause():
-    '''
-    Clause type.
-    Consists of the "destination", the "vet value" to pass to, and the "data" to pass to.
-    '''
+# class Clause():
+#     '''
+#     Clause type.
+#     Consists of the "destination", the "vet value" to pass to, and the "data" to pass to.
+#     '''
 
-    def __init__(
-        self,
-        to: Union[str, None],
-        value: Union[str, int],
-        data: str
-    ):
-        '''
-        Create a clause.
+#     def __init__(
+#         self,
+#         to: Union[str, None],
+#         value: Union[str, int],
+#         data: str
+#     ):
+#         '''
+#         Create a clause.
 
-        Parameters
-        ----------
-        to : Union[str, None]
-            Destination contract address, or set to None to create contract.
-        value : Union[str, int]
-            VET to pass to the call.
-        data : str
-            data for contract method invocation or deployment.
-        '''
-        self.to = to
-        self.value = value
-        self.data = data
+#         Parameters
+#         ----------
+#         to : Union[str, None]
+#             Destination contract address, or set to None to create contract.
+#         value : Union[str, int]
+#             VET to pass to the call.
+#         data : str
+#             data for contract method invocation or deployment.
+#         '''
+#         self.to = to
+#         self.value = value
+#         self.data = data
 
-    def to_dict(self) -> dict:
-        return {
-            "to": self.to,
-            "value": self.value,
-            "data": self.data
-        }
+#     def to_dict(self) -> dict:
+#         return {
+#             "to": self.to,
+#             "value": self.value,
+#             "data": self.data
+#         }
 
+RESERVED = Schema(
+    {
+        Optional("features"): int, # int.
+        Optional("unused"): [int] # list of int.
+    },
+    required=True,
+    extra=REMOVE_EXTRA
+)
 
-class Reserved():
-    ''' Reserved type.
-    Mark the transaction body if the new supplement features are used.
-    '''
+# class Reserved():
+#     ''' Reserved type.
+#     Mark the transaction body if the new supplement features are used.
+#     '''
 
-    def __init__(
-            self,
-            features: int = None,
-            unused: List[int] = None):
+#     def __init__(
+#             self,
+#             features: int = None,
+#             unused: List[int] = None):
 
-        self.features = features
-        self.unused = unused
+#         self.features = features
+#         self.unused = unused
 
-    def to_dict(self) -> dict:
-        return {
-            "features": self.features,
-            "unused": self.unused
-        }
+#     def to_dict(self) -> dict:
+#         return {
+#             "features": self.features,
+#             "unused": self.unused
+#         }
 
+BODY = Schema(
+    {
+        "chainTag": int,
+        "blockRef": str,
+        "expiration": int,
+        "clauses": [CLAUSE],
+        "gasPriceCoef": int,
+        "gas": Any(str, int),
+        "dependsOn": Any(str, None),
+        "nonce": Any(str, int),
+        Optional("reserved"): RESERVED
+    },
+    required=True,
+    extra=REMOVE_EXTRA
+)
 
-class Body():
-    ''' Body type.
-    Consists of the structure of the body of a transaction.
-    '''
+# class Body():
+#     ''' Body type.
+#     Consists of the structure of the body of a transaction.
+#     '''
 
-    def __init__(
-            self,
-            chain_tag: int,
-            block_ref: str,
-            expiration: int,
-            clauses: List[Clause],
-            gas_price_coef: int,
-            gas: Union[str, int],
-            depends_on: Union[str, None],
-            nonce: Union[str, int],
-            reserved: Optional[Reserved] = None):
+#     def __init__(
+#             self,
+#             chain_tag: int,
+#             block_ref: str,
+#             expiration: int,
+#             clauses: List[Clause],
+#             gas_price_coef: int,
+#             gas: Union[str, int],
+#             depends_on: Union[str, None],
+#             nonce: Union[str, int],
+#             reserved: Optional[Reserved] = None):
 
-        self.chain_tag = chain_tag
-        self.block_ref = block_ref
-        self.expiration = expiration
-        self.clauses = clauses
-        self.gas_price_coef = gas_price_coef
-        self.gas = gas
-        self.depends_on = depends_on
-        self.nonce = nonce
-        self.reserved = reserved
+#         self.chain_tag = chain_tag
+#         self.block_ref = block_ref
+#         self.expiration = expiration
+#         self.clauses = clauses
+#         self.gas_price_coef = gas_price_coef
+#         self.gas = gas
+#         self.depends_on = depends_on
+#         self.nonce = nonce
+#         self.reserved = reserved
 
-    def to_dict(self) -> dict:
-        d = {
-            "chainTag": self.chain_tag,
-            "blockRef": self.block_ref,
-            "expiration": self.expiration,
-            "clauses": [x.to_dict() for x in self.clauses],
-            "gasPriceCoef": self.gas_price_coef,
-            "gas": self.gas,
-            "dependsOn": self.depends_on,
-            "nonce": self.nonce
-        }
+#     def to_dict(self) -> dict:
+#         d = {
+#             "chainTag": self.chain_tag,
+#             "blockRef": self.block_ref,
+#             "expiration": self.expiration,
+#             "clauses": [x.to_dict() for x in self.clauses],
+#             "gasPriceCoef": self.gas_price_coef,
+#             "gas": self.gas,
+#             "dependsOn": self.depends_on,
+#             "nonce": self.nonce
+#         }
 
-        if self.reserved:
-            r = {}
-            if self.reserved.features:
-                r["features"] = self.reserved.features
+#         if self.reserved:
+#             r = {}
+#             if self.reserved.features:
+#                 r["features"] = self.reserved.features
 
-            if self.reserved.unused:
-                r["unused"] = self.reserved.unused
+#             if self.reserved.unused:
+#                 r["unused"] = self.reserved.unused
 
-            d['reserved'] = r
+#             d['reserved'] = r
 
-        return d
+#         return d
 
 
 def data_gas(data: str) -> int:
@@ -171,14 +204,14 @@ def data_gas(data: str) -> int:
     return sum_up
 
 
-def intrinsic_gas(clauses: List[Clause]) -> int:
+def intrinsic_gas(clauses: List) -> int:
     '''
     Calculate roughly the gas from a list of clauses.
 
     Parameters
     ----------
-    clauses : List[Clause]
-        A list of clauses.
+    clauses : List
+        A list of clauses (in dict format).
 
     Returns
     -------
@@ -197,11 +230,11 @@ def intrinsic_gas(clauses: List[Clause]) -> int:
 
     for clause in clauses:
         clause_sum = 0
-        if clause.to:  # contract create.
+        if clause['to']:  # contract create.
             clause_sum += CLAUSE_GAS
         else:
             clause_sum += CLAUSE_CONTRACT_CREATION
-        clause_sum += data_gas(clause.data)
+        clause_sum += data_gas(clause['data'])
 
         sum_total += clause_sum
 
@@ -212,20 +245,20 @@ class Transaction():
     # The reserved feature of delegated (vip-191) is 1.
     DELEGATED_MASK = 1
 
-    def __init__(self, body: Body):
+    def __init__(self, body: dict):
         ''' Construct a transaction from a given body. '''
-        self.body = body
+        self.body = BODY(body)
         self.signature = None
 
     def _encode_reserved(self) -> List:
-        r = self.body.to_dict().get('reserved', None)
+        r = self.body.get('reserved', None)
         if not r:
-            reserved = Reserved(None, None)
+            reserved = {"features": None, "unused": None}
         else:
-            reserved = self.body.reserved
+            reserved = self.body['reserved']
 
-        f = reserved.features or 0
-        l = reserved.unused or []
+        f = reserved.get('features') or 0
+        l = reserved.get('unused') or []
         m_list = [FeaturesKind.serialize(f)] + l
 
         # While some elements in the m_list is b'' or '',
@@ -249,7 +282,7 @@ class Transaction():
 
     def get_signing_hash(self, delegate_for: str = None) -> bytes:
         reserved_list = self._encode_reserved()
-        _temp = deepcopy(self.body.to_dict())
+        _temp = deepcopy(self.body)
         _temp.update({"reserved": reserved_list})
         buff = ComplexCodec(UnsignedTxWrapper).encode(_temp)
         h, _ = blake2b256([buff])
@@ -264,7 +297,7 @@ class Transaction():
 
     def get_intrinsic_gas(self) -> int:
         ''' Get the rough gas this tx will consume'''
-        return intrinsic_gas(self.body.clauses)
+        return intrinsic_gas(self.body['clauses'])
 
     def get_signature(self) -> Union[None, bytes]:
         ''' Get the signature of current transaction.'''
@@ -307,13 +340,13 @@ class Transaction():
 
     def is_delegated(self):
         ''' Check if this transaction is delegated.'''
-        if not self.body.to_dict().get('reserved'):
+        if not self.body.get('reserved'):
             return False
 
-        if not self.body.to_dict().get('reserved').get('features'):
+        if not self.body.get('reserved').get('features'):
             return False
 
-        return self.body.to_dict()['reserved']['features'] & self.DELEGATED_MASK == self.DELEGATED_MASK
+        return self.body['reserved']['features'] & self.DELEGATED_MASK == self.DELEGATED_MASK
 
     def _signature_valid(self) -> bool:
         if self.is_delegated():
@@ -342,14 +375,14 @@ class Transaction():
         ''' Encode the tx into bytes '''
         reserved_list = self._encode_reserved()
         if self.signature:
-            temp = deepcopy(self.body.to_dict())
+            temp = deepcopy(self.body)
             temp.update({
                 'reserved': reserved_list,
                 'signature': self.signature
             })
             return ComplexCodec(SignedTxWrapper).encode(temp)
         else:
-            temp = deepcopy(self.body.to_dict())
+            temp = deepcopy(self.body)
             temp.update({
                 'reserved': reserved_list
             })
@@ -383,29 +416,21 @@ class Transaction():
         else:
             del body['reserved']
 
-        # Now body is a "dict", we try to convert it into a "Body" type.
+        # Now body is a "dict", we try to check if it is in good shape.
+
+        # Check if clause is in good shape.
         _clauses = []
         for each in body['clauses']:
-            _clauses.append( Clause( each['to'], each['value'], each['data']))
+            _clauses.append( CLAUSE(each) )
+        body['clauses'] = _clauses
         
+        # Check if reserved is in good shape.
         _reserved = None
         if body.get('reserved'):
-            _reserved = Reserved(
-                features=body.get('reserved')['features'],
-                unused=body.get('reserved').get('unused')
-            )
+            _reserved = RESERVED(body['reserved'])
+            body['reserved'] = _reserved
 
-        tx = Transaction(Body(
-            chain_tag=body['chainTag'],
-            block_ref=body['blockRef'],
-            expiration=body['expiration'],
-            clauses=_clauses,
-            gas_price_coef=body['gasPriceCoef'],
-            gas=body['gas'],
-            depends_on=body['dependsOn'],
-            nonce=body['nonce'],
-            reserved=_reserved
-        ))
+        tx = Transaction(body)
 
         if sig:
             tx.set_signature(sig)
@@ -415,5 +440,5 @@ class Transaction():
     def __eq__(self, other):
         ''' Compare two tx to be the same? '''
         flag_1 = (self.signature == other.signature)
-        flag_2 = (self.body.to_dict() == other.body.to_dict())
+        flag_2 = (self.body == other.body)
         return flag_1 and flag_2
