@@ -213,8 +213,9 @@ b.test(bytes('bye bye blue bird', 'UTF-8'))
 ```python
 from thor_devkit import cry, transaction
 
+# See: https://docs.vechain.org/thor/learn/transaction-model.html#model
 body = {
-    "chainTag": 1,
+    "chainTag": 1, # See: https://docs.vechain.org/others/#network-identifier
     "blockRef": '0x00000000aabbccdd',
     "expiration": 32,
     "clauses": [
@@ -270,6 +271,9 @@ encoded_bytes = tx.encode()
 print('0x' + encoded_bytes.hex())
 
 # http POST transaction to send the encoded_bytes to VeChain...
+# See the REST API details:
+# testnet: https://sync-testnet.vechain.org/doc/swagger-ui/
+# mainnet: https://sync-mainnet.vechain.org/doc/swagger-ui/
 ```
 
 ### Transaction (VIP-191)
