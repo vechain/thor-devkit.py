@@ -179,7 +179,18 @@ class NumericKind(ScalarKind, BigEndianInt):
 
         # remove leading 0 from bytes sequence.
         result_bytes = super().serialize(number)
-        byte_list = [x for x in result_bytes if x != 0]
+        byte_list = []
+        can_append_flag = False
+        for x in result_bytes:
+            if not can_append_flag:
+                if x != 0:
+                    can_append_flag = True
+                else:
+                    continue
+
+            if can_append_flag:
+                byte_list.append(x)
+
         return bytes(byte_list)
 
     def deserialize(self, serial) -> int:
