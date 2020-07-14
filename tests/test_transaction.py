@@ -71,6 +71,12 @@ def test_unsigned():
     assert transaction.Transaction.decode(unsigned_encoded, True) == unsigned
 
 
+def test_empty_data():
+    body_1 = copy.deepcopy(body)
+    body_1['clauses'][0]['data'] = '0x'
+    transaction.Transaction(body_1).encode()
+
+
 def test_invalid_body():
     with pytest.raises(Exception):
         body_1 = copy.deepcopy(body)

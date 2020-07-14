@@ -42,8 +42,13 @@ from rlp import encode as rlp_encode
 from rlp import decode as rlp_decode
 
 
-def _is_hex_string(a: str) -> bool:
-    c = re.compile('^0x[0-9a-f]+$', re.I)
+def _is_hex_string(a: str, must_contain_data: bool) -> bool:
+    c = None
+    if must_contain_data:
+        c = re.compile('^0x[0-9a-f]+$', re.I)
+    else:
+        c = re.compile('^0x[0-9a-f]*$', re.I)
+
     if c.match(a):
         return True
     else:
@@ -168,7 +173,7 @@ class NumericKind(ScalarKind, BigEndianInt):
         number = None
 
         if _is_pure_str(obj):
-            if _is_hex_string(obj):
+            if _is_hex_string(obj, True):
                 number = int(obj, 16)
 
             if _is_decimal_string(obj):
@@ -253,7 +258,7 @@ class BlobKind(ScalarKind):
         bytes
             the "item" that can be rlp encodeded.
         '''
-        if not _is_hex_string(obj):
+        if not _is_hex_string(obj, False):
             raise SerializationError('expect 0x... style string', obj)
 
         if len(obj) % 2 != 0:
