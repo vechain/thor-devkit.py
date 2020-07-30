@@ -33,7 +33,7 @@ string
 
 # voluptuous is a better library in validating dict.
 from voluptuous import Schema, Any, Optional
-from typing import List as ListType
+from typing import List
 from typing import Union
 import eth_utils
 import eth_abi
@@ -112,12 +112,12 @@ def calc_event_topic(abi_json: dict) -> bytes:
 
 class Coder():
     @staticmethod
-    def encode_list(types: ListType[str], values) -> bytes:
+    def encode_list(types: List[str], values) -> bytes:
         ''' Encode a sequence of values, into a single bytes '''
         return eth_abi.encode_abi(types, values)
 
     @staticmethod
-    def decode_list(types: ListType[str], data: bytes) -> ListType:
+    def decode_list(types: List[str], data: bytes) -> List:
         ''' Decode the data, back to a (,,,) tuple '''
         return list(eth_abi.decode_abi(types, data))
     
@@ -144,7 +144,7 @@ class Function():
         self._definition = FUNCTION(f_definition) # Protect.
         self.selector = calc_function_selector(f_definition) # first 4 bytes.
     
-    def encode(self, parameters: ListType, to_hex=False) -> Union[bytes, str]:
+    def encode(self, parameters: List, to_hex=False) -> Union[bytes, str]:
         '''Encode the paramters according to the function definition.
 
         Parameters
@@ -198,7 +198,7 @@ class Event():
         self._definition = EVENT(e_definition)
         self.signature = calc_event_topic(self._definition)
 
-    def encode(self, params: Union[dict, ListType]) -> ListType:
+    def encode(self, params: Union[dict, List]) -> List:
         '''Assemble indexed keys into topics.
 
         Usage
@@ -209,7 +209,7 @@ class Event():
 
         Parameters
         ----------
-        params : Union[dict, ListType]
+        params : Union[dict, List]
             A dict/list of indexed param of the given event,
             fill in None to occupy the position,
             if you aren't sure about the value.
@@ -229,7 +229,7 @@ class Event():
 
         Returns
         -------
-        ListType
+        List
             [description]
 
         Raises
@@ -280,7 +280,7 @@ class Event():
         return topics
 
 
-    def decode(self, data: bytes, topics: ListType[bytes]):
+    def decode(self, data: bytes, topics: List[bytes]):
         ''' Decode "data" according to the "topic"s.
 
         One output can contain an array of logs[].

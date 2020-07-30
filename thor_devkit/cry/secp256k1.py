@@ -30,6 +30,9 @@ def _is_valid_private_key(priv_key: bytes) -> bool:
 
     if priv_key >= MAX:
         return False
+    
+    if len(priv_key) != 32:
+        return False
 
     return True
 
@@ -116,6 +119,8 @@ def sign(msg_hash: bytes, priv_key: bytes) -> bytes:
     ValueError
         If the input is malformed.
     '''
+    if not _is_valid_message_hash(msg_hash):
+        raise ValueError('Message hash not valid.')
 
     if not _is_valid_private_key(priv_key):
         raise ValueError('Private Key not valid.')
