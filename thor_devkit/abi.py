@@ -45,7 +45,9 @@ MUTABILITY = Schema(Any('pure', 'view', 'constant', 'payable', 'nonpayable'))
 
 FUNC_PARAMETER = Schema({
         "name": str,
-        "type": str
+        "type": str,
+        Optional("components"): list, # if the "type" field is "tuple" or "type[]"
+        Optional("internalType"): str
     },
     required=True
 )
@@ -55,7 +57,7 @@ FUNCTION = Schema({
         "type": "function",
         "name": str,
         Optional("constant"): bool,
-        "payable": bool,
+        Optional("payable"): bool,
         "stateMutability": MUTABILITY,
         "inputs": [FUNC_PARAMETER],
         "outputs": [FUNC_PARAMETER]
