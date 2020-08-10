@@ -50,40 +50,6 @@ CLAUSE = Schema(
     extra=REMOVE_EXTRA
 )
 
-# class Clause():
-#     '''
-#     Clause type.
-#     Consists of the "destination", the "vet value" to pass to, and the "data" to pass to.
-#     '''
-
-#     def __init__(
-#         self,
-#         to: Union[str, None],
-#         value: Union[str, int],
-#         data: str
-#     ):
-#         '''
-#         Create a clause.
-
-#         Parameters
-#         ----------
-#         to : Union[str, None]
-#             Destination contract address, or set to None to create contract.
-#         value : Union[str, int]
-#             VET to pass to the call.
-#         data : str
-#             data for contract method invocation or deployment.
-#         '''
-#         self.to = to
-#         self.value = value
-#         self.data = data
-
-#     def to_dict(self) -> dict:
-#         return {
-#             "to": self.to,
-#             "value": self.value,
-#             "data": self.data
-#         }
 
 RESERVED = Schema(
     {
@@ -94,24 +60,6 @@ RESERVED = Schema(
     extra=REMOVE_EXTRA
 )
 
-# class Reserved():
-#     ''' Reserved type.
-#     Mark the transaction body if the new supplement features are used.
-#     '''
-
-#     def __init__(
-#             self,
-#             features: int = None,
-#             unused: List[int] = None):
-
-#         self.features = features
-#         self.unused = unused
-
-#     def to_dict(self) -> dict:
-#         return {
-#             "features": self.features,
-#             "unused": self.unused
-#         }
 
 BODY = Schema(
     {
@@ -128,57 +76,6 @@ BODY = Schema(
     required=True,
     extra=REMOVE_EXTRA
 )
-
-# class Body():
-#     ''' Body type.
-#     Consists of the structure of the body of a transaction.
-#     '''
-
-#     def __init__(
-#             self,
-#             chain_tag: int,
-#             block_ref: str,
-#             expiration: int,
-#             clauses: List[Clause],
-#             gas_price_coef: int,
-#             gas: Union[str, int],
-#             depends_on: Union[str, None],
-#             nonce: Union[str, int],
-#             reserved: Optional[Reserved] = None):
-
-#         self.chain_tag = chain_tag
-#         self.block_ref = block_ref
-#         self.expiration = expiration
-#         self.clauses = clauses
-#         self.gas_price_coef = gas_price_coef
-#         self.gas = gas
-#         self.depends_on = depends_on
-#         self.nonce = nonce
-#         self.reserved = reserved
-
-#     def to_dict(self) -> dict:
-#         d = {
-#             "chainTag": self.chain_tag,
-#             "blockRef": self.block_ref,
-#             "expiration": self.expiration,
-#             "clauses": [x.to_dict() for x in self.clauses],
-#             "gasPriceCoef": self.gas_price_coef,
-#             "gas": self.gas,
-#             "dependsOn": self.depends_on,
-#             "nonce": self.nonce
-#         }
-
-#         if self.reserved:
-#             r = {}
-#             if self.reserved.features:
-#                 r["features"] = self.reserved.features
-
-#             if self.reserved.unused:
-#                 r["unused"] = self.reserved.unused
-
-#             d['reserved'] = r
-
-#         return d
 
 
 def data_gas(data: str) -> int:
