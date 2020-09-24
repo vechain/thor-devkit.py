@@ -26,6 +26,8 @@ def remove_0x(address: str) -> str:
 
     if address.startswith("0x") or address.startswith("0X"):
         return address[2:]
+    else:
+        return address
 
 
 def is_uncompressed_public_key(key_bytes: bytes) -> bool:
