@@ -27,6 +27,7 @@ m / 44' / 818' / 0' / 0 / 0
 from typing import List
 from .mnemonic import derive_seed
 from .address import public_key_to_address
+from .utils import strip_0x04
 from bip_utils import Bip32, Bip32Utils, Base58Encoder
 from eth_keys import KeyAPI
 
@@ -38,13 +39,6 @@ VERSION_MAINNET_PRIVATE = bytes.fromhex('0488ADE4')
 DEPTH_MASTER_NODE = bytes.fromhex('00')
 FINGER_PRINT_MASTER_KEY = bytes.fromhex('00000000')
 CHILD_NUMBER_MASTER_KEY = bytes.fromhex('00000000')
-
-
-def _strip_0x04(p: bytes):
-    if len(p) == 65:
-        return p[1:]
-    else:
-        return p
 
 
 class HDNode():
@@ -147,7 +141,7 @@ class HDNode():
         fprint = FINGER_PRINT_MASTER_KEY
         index = CHILD_NUMBER_MASTER_KEY
         chain = chain_code
-        key_bytes = KeyAPI.PublicKey(_strip_0x04(pub)).to_compressed_bytes()
+        key_bytes = KeyAPI.PublicKey(strip_0x04(pub)).to_compressed_bytes()
 
         # assemble
         all_bytes = net_version + depth + fprint + index + chain + key_bytes
