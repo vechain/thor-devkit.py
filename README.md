@@ -490,22 +490,21 @@ r = ee.decode(
 ├── LICENSE
 ├── README.md
 ├── requirements.txt
-├── test.sh
-├── tests/
-└── thor_devkit/
-    ├── cry/
-    │   ├── __init__.py
-    │   ├── address.py
-    │   ├── blake2b.py
-    │   ├── hdnode.py
-    │   ├── keccak.py
-    │   ├── keystore.py
-    │   ├── mnemonic.py
-    │   └── secp256k1.py
+└── thor_devkit
     ├── __init__.py
     ├── abi.py
     ├── bloom.py
     ├── certificate.py
+    ├── cry
+    │   ├── __init__.py
+    │   ├── address.py
+    │   ├── blake2b.py
+    │   ├── hdnode.py
+    │   ├── keccak.py
+    │   ├── keystore.py
+    │   ├── mnemonic.py
+    │   ├── secp256k1.py
+    │   └── utils.py
     ├── rlp.py
     └── transaction.py
 ```
