@@ -1,8 +1,8 @@
-# VeChain Thor Devkit in Python 3
+# VeChain Thor Devkit (SDK) in Python 3
 
 Python 3 (Python 3.6+) library to assist smooth development on VeChain for developers and hobbyists.
 
-|  Content                                                  |
+|                          Content                          |
 | --------------------------------------------------------- |
 | Public key, private key, address conversion.              |
 | Mnemonic Wallets.                                         |
@@ -52,6 +52,25 @@ print( cry.to_checksum_address(address) )
 # 0x86d8CD908e43BC0076Bc99e19E1a3c6221436aD0
 ```
 
+### Sign & Verify Signature
+
+```python
+from thor_devkit import cry
+from thor_devkit.cry import secp256k1
+
+# bytes
+private_key = bytes.fromhex('7582be841ca040aa940fff6c05773129e135623e41acce3e0b8ba520dc1ae26a')
+# bytes
+msg_hash, _ = cry.keccak256([b'hello world'])
+
+# Sign the message hash.
+# bytes
+signature = secp256k1.sign(msg_hash, private_key)
+
+# Recover public key from given message hash and signature.
+# bytes
+public_key = secp256k1.recover(msg_hash, signature)
+```
 
 ### Mnemonic Wallet
 
@@ -71,12 +90,10 @@ seed = mnemonic.derive_seed(words)
 
 # Quickly get a private key.
 private_key = mnemonic.derive_private_key(words, 0)
-
-
 ```
 
-### HD Wallet (VET/BTC/ETH/LTC/EOS multi-coins supported.)
-Hierarchical Deterministic Wallets [bip-32](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki) and [bip-44](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki).
+### HD Wallet
+Hierarchical Deterministic Wallets. See [bip-32](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki) and [bip-44](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki).
 
 ```python
 from thor_devkit import cry
@@ -171,22 +188,6 @@ result2, length = cry.blake2b256([b'hello', b' world'])
 result, length = cry.keccak256([b'hello world'])
 result2, length = cry.keccak256([b'hello', b' world'])
 # result == result2
-```
-
-### Sign Message & Verify Signature
-
-```python
-from thor_devkit import cry
-from thor_devkit.cry import secp256k1
-
-private_key = bytes.fromhex('7582be841ca040aa940fff6c05773129e135623e41acce3e0b8ba520dc1ae26a')
-msg_hash, _ = cry.keccak256([b'hello world'])
-
-# Sign the message hash.
-signature = secp256k1.sign(msg_hash, private_key)
-
-# Recover public key from given message hash and signature.
-public_key = secp256k1.recover(msg_hash, signature)
 ```
 
 
