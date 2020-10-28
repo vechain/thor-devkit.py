@@ -68,6 +68,69 @@ f2 = abi.FUNCTION({
         "type": "function"
     })
 
+# Solidity
+# function getStr() public pure returns (string memory) {
+#     return "Hello World!";
+# }
+
+f3 = abi.FUNCTION({
+    "inputs": [],
+    "name": "getStr",
+    "outputs": [
+        {
+            "internalType": "string",
+            "name": "",
+            "type": "string"
+        }
+    ],
+    "stateMutability": "pure",
+    "type": "function"
+})
+
+# Solidity
+# function getBool() public pure returns (bool) {
+#     return true;
+# }
+f4 = abi.FUNCTION(
+	{
+		"inputs": [],
+		"name": "getBool",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "pure",
+		"type": "function"
+	}
+)
+
+# function getBigNumbers() public pure returns (uint256 a, int256 b) {
+#     return (123456, -123456);
+# }
+f5 = abi.FUNCTION(
+    {
+        "inputs": [],
+        "name": "getBigNumbers",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "a",
+                "type": "uint256"
+            },
+            {
+                "internalType": "int256",
+                "name": "b",
+                "type": "int256"
+            }
+        ],
+        "stateMutability": "pure",
+        "type": "function"
+    }
+)
+
 
 e1 = abi.EVENT({
     "anonymous": False,
@@ -189,6 +252,38 @@ def test_function():
     }
     assert expected == f.decode(bytes.fromhex('000000000000000000000000abc000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000003666f6f0000000000000000000000000000000000000000000000000000000000'))
 
+
+def test_string():
+    f = abi.Function(f3)
+    assert f.selector.hex() == 'b8c9e4ed'
+
+    expected = {
+        "0": "Hello World!"
+    }
+    assert expected == f.decode(bytes.fromhex('0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000c48656c6c6f20576f726c64210000000000000000000000000000000000000000'))
+
+
+def test_bool():
+    f = abi.Function(f4)
+    assert f.selector.hex() == '12a7b914'
+
+    expected = {
+        "0": True
+    }
+
+    assert expected == f.decode(bytes.fromhex('0000000000000000000000000000000000000000000000000000000000000001'))
+
+def test_big_number():
+    f = abi.Function(f5)
+    assert f.selector.hex() == 'ff0d6c7d'
+    expected = {
+        "0": 123456,
+        "1": -123456,
+        "a": 123456,
+        "b": -123456
+    }
+
+    assert expected == f.decode(bytes.fromhex('000000000000000000000000000000000000000000000000000000000001e240fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe1dc0'))
 
 # def test_abiv2():
 #     f = abi.Function(f2)
