@@ -378,7 +378,16 @@ class CompactFixedBlobKind(FixedBlobKind):
 
     def serialize(self, obj: str) -> bytes:
         b = super().serialize(obj)
-        b_list = [x for x in b if x != 0]
+        first_non_zero_index = -1
+        for idx, each in enumerate(b):
+            if each != 0:
+                first_non_zero_index = idx
+                break
+
+        b_list = []
+        if first_non_zero_index != -1:
+            b_list = b[first_non_zero_index:]
+
         if (len(b_list) == 0):
             return bytes(0)
         else:

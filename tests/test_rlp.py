@@ -165,12 +165,17 @@ def test_noneableFixedBlobKind_decode():
 
 def test_compact_fixed_blobkind_encode():
     kind = m_rlp.CompactFixedBlobKind(4)
+    # zero leading
     assert kind.serialize('0x00112233').hex() == '112233'
-
+    # zero in the middle
+    assert kind.serialize('0x11002233').hex() == '11002233'
 
 def test_compact_fixed_blobkind_decode():
     kind = m_rlp.CompactFixedBlobKind(4)
+    # should prefix the zeros
     assert kind.deserialize(bytes([1])) == '0x00000001'
+    # should prefix the zeros, and the middle zeros should not interfer.
+    assert kind.deserialize(bytes.fromhex('110022')) == '0x00110022'
 
 
 def test_compact_fixed_blobkind_encode_with_zero():
