@@ -187,11 +187,12 @@ delegated_body = {
     "dependsOn": None,
     "nonce": 12345678,
     "reserved": {
-        "features": 1
+        "features": 1,
+        "unused": [b'1234']
     }
 }
 
-delegated_tx = transaction.Transaction(delegated_body)
+delegated_tx = transaction.Transaction(copy.deepcopy(delegated_body))
 
 def test_features():
     assert unsigned.is_delegated() == False
@@ -217,3 +218,24 @@ def test_features():
 
     assert delegated_tx.get_origin() == '0x' + addr_1.hex()
     assert delegated_tx.get_delegator() == '0x' + addr_2.hex()
+
+# Well this is a dangerous part, we tests the "private" function.
+# Shouldn't recommend you to do the same, but I need to test it.
+def test_unused():
+    delegated_body_2 = copy.deepcopy(delegated_body)
+    delegated_body_2["reserved"]["unused"] = [bytes.fromhex("0F0F"), bytes.fromhex("0101")]
+    delegated_tx_2 = transaction.Transaction(delegated_body_2)
+    assert delegated_tx_2.is_delegated() == True
+    assert transaction.Transaction.decode(delegated_tx_2.encode(), True) == delegated_tx_2
+
+    reserved_list = delegated_tx_2._encode_reserved()
+    assert reserved_list == [bytes.fromhex("01"), bytes.fromhex("0F0F"), bytes.fromhex("0101")]
+
+    delegated_body_3 = copy.deepcopy(delegated_body)
+    delegated_body_3["reserved"]["unused"] = [bytes.fromhex("0F0F"), bytes(0)]
+    delegated_tx_3 = transaction.Transaction(delegated_body_3)
+    assert delegated_tx_3.is_delegated() == True
+
+    reserved_list = delegated_tx_3._encode_reserved()
+    assert reserved_list == [bytes.fromhex("01"), bytes.fromhex("0F0F")]
+    assert transaction.Transaction.decode(delegated_tx_3.encode(), True) == delegated_tx_3

@@ -54,7 +54,11 @@ CLAUSE = Schema(
 RESERVED = Schema(
     {
         Optional("features"): int, # int.
-        Optional("unused"): [int] # list of int.
+        Optional("unused"): [bytes]
+        # "unused" In TypeScript version is of type: Buffer[]
+        # Buffer itself is "byte[]",
+        # which is equivalent to "bytes"/"bytearray" in Python.
+        # So Buffer[] is "[bytes]"/"[bytearray]" in Python.
     },
     required=True,
     extra=REMOVE_EXTRA
@@ -137,6 +141,22 @@ def intrinsic_gas(clauses: List) -> int:
 
     return sum_total
 
+def right_trim_empty_bytes(m_list: List[bytes]) -> List:
+    ''' Given a list of bytes, remove the b'' from the tail of the list.'''
+    right_most_none_empty = None
+
+    for i in range(len(m_list) - 1, -1, -1):
+        if len(m_list[i]) != 0:
+            right_most_none_empty = i
+            break
+
+    if right_most_none_empty is None:  # not found the right most none-empty string item
+        return []
+
+    return_list = m_list[:right_most_none_empty+1]
+
+    return return_list
+
 
 class Transaction():
     # The reserved feature of delegated (vip-191) is 1.
@@ -158,22 +178,7 @@ class Transaction():
         l = reserved.get('unused') or []
         m_list = [FeaturesKind.serialize(f)] + l
 
-        # While some elements in the m_list is b'' or '',
-        # Then just right strip those '' from the list.
-        length_list = [len(x) for x in m_list]
-
-        right_most_none_empty = None
-        for i in range(len(length_list) - 1, -1, -1):
-            if length_list[i] != 0:
-                right_most_none_empty = i
-                break
-
-        if right_most_none_empty is None:  # not found the right most none-empty string item
-            return []
-
-        return_list = []
-        for y in range(0, right_most_none_empty + 1):
-            return_list.append(m_list[y])
+        return_list = right_trim_empty_bytes(m_list)
 
         return return_list
 
@@ -337,5 +342,5 @@ class Transaction():
     def __eq__(self, other):
         ''' Compare two tx to be the same? '''
         flag_1 = (self.signature == other.signature)
-        flag_2 = (self.body == other.body)
+        flag_2 = self.encode() == other.encode() # only because of ["reserved"]["unused"] may glitch.
         return flag_1 and flag_2
