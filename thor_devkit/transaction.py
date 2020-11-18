@@ -185,7 +185,9 @@ class Transaction():
     def get_signing_hash(self, delegate_for: str = None) -> bytes:
         reserved_list = self._encode_reserved()
         _temp = deepcopy(self.body)
-        _temp.update({"reserved": reserved_list})
+        _temp.update({
+            "reserved": reserved_list
+        })
         buff = ComplexCodec(UnsignedTxWrapper).encode(_temp)
         h, _ = blake2b256([buff])
 
@@ -276,18 +278,17 @@ class Transaction():
     def encode(self):
         ''' Encode the tx into bytes '''
         reserved_list = self._encode_reserved()
+        temp = deepcopy(self.body)
+        temp.update({
+            'reserved': reserved_list
+        })
+
         if self.signature:
-            temp = deepcopy(self.body)
             temp.update({
-                'reserved': reserved_list,
                 'signature': self.signature
             })
             return ComplexCodec(SignedTxWrapper).encode(temp)
         else:
-            temp = deepcopy(self.body)
-            temp.update({
-                'reserved': reserved_list
-            })
             return ComplexCodec(UnsignedTxWrapper).encode(temp)
 
     @staticmethod

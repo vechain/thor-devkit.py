@@ -574,12 +574,38 @@ def unpack(packed: Union[List, bytes], wrapper: Union[BaseWrapper, ScalarKind]) 
     raise Exception('wrapper type is unknown.')
 
 
+def pretty_print(packed: Union[bytes, List], indent: int):
+    ''' Debug function.
+    Input: [] or bytes, or [bytes, [], [bytes]]
+    Target: Pretty print the bytes into hex.
+    and print indentation of grouped list brackets.
+    '''
+    # indent of items 
+    internalIndent = 2
+
+    # bytes? Direct print it.
+    if isinstance(packed, (bytes, bytearray)):
+        if len(packed) == 0:
+            print(" " * (indent) + "(empty byte[])")
+        else:
+            print(" " * (indent) + packed.hex())
+        return
+    
+    # list?
+    if isinstance(packed, list):
+        print(" " * (indent) + "[")
+        for each in packed:
+            pretty_print(each, indent + internalIndent)
+        print(" " * (indent) + "]")
+
+
 class ComplexCodec(object):
     def __init__(self, wrapper: BaseWrapper):
         self.wrapper = wrapper
 
     def encode(self, data: Any) -> bytes:
         packed = pack(data, self.wrapper)
+        # pretty_print(packed, 0) # Uncomment for debugging.
         return rlp_encode(packed)
 
     def decode(self, data: bytes):

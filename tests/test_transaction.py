@@ -46,6 +46,14 @@ def test_unsigned():
 
     assert unsigned.get_intrinsic_gas() == 37432
 
+    assert unsigned.get_signature() == None
+
+    assert unsigned.get_origin() == None
+
+    assert unsigned.encode().hex() == unsigned_encoded.hex()
+
+    assert transaction.Transaction.decode(unsigned_encoded, True) == unsigned
+
     body_1 = copy.deepcopy(body)
     body_1['clauses'] = []
 
@@ -61,14 +69,6 @@ def test_unsigned():
     ]
 
     assert transaction.Transaction(body_2).get_intrinsic_gas() == 53000
-
-    assert unsigned.get_signature() == None
-
-    assert unsigned.get_origin() == None
-
-    assert unsigned.encode().hex() == unsigned_encoded.hex()
-
-    assert transaction.Transaction.decode(unsigned_encoded, True) == unsigned
 
 
 def test_empty_data():
