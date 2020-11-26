@@ -24,10 +24,6 @@ Python 3 (Python 3.6+) library to assist smooth development on VeChain for devel
 pip3 install thor-devkit -U
 ```
 
-# Changelog
-
-See [CHANGELOG.md](CHANGELOG.md)
-
 ***Caveat: Bip32 depends on the ripemd160 hash library, which should be present on your system.***
 
 # Tutorials
@@ -510,9 +506,19 @@ r = ee.decode(
     └── transaction.py
 ```
 
-## Testing
+## Development
 ```bash
-./test.sh
+mkdir .env && python3 -m venv .env # Make virtualenv
+
+source .env/bin/activate # Activate virtualenv
+
+pip3 install -r requirements.txt # Install packages.
+
+... write code ...
+
+./test.sh # Run tests
+
+deactivate # Get out of virtualenv
 ```
 
 ## Knowledge
