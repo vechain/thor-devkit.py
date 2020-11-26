@@ -6,7 +6,7 @@ from thor_devkit import rlp as m_rlp
 def test_bytesKind():
     kind = m_rlp.BytesKind()
 
-    assert kind.serialize(bytes.fromhex('ff')) == b'\xff'
+    assert kind.serialize(bytes.fromhex('ff')) == b'\xf'
     assert kind.serialize(bytes.fromhex('01ff')) == b'\x01\xff'
 
     assert kind.deserialize(bytes.fromhex('ff')) == b'\xff'
