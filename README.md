@@ -212,7 +212,7 @@ from thor_devkit import cry, transaction
 
 # See: https://docs.vechain.org/thor/learn/transaction-model.html#model
 body = {
-    "chainTag": 1, # See: https://docs.vechain.org/others/#network-identifier
+    "chainTag": int('0x4a', 16), # 0x4a/0x27/0xa4 See: https://docs.vechain.org/others/miscellaneous.html#network-identifier
     "blockRef": '0x00000000aabbccdd',
     "expiration": 32,
     "clauses": [
@@ -506,7 +506,7 @@ r = ee.decode(
     └── transaction.py
 ```
 
-## Development
+## Local Development
 ```bash
 mkdir .env && python3 -m venv .env # Make virtualenv
 
