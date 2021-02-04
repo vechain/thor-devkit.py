@@ -88,6 +88,9 @@ def derive_seed(words: List[str]) -> bytes:
     bytes
         64 bytes
     '''
+    if not validate(words):
+        raise ValueError("Input words doesn't pass validation check.")
+
     sentence = ' '.join(words)
     seed = Mnemonic.to_seed(sentence)  # bytes.
     return seed
