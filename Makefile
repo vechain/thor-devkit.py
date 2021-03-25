@@ -4,3 +4,8 @@ install:
 
 test:
 	. .env/bin/activate && python3 -m pytest -vv -s
+
+publish: test
+	rm -rf dist/*
+	. .env/bin/activate && python3 setup.py sdist bdist_wheel
+	. .env/bin/activate && python3 -m twine upload dist/*
