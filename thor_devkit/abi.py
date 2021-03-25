@@ -69,7 +69,8 @@ FUNCTION = Schema({
 EVENT_PARAMETER = Schema({
         "name": str,
         "type": str,
-        "indexed": bool
+        "indexed": bool,
+        Optional("internalType"): str  # since 0.5.11+
     },
     required=True
 )
@@ -285,7 +286,7 @@ class Event():
     def decode(self, data: bytes, topics: List[bytes]):
         ''' Decode "data" according to the "topic"s.
 
-        One output can contain an array of logs[].
+        One output can contain an array of logs.
         One log contains mainly 3 entries:
 
         - For a non-indexed parameters event:
