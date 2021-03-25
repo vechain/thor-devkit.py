@@ -147,6 +147,12 @@ class Function():
         self._definition = FUNCTION(f_definition) # Protect.
         self.selector = calc_function_selector(f_definition) # first 4 bytes.
     
+    def get_selector(self) -> bytes:
+        return self.selector
+    
+    def get_name(self) -> str:
+        return self._definition['name']
+    
     def encode(self, parameters: List, to_hex=False) -> Union[bytes, str]:
         '''Encode the paramters according to the function definition.
 
@@ -200,6 +206,12 @@ class Event():
         '''
         self._definition = EVENT(e_definition)
         self.signature = calc_event_topic(self._definition)
+    
+    def get_name(self) -> str:
+        return self._definition['name']
+
+    def get_signature(self) -> bytes:
+        return self.signature
 
     def encode(self, params: Union[dict, List]) -> List:
         '''Assemble indexed keys into topics.

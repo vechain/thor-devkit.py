@@ -241,6 +241,8 @@ def test_coder():
 def test_function():
     f = abi.Function(f1)
     assert f.selector.hex() == '27fcbb2f'
+    assert f.get_selector().hex() == '27fcbb2f'
+    assert f.get_name() == 'f1'
 
     assert f.encode([1, 'foo'], to_hex=True) == '0x27fcbb2f000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000003666f6f0000000000000000000000000000000000000000000000000000000000'
 
@@ -256,6 +258,8 @@ def test_function():
 def test_string():
     f = abi.Function(f3)
     assert f.selector.hex() == 'b8c9e4ed'
+    assert f.get_selector().hex() == 'b8c9e4ed'
+    assert f.get_name() == 'getStr'
 
     expected = {
         "0": "Hello World!"
@@ -266,6 +270,8 @@ def test_string():
 def test_bool():
     f = abi.Function(f4)
     assert f.selector.hex() == '12a7b914'
+    assert f.get_selector().hex() == '12a7b914'
+    assert f.get_name() == 'getBool'
 
     expected = {
         "0": True
@@ -276,6 +282,9 @@ def test_bool():
 def test_big_number():
     f = abi.Function(f5)
     assert f.selector.hex() == 'ff0d6c7d'
+    assert f.get_selector().hex() == 'ff0d6c7d'
+    assert f.get_name() == 'getBigNumbers'
+
     expected = {
         "0": 123456,
         "1": -123456,
@@ -296,6 +305,7 @@ def test_big_number():
 def test_event():
     e = abi.Event(e1)
     assert e.signature.hex() == '47b78f0ec63d97830ace2babb45e6271b15a678528e901a9651e45b65105e6c2'
+    assert e.get_signature().hex() == '47b78f0ec63d97830ace2babb45e6271b15a678528e901a9651e45b65105e6c2'
 
     assert e.decode(
         bytes.fromhex('00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000003666f6f0000000000000000000000000000000000000000000000000000000000'),
