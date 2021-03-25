@@ -508,17 +508,10 @@ r = ee.decode(
 
 ## Local Development
 ```bash
-mkdir .env && python3 -m venv .env # Make virtualenv
-
-source .env/bin/activate # Activate virtualenv
-
-pip3 install -r requirements.txt # Install packages.
-
-... write code ...
-
-./test.sh # Run tests
-
-deactivate # Get out of virtualenv
+# install dependencies
+make install
+# test code
+make test
 ```
 
 ## Knowledge

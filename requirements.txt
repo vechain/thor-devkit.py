@@ -1,5 +1,5 @@
 pysha3==1.0.2
-pytest==6.1.2
+pytest>=6.0.0
 ecdsa==0.16.1
 eth-keys==0.3.3
 mnemonic==0.19
