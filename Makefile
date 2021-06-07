@@ -3,7 +3,7 @@ install:
 	. .env/bin/activate && pip3 install -r requirements.txt
 
 test:
-	. .env/bin/activate && python3 -m pytest -vv -s
+	. .env/bin/activate && python3 -m pytest --cov=thor_devkit --no-cov-on-fail --cov-report=term-missing -vv -s
 
 publish: test
 	rm -rf dist/*
