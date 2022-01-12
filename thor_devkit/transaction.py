@@ -166,6 +166,22 @@ class Transaction():
         ''' Construct a transaction from a given body. '''
         self.body = BODY(body)
         self.signature = None
+    
+    def get_body(self, as_copy:bool = True):
+        '''
+        Get a dict of the body represents the transaction.
+        If as_copy, return a newly created dict.
+        If not, return the body used in this Transaction object.
+
+        Parameters
+        ----------
+        as_copy : bool, optional
+            Return a new dict clone of the body, by default True
+        '''
+        if as_copy:
+            return deepcopy(self.body)
+        else:
+            return self.body
 
     def _encode_reserved(self) -> List:
         r = self.body.get('reserved', None)

@@ -239,3 +239,12 @@ def test_unused():
     reserved_list = delegated_tx_3._encode_reserved()
     assert reserved_list == [bytes.fromhex("01"), bytes.fromhex("0F0F")]
     assert transaction.Transaction.decode(delegated_tx_3.encode(), True) == delegated_tx_3
+
+def test_body_copy():
+    b1 = copy.deepcopy(body)
+    tx = transaction.Transaction(b1)
+    b2 = tx.get_body(False)
+    b3 = tx.get_body(True)
+
+    assert id(b2) != id(b3) # id should be different
+    assert b2 == b3 # content should be the same
