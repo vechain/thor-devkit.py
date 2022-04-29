@@ -1,4 +1,4 @@
-'''
+"""
 Mnemonic Module.
 
 Generate/Validate a words used for mnemonic wallet.
@@ -6,7 +6,7 @@ Generate/Validate a words used for mnemonic wallet.
 Derive the first private key from words.
 
 Derive the correct seed for BIP32.
-'''
+"""
 
 from typing import List
 from mnemonic import Mnemonic
@@ -21,7 +21,7 @@ VET_PATH = "m/44'/818'/0'/0"
 
 
 def _get_key_path(base_path: str, index: int = 0) -> str:
-    return base_path.rstrip('/') + '/' + str(index)
+    return base_path.rstrip("/") + "/" + str(index)
 
 
 def _get_vet_key_path(index: int = 0) -> str:
@@ -29,7 +29,7 @@ def _get_vet_key_path(index: int = 0) -> str:
 
 
 def generate(strength: int = 128) -> List[str]:
-    '''
+    """
     Generate BIP39 mnemonic words.
 
     Parameters
@@ -46,18 +46,17 @@ def generate(strength: int = 128) -> List[str]:
     ------
     ValueError
         If the strength is not of correct length.
-    '''
+    """
     if strength not in [128, 160, 192, 224, 256]:
-        raise ValueError(
-            'strength should be one of [128, 160, 192, 224, 256].')
+        raise ValueError("strength should be one of [128, 160, 192, 224, 256].")
 
-    sentence = Mnemonic('english').generate(strength)
+    sentence = Mnemonic("english").generate(strength)
 
-    return sentence.split(' ')
+    return sentence.split(" ")
 
 
 def validate(words: List[str]) -> bool:
-    '''
+    """
     Check if the words form a valid BIP39 mnemonic words.
 
     Parameters
@@ -69,13 +68,13 @@ def validate(words: List[str]) -> bool:
     -------
     bool
         True/False
-    '''
-    sentence = ' '.join(words)
-    return Mnemonic('english').check(sentence)
+    """
+    sentence = " ".join(words)
+    return Mnemonic("english").check(sentence)
 
 
 def derive_seed(words: List[str]) -> bytes:
-    '''
+    """
     Derive a seed from a word list.
 
     Parameters
@@ -87,17 +86,17 @@ def derive_seed(words: List[str]) -> bytes:
     -------
     bytes
         64 bytes
-    '''
+    """
     if not validate(words):
         raise ValueError("Input words doesn't pass validation check.")
 
-    sentence = ' '.join(words)
+    sentence = " ".join(words)
     seed = Mnemonic.to_seed(sentence)  # bytes.
     return seed
 
 
 def derive_private_key(words: List[str], index: int = 0) -> bytes:
-    '''
+    """
     Get a private key from the mnemonic wallet,
     default to the 0 index of the deviration. (first key)
 
@@ -112,7 +111,7 @@ def derive_private_key(words: List[str], index: int = 0) -> bytes:
     -------
     bytes
         [description]
-    '''
+    """
     seed = derive_seed(words)
     bip32_ctx = Bip32.FromSeedAndPath(seed, _get_vet_key_path(index))
     return bip32_ctx.PrivateKey().Raw().ToBytes()
