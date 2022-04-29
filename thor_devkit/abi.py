@@ -19,6 +19,7 @@ int<M> M=8,16,...256
 address
 bool
 fixed<M>x<N> fixed256x18
+ufixed<M>x<N> ufixed256x18
 bytes<M> bytes32
 function 20bytes address + 4 bytes signature.
 
@@ -31,6 +32,8 @@ string
 <type>[]
 """
 
+from collections import namedtuple
+
 # voluptuous is a better library in validating dict.
 from voluptuous import Schema, Any, Optional
 from typing import List
@@ -38,9 +41,10 @@ from typing import Union
 import eth_utils
 import eth_abi
 from .cry import keccak256
+from .deprecation import deprecated_to_property
 
 
-MUTABILITY = Schema(Any("pure", "view", "constant", "payable", "nonpayable"))
+MUTABILITY = Schema(Any("pure", "view", "payable", "nonpayable"))
 
 
 FUNC_PARAMETER = Schema(
@@ -58,8 +62,6 @@ FUNCTION = Schema(
     {
         "type": "function",
         "name": str,
-        Optional("constant"): bool,
-        Optional("payable"): bool,
         "stateMutability": MUTABILITY,
         "inputs": [FUNC_PARAMETER],
         "outputs": [FUNC_PARAMETER],
@@ -72,6 +74,7 @@ EVENT_PARAMETER = Schema(
     {
         "name": str,
         "type": str,
+        Optional("components"): list,
         "indexed": bool,
         Optional("internalType"): str,  # since 0.5.11+
     },
@@ -154,16 +157,31 @@ class Function:
             See FUNCTION type in this document.
         """
         self._definition = FUNCTION(f_definition)  # Protect.
-        self.selector = calc_function_selector(f_definition)  # first 4 bytes.
+        self._selector = calc_function_selector(f_definition)  # first 4 bytes.
 
+    @property
+    def name(self) -> str:
+        return self._definition["name"]
+
+    @property
+    def selector(self) -> bytes:
+        return self._selector
+
+    @staticmethod
+    def _make_output_namedtuple_type(name: str, types: list) -> type:
+        top_names = [(t["name"] or f"ret_{i}") for i, t in enumerate(types)]
+        return namedtuple(name, top_names)
+
+    @deprecated_to_property
     def get_selector(self) -> bytes:
         return self.selector
 
+    @deprecated_to_property
     def get_name(self) -> str:
-        return self._definition["name"]
+        return self.name
 
     def encode(self, parameters: List, to_hex=False) -> Union[bytes, str]:
-        """Encode the paramters according to the function definition.
+        """Encode the parameters according to the function definition.
 
         Parameters
         ----------
@@ -184,24 +202,64 @@ class Function:
         else:
             return my_bytes
 
+    @classmethod
+    def make_proper_type(cls, elem: dict) -> dict:
+        """Convert dictionary type repr to type string (inline tuples)"""
+        if not elem["type"].startswith("tuple"):
+            return elem["type"]
+
+        return (
+            "({})".format(
+                ",".join(cls.make_proper_type(x) for x in elem["components"]),
+            )
+            + elem["type"][5:]
+        )
+        # It is elem["type"].removeprefix("tuple"), but compat. with python <3.9
+
+    def apply_recursive_names(
+        self,
+        value,
+        typeinfo: dict = None,
+        chain: list = None,
+        is_array: bool = False,
+    ) -> list:
+        """Convert dictionary type repr to type string (inline tuples)"""
+        type_ = typeinfo["type"]
+        chain = [*(chain or []), typeinfo["name"].title() or "NoName"]
+        if type_.endswith("]") and not is_array:
+            return [
+                self.apply_recursive_names(v, typeinfo, chain[:-1], True) for v in value
+            ]
+        elif type_.startswith("tuple"):
+            NewType = self._make_output_namedtuple_type(
+                "_".join(chain), typeinfo["components"]
+            )
+            return NewType(
+                *(
+                    self.apply_recursive_names(v, t, chain)
+                    for t, v in zip(typeinfo["components"], value)
+                )
+            )
+        else:
+            return value
+
     def decode(self, output_data: bytes) -> dict:
         """Decode function call output data back into human readable results.
 
         The result is in dual format. Contains both position and named index.
         eg. { '0': 'john', 'name': 'john' }
         """
-        my_types = [x["type"] for x in self._definition["outputs"]]
-        my_names = [x["name"] for x in self._definition["outputs"]]
-
+        my_types = [self.make_proper_type(x) for x in self._definition["outputs"]]
         result_list = Coder.decode_list(my_types, output_data)
 
-        r = {}
-        for idx, name in enumerate(my_names):
-            r[str(idx)] = result_list[idx]
-            if name:
-                r[name] = result_list[idx]
-
-        return r
+        outputs = self._definition["outputs"]
+        NewType = self._make_output_namedtuple_type("OutType", outputs)
+        return NewType(
+            *(
+                self.apply_recursive_names(value, typeinfo)
+                for typeinfo, value in zip(outputs, result_list)
+            )
+        )
 
 
 class Event:
