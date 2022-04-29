@@ -220,7 +220,7 @@ class NumericKind(ScalarKind, BigEndianInt):
         DeserializationError
             If bytes contain leading 0.
         """
-        if len(serial) > 0 and serial[0] == 0:
+        if serial and serial[0] == 0:
             raise DeserializationError("Leading 0 should be removed from bytes", serial)
 
         # add leading 0 to bytes sequence if width is set.
@@ -261,7 +261,7 @@ class BlobKind(ScalarKind):
         if not _is_hex_string(obj, False):
             raise SerializationError("expect 0x... style string", obj)
 
-        if len(obj) % 2 != 0:
+        if len(obj) % 2:
             raise SerializationError("expect 0x... style string of even length.", obj)
 
         obj2 = obj[2:]  # remove '0x'
@@ -348,7 +348,7 @@ class NoneableFixedBlobKind(FixedBlobKind):
         return super().serialize(obj)
 
     def deserialize(self, serial: bytes) -> str:
-        if len(serial) == 0:
+        if not serial:
             return None
 
         return super().deserialize(serial)
@@ -385,10 +385,7 @@ class CompactFixedBlobKind(FixedBlobKind):
         if first_non_zero_index != -1:
             b_list = b[first_non_zero_index:]
 
-        if len(b_list) == 0:
-            return bytes(0)
-        else:
-            return bytes(b_list)
+        return bytes(b_list if b_list else 0)
 
     def deserialize(self, serial: bytes) -> str:
         if len(serial) > self.byte_length:
@@ -396,7 +393,7 @@ class CompactFixedBlobKind(FixedBlobKind):
                 "Bytes too long, only need {}".format(self.byte_length), serial
             )
 
-        if len(serial) == 0 or serial[0] == 0:
+        if not serial or serial[0] == 0:
             raise DeserializationError(
                 "No leading zeros. And byte sequence length should be > 0", serial
             )

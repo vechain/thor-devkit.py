@@ -264,20 +264,20 @@ class Event:
         topics = []
 
         # not anonymous? topic[0] = signature.
-        if self._definition.get("anonymous", False) == False:
+        if not self._definition.get("anonymous", False):
             topics.append(self.signature)
 
         indexed_params = [x for x in self._definition["inputs"] if x["indexed"]]
         has_no_name_param = any([True for x in indexed_params if not x["name"]])
 
         # Check #1
-        if type(params) != list and has_no_name_param:
+        if not isinstance(params, list) and has_no_name_param:
             raise ValueError(
                 "Event definition contains param without a name, use a list of params instead of dict."
             )
 
         # Check #2
-        if type(params) == list and len(params) != len(indexed_params):
+        if isinstance(params, list) and len(params) != len(indexed_params):
             raise ValueError(
                 "Indexed params needs {} length, {} is given.".format(
                     len(indexed_params), len(params)
@@ -285,21 +285,21 @@ class Event:
             )
 
         # Check #3
-        if type(params) == dict and len(params.keys()) != len(indexed_params):
+        if isinstance(params, dict) and len(params.keys()) != len(indexed_params):
             raise ValueError(
                 "Indexed params needs {} keys, {} is given.".format(
                     len(indexed_params), len(params.keys())
                 )
             )
 
-        if type(params) == list:
+        if isinstance(params, list):
             for param, definition in zip(params, indexed_params):
                 if is_dynamic_type(definition["type"]):
                     topics.append(dynamic_type_to_topic(definition["type"], param))
                 else:
                     topics.append(Coder.encode_single(definition["type"], param))
 
-        if type(params) == dict:
+        if isinstance(params, dict):
             for definition in indexed_params:
                 value = params.get(definition["name"], None)
                 if value is None:
@@ -342,7 +342,7 @@ class Event:
         If the event is "anonymous" then the signature is not inserted into the "topics" list,
         hence topics[0] is not the signature.
         """
-        if self._definition.get("anonymous", False) == False:
+        if not self._definition.get("anonymous", False):
             # if not anonymous, topics[0] is the signature of event.
             # we cut it out, because we already have self.signature
             topics = topics[1:]

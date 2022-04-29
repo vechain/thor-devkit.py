@@ -28,7 +28,7 @@ from typing import List
 from .mnemonic import derive_seed
 from .address import public_key_to_address
 from .utils import strip_0x04
-from bip_utils import Bip32, Bip32Utils, Base58Encoder
+from bip_utils import Bip32, Base58Encoder
 from eth_keys import KeyAPI
 
 

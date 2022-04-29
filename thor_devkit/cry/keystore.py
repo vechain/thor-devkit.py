@@ -13,8 +13,9 @@ The "keystore" dict should contain following format:
 }
 
 """
-import re
 import eth_keyfile
+from .address import ADDRESS_RE
+
 
 N = 131072  # aka. work_factor
 P = 1
@@ -78,9 +79,6 @@ def _normalize(keystore: dict) -> dict:
         A keystore.
     """
     return keystore
-
-
-ADDRESS_RE = re.compile("^[0-9a-f]{40}$", re.I)
 
 
 def _validate(keystore: dict) -> bool:

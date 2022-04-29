@@ -9,6 +9,9 @@ from .keccak import keccak256
 from .utils import remove_0x, is_uncompressed_public_key
 
 
+ADDRESS_RE = re.compile("^0x[0-9a-f]{40}$", re.I)
+
+
 def public_key_to_address(key_bytes: bytes) -> bytes:
     """
     Derive an address from a public key
@@ -46,8 +49,7 @@ def is_address(address: str) -> bool:
         If it is valid address.
     """
 
-    c = re.compile("^0x[0-9a-f]{40}$", re.I)
-    if c.match(address):
+    if ADDRESS_RE.match(address):
         return True
     else:
         return False

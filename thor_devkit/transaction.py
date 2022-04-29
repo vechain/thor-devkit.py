@@ -116,7 +116,6 @@ def data_gas(data: str) -> int:
         else:
             sum_up += NZ_GAS
 
-    # print('sum_up', sum_up)
     return sum_up
 
 
@@ -138,7 +137,7 @@ def intrinsic_gas(clauses: List) -> int:
     CLAUSE_GAS = 16000
     CLAUSE_CONTRACT_CREATION = 48000
 
-    if len(clauses) == 0:
+    if not clauses:
         return TX_GAS + CLAUSE_GAS
 
     sum_total = 0
@@ -207,8 +206,8 @@ class Transaction:
             reserved = self.body["reserved"]
 
         f = reserved.get("features") or 0
-        l = reserved.get("unused") or []
-        m_list = [FeaturesKind.serialize(f)] + l
+        unused = reserved.get("unused") or []
+        m_list = [FeaturesKind.serialize(f)] + unused
 
         return_list = right_trim_empty_bytes(m_list)
 

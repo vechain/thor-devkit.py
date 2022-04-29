@@ -1,4 +1,4 @@
-""" 
+"""
 User signed certificate.
 
 https://github.com/vechain/VIPs/blob/master/vips/VIP-192.md
@@ -61,7 +61,7 @@ class Certificate:
 
 
 def safe_tolowercase(s: str):
-    if type(s) == str:
+    if isinstance(s, str):
         return s.lower()
     else:
         return s
