@@ -1,0 +1,12 @@
+[flake8]
+exclude =
+    .git,
+    .github,
+    __pycache__,
+    .pytest_cache,
+    .env,
+    env,
+    .pyenv,
+    pyenv,
+    *.egg_info
+max_line_length = 88

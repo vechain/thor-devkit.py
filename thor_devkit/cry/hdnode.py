@@ -25,12 +25,13 @@ m / 44' / 818' / 0' / 0 / 0
 
 """
 from typing import List
-from .mnemonic import derive_seed
-from .address import public_key_to_address
-from .utils import strip_0x04
-from bip_utils import Bip32, Base58Encoder
+
+from bip_utils import Base58Encoder, Bip32
 from eth_keys import KeyAPI
 
+from .address import public_key_to_address
+from .mnemonic import derive_seed
+from .utils import strip_0x04
 
 VET_EXTERNAL_PATH = "m/44'/818'/0'/0"
 

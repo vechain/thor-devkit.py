@@ -1,0 +1,37 @@
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v3.2.0
+    hooks:
+    -   id: trailing-whitespace
+    -   id: end-of-file-fixer
+    -   id: debug-statements
+    -   id: check-merge-conflict
+-   repo: https://github.com/pre-commit/mirrors-isort
+    rev: v5.9.3
+    hooks:
+      - id: isort
+        name: isort
+        args: ["--profile", "black"]
+-   repo: https://github.com/psf/black
+    rev: 22.3.0
+    hooks:
+      - id: black
+-   repo: https://gitlab.com/pycqa/flake8
+    rev: 3.9.2
+    hooks:
+      - id: flake8
+-   repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: mypy --config=mypy.ini --cache-dir=/dev/null --no-incremental
+        language: system
+        types: [ python ]
+        exclude: "tests/"
+      - id: pytest
+        name: pytest
+        entry: pytest --cov=thor_devkit --no-cov-on-fail --cov-report=term-missing -vv -s
+        language: system
+        types: [ python ]
+        pass_filenames: false
+        exclude: "setup.py"

@@ -3,13 +3,12 @@ User signed certificate.
 
 https://github.com/vechain/VIPs/blob/master/vips/VIP-192.md
 """
-from typing import Optional
+import copy
 import json
 import re
-import copy
-from .cry import blake2b256
-from .cry import secp256k1
-from .cry import address
+from typing import Optional
+
+from .cry import address, blake2b256, secp256k1
 
 
 class Certificate:
@@ -38,7 +37,8 @@ class Certificate:
         signer : str
             0x... the signer address.
         signature : Optional[str], optional
-            A secp256k1 signed bytes, but turned into a '0x' + bytes.hex() format, by default None
+            A secp256k1 signed bytes, but turned into a '0x' + bytes.hex() format,
+            by default None
         """
         if not payload.get("type"):
             raise ValueError('payload needs a string field "type"')

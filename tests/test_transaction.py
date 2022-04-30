@@ -1,5 +1,7 @@
 import copy
+
 import pytest
+
 from thor_devkit import cry, transaction
 
 body = {
@@ -26,12 +28,18 @@ body = {
 
 unsigned = transaction.Transaction(body)
 unsigned_encoded = bytes.fromhex(
-    "f8540184aabbccdd20f840df947567d83b7b8d80addcb281a71d54fc7b3364ffed82271086000000606060df947567d83b7b8d80addcb281a71d54fc7b3364ffed824e208600000060606081808252088083bc614ec0"
+    "f8540184aabbccdd20f840df947567d83b7b8d80addcb281a71d54fc7b3364ff"
+    "ed82271086000000606060df947567d83b7b8d80addcb281a71d54fc7b3364ff"
+    "ed824e208600000060606081808252088083bc614ec0"
 )
 
 signed = transaction.Transaction(body)
 signed_encoded = bytes.fromhex(
-    "f8970184aabbccdd20f840df947567d83b7b8d80addcb281a71d54fc7b3364ffed82271086000000606060df947567d83b7b8d80addcb281a71d54fc7b3364ffed824e208600000060606081808252088083bc614ec0b841f76f3c91a834165872aa9464fc55b03a13f46ea8d3b858e528fcceaf371ad6884193c3f313ff8effbb57fe4d1adc13dceb933bedbf9dbb528d2936203d5511df00"
+    "f8970184aabbccdd20f840df947567d83b7b8d80addcb281a71d54fc7b3364ff"
+    "ed82271086000000606060df947567d83b7b8d80addcb281a71d54fc7b3364ff"
+    "ed824e208600000060606081808252088083bc614ec0b841f76f3c91a8341658"
+    "72aa9464fc55b03a13f46ea8d3b858e528fcceaf371ad6884193c3f313ff8eff"
+    "bb57fe4d1adc13dceb933bedbf9dbb528d2936203d5511df00"
 )
 priv_key = bytes.fromhex(
     "7582be841ca040aa940fff6c05773129e135623e41acce3e0b8ba520dc1ae26a"
@@ -59,9 +67,9 @@ def test_unsigned():
 
     assert unsigned.get_intrinsic_gas() == 37432
 
-    assert unsigned.get_signature() == None
+    assert unsigned.get_signature() is None
 
-    assert unsigned.get_origin() == None
+    assert unsigned.get_origin() is None
 
     assert unsigned.encode().hex() == unsigned_encoded.hex()
 
@@ -152,9 +160,9 @@ def test_invalid_body():
 
 
 def test_signed():
-    assert (
-        signed.get_signature().hex()
-        == "f76f3c91a834165872aa9464fc55b03a13f46ea8d3b858e528fcceaf371ad6884193c3f313ff8effbb57fe4d1adc13dceb933bedbf9dbb528d2936203d5511df00"
+    assert signed.get_signature().hex() == (
+        "f76f3c91a834165872aa9464fc55b03a13f46ea8d3b858e528fcceaf371ad6884"
+        "193c3f313ff8effbb57fe4d1adc13dceb933bedbf9dbb528d2936203d5511df00"
     )
     assert signed.get_origin() == "0x" + signer.hex()
     assert (
@@ -182,8 +190,8 @@ def test_encode_decode():
 def test_incorrectly_signed():
     tx = transaction.Transaction(body)
     tx.set_signature(bytes([1, 2, 3]))
-    assert tx.get_origin() == None
-    assert tx.get_id() == None
+    assert tx.get_origin() is None
+    assert tx.get_id() is None
 
 
 delegated_body = {
@@ -213,8 +221,8 @@ delegated_tx = transaction.Transaction(copy.deepcopy(delegated_body))
 
 
 def test_features():
-    assert unsigned.is_delegated() == False
-    assert delegated_tx.is_delegated() == True
+    assert not unsigned.is_delegated()
+    assert delegated_tx.is_delegated()
 
     # Sender
     # priv_1 = cry.secp256k1.generate_privateKey()
@@ -251,7 +259,7 @@ def test_unused():
         bytes.fromhex("0101"),
     ]
     delegated_tx_2 = transaction.Transaction(delegated_body_2)
-    assert delegated_tx_2.is_delegated() == True
+    assert delegated_tx_2.is_delegated()
     assert (
         transaction.Transaction.decode(delegated_tx_2.encode(), True) == delegated_tx_2
     )
@@ -266,7 +274,7 @@ def test_unused():
     delegated_body_3 = copy.deepcopy(delegated_body)
     delegated_body_3["reserved"]["unused"] = [bytes.fromhex("0F0F"), bytes(0)]
     delegated_tx_3 = transaction.Transaction(delegated_body_3)
-    assert delegated_tx_3.is_delegated() == True
+    assert delegated_tx_3.is_delegated()
 
     reserved_list = delegated_tx_3._encode_reserved()
     assert reserved_list == [bytes.fromhex("01"), bytes.fromhex("0F0F")]

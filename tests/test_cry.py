@@ -1,7 +1,5 @@
 from thor_devkit import cry
-from thor_devkit.cry import secp256k1
-from thor_devkit.cry import mnemonic
-from thor_devkit.cry import keystore
+from thor_devkit.cry import keystore, mnemonic, secp256k1
 
 
 def test_utils():
@@ -13,7 +11,7 @@ def test_utils():
     ]
 
     for addr in address:
-        assert cry.utils.remove_0x(addr).startswith("0x") == False
+        assert not cry.utils.remove_0x(addr).startswith("0x")
 
     # no 0x at all
     assert (
@@ -67,7 +65,8 @@ def test_derive_public_key():
         "7582be841ca040aa940fff6c05773129e135623e41acce3e0b8ba520dc1ae26a"
     )
     pub = bytes.fromhex(
-        "04b90e9bb2617387eba4502c730de65a33878ef384a46f1096d86f2da19043304afa67d0ad09cf2bea0c6f2d1767a9e62a7a7ecc41facf18f2fa505d92243a658f"
+        "04b90e9bb2617387eba4502c730de65a33878ef384a46f1096d86f2da19043304"
+        "afa67d0ad09cf2bea0c6f2d1767a9e62a7a7ecc41facf18f2fa505d92243a658f"
     )
     _pub = secp256k1.derive_publicKey(priv)
     assert pub.hex() == _pub.hex()
@@ -75,7 +74,8 @@ def test_derive_public_key():
 
 def test_public_key_to_address():
     pub = bytes.fromhex(
-        "04b90e9bb2617387eba4502c730de65a33878ef384a46f1096d86f2da19043304afa67d0ad09cf2bea0c6f2d1767a9e62a7a7ecc41facf18f2fa505d92243a658f"
+        "04b90e9bb2617387eba4502c730de65a33878ef384a46f1096d86f2da19043304"
+        "afa67d0ad09cf2bea0c6f2d1767a9e62a7a7ecc41facf18f2fa505d92243a658f"
     )
     address = cry.public_key_to_address(pub)
     assert "0x" + address.hex() == "0xd989829d88b0ed1b06edf5c50174ecfa64f14a64"
@@ -83,7 +83,8 @@ def test_public_key_to_address():
 
 def test_sign_hash():
     pub = bytes.fromhex(
-        "04b90e9bb2617387eba4502c730de65a33878ef384a46f1096d86f2da19043304afa67d0ad09cf2bea0c6f2d1767a9e62a7a7ecc41facf18f2fa505d92243a658f"
+        "04b90e9bb2617387eba4502c730de65a33878ef384a46f1096d86f2da19043304"
+        "afa67d0ad09cf2bea0c6f2d1767a9e62a7a7ecc41facf18f2fa505d92243a658f"
     )
     priv = bytes.fromhex(
         "7582be841ca040aa940fff6c05773129e135623e41acce3e0b8ba520dc1ae26a"
@@ -91,9 +92,9 @@ def test_sign_hash():
     msg_hash, _ = cry.keccak256([b"hello world"])
 
     sig = cry.secp256k1.sign(msg_hash, priv)
-    assert (
-        sig.hex()
-        == "f8fe82c74f9e1f5bf443f8a7f8eb968140f554968fdcab0a6ffe904e451c8b9244be44bccb1feb34dd20d9d8943f8c131227e55861736907b02d32c06b934d7200"
+    assert sig.hex() == (
+        "f8fe82c74f9e1f5bf443f8a7f8eb968140f554968fdcab0a6ffe904e451c8b924"
+        "4be44bccb1feb34dd20d9d8943f8c131227e55861736907b02d32c06b934d7200"
     )
 
     _pub = cry.secp256k1.recover(msg_hash, sig)
@@ -104,7 +105,10 @@ def test_mnemonic():
     SENTENCE = (
         "ignore empty bird silly journey junior ripple have guard waste between tenant"
     )
-    SEED = "28bc19620b4fbb1f8892b9607f6e406fcd8226a0d6dc167ff677d122a1a64ef936101a644e6b447fd495677f68215d8522c893100d9010668614a68b3c7bb49f"
+    SEED = (
+        "28bc19620b4fbb1f8892b9607f6e406fcd8226a0d6dc167ff677d122a1a64ef9"
+        "36101a644e6b447fd495677f68215d8522c893100d9010668614a68b3c7bb49f"
+    )
     PRIV = "27196338e7d0b5e7bf1be1c0327c53a244a18ef0b102976980e341500f492425"
 
     # Random Generate.
@@ -113,18 +117,18 @@ def test_mnemonic():
 
     # Valid: True
     words = SENTENCE.split(" ")
-    assert mnemonic.validate(words) == True
+    assert mnemonic.validate(words)
 
     # Valid: True
-    assert mnemonic.validate(mnemonic.generate()) == True
+    assert mnemonic.validate(mnemonic.generate())
 
     # Valid: False
     words2 = "hello word".split(" ")
-    assert mnemonic.validate(words2) == False
+    assert not mnemonic.validate(words2)
 
     # Valid: False
     words3 = sorted(SENTENCE.split(" "))
-    assert mnemonic.validate(words3) == False
+    assert not mnemonic.validate(words3)
 
     # Seed generated from words.
     assert mnemonic.derive_seed(words) == bytes.fromhex(SEED)
@@ -142,13 +146,17 @@ def test_keystore():
             "kdf": "scrypt",
             "kdfparams": {
                 "dklen": 32,
-                "salt": "b57682e5468934be81217ad5b14ca74dab2b42c2476864592c9f3b370c09460a",
+                "salt": (
+                    "b57682e5468934be81217ad5b14ca74dab2b42c2476864592c9f3b370c09460a"
+                ),
                 "n": 262144,
                 "r": 8,
                 "p": 1,
             },
             "cipher": "aes-128-ctr",
-            "ciphertext": "88cb876f9c0355a89cad88ee7a17a2179700bc4306eaf78fa67320efbb4c7e31",
+            "ciphertext": (
+                "88cb876f9c0355a89cad88ee7a17a2179700bc4306eaf78fa67320efbb4c7e31"
+            ),
             "cipherparams": {"iv": "de5c0c09c882b3f679876b22b6c5af21"},
             "mac": "8426e8a1e151b28f694849cb31f64cbc9ae3e278d02716cf5b61d7ddd3f6e728",
         },
@@ -193,5 +201,5 @@ def test_hdnode():
     n2 = cry.HDNode.from_public_key(pub, cc)
 
     for idx, address in enumerate(addresses):
-        child_node = n.derive(idx)
+        child_node = n2.derive(idx)
         assert child_node.address().hex() == address

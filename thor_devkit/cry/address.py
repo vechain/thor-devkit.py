@@ -5,9 +5,9 @@ VeChain "public key" and "address" related operations and verifications.
 """
 
 import re
-from .keccak import keccak256
-from .utils import remove_0x, is_uncompressed_public_key
 
+from .keccak import keccak256
+from .utils import is_uncompressed_public_key, remove_0x
 
 ADDRESS_RE = re.compile("^0x[0-9a-f]{40}$", re.I)
 

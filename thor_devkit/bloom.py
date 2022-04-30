@@ -15,6 +15,7 @@ n = number of elements to be added to the filter.
 """
 import math
 from typing import Callable
+
 from .cry import blake2b256
 
 

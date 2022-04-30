@@ -1,7 +1,6 @@
 import pytest
-from itertools import zip_longest
-from thor_devkit import abi
-from thor_devkit import cry
+
+from thor_devkit import abi, cry
 
 
 # *********************** FIXTURES **************************

@@ -3,21 +3,22 @@ Transaction class defines VeChain's multi-clause transaction (tx).
 
 This module defines data structure of a tx, and the encoding/decoding of tx data.
 """
-from voluptuous import Schema, Any, Optional, REMOVE_EXTRA
-from typing import Union, List
 from copy import deepcopy
+from typing import List, Union
+
+from voluptuous import REMOVE_EXTRA, Any, Optional, Schema
+
+from .cry import address, blake2b256, secp256k1
 from .rlp import (
-    NumericKind,
-    CompactFixedBlobKind,
-    NoneableFixedBlobKind,
     BlobKind,
     BytesKind,
+    CompactFixedBlobKind,
+    ComplexCodec,
+    DictWrapper,
+    HomoListWrapper,
+    NoneableFixedBlobKind,
+    NumericKind,
 )
-from .rlp import DictWrapper, HomoListWrapper
-from .rlp import ComplexCodec
-from .cry import blake2b256
-from .cry import secp256k1
-from .cry import address
 
 # Kind Definitions
 # Used for VeChain's "reserved features" kind.
@@ -248,7 +249,7 @@ class Transaction:
             my_sign_hash = self.get_signing_hash()
             pub_key = secp256k1.recover(my_sign_hash, self.get_signature()[0:65])
             return "0x" + address.public_key_to_address(pub_key).hex()
-        except:
+        except Exception:
             return None
 
     def get_delegator(self) -> Union[None, str]:
@@ -266,7 +267,7 @@ class Transaction:
             my_sign_hash = self.get_signing_hash(origin)
             pub_key = secp256k1.recover(my_sign_hash, self.get_signature()[65:])
             return "0x" + address.public_key_to_address(pub_key).hex()
-        except:
+        except Exception:
             return None
 
     def is_delegated(self):
@@ -301,7 +302,7 @@ class Transaction:
             pub_key = secp256k1.recover(my_sign_hash, self.get_signature()[0:65])
             origin = address.public_key_to_address(pub_key)
             return "0x" + blake2b256([my_sign_hash, origin])[0].hex()
-        except:
+        except Exception:
             return None
 
     def encode(self):

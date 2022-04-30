@@ -7,9 +7,8 @@ secp256k1 Elliptic Curve related functions.
 4) Given the message hash and signature, recover the uncompressed public key.
 """
 
-from ecdsa import SigningKey, SECP256k1
+from ecdsa import SECP256k1, SigningKey
 from eth_keys import KeyAPI
-
 
 MAX = bytes.fromhex("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141")
 ZERO = bytes.fromhex("0" * 64)

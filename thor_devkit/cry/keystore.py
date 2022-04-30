@@ -14,8 +14,8 @@ The "keystore" dict should contain following format:
 
 """
 import eth_keyfile
-from .address import ADDRESS_RE
 
+from .address import ADDRESS_RE
 
 N = 131072  # aka. work_factor
 P = 1

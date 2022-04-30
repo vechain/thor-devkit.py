@@ -44,7 +44,7 @@ print( address )
 # 0x86d8cd908e43bc0076bc99e19e1a3c6221436ad0
 print('is address?', cry.is_address(address))
 # is address? True
-print( cry.to_checksum_address(address) ) 
+print( cry.to_checksum_address(address) )
 # 0x86d8CD908e43BC0076Bc99e19E1a3c6221436aD0
 ```
 

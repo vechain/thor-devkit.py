@@ -32,15 +32,17 @@ string
 <type>[]
 """
 
+import sys
 from abc import ABC, abstractmethod
 from collections import namedtuple
+from typing import List, Union
+
+import eth_abi
+import eth_utils
 
 # voluptuous is a better library in validating dict.
-from voluptuous import Schema, Any, Optional
-from typing import List, Union
-import eth_utils
-import eth_abi
-import sys
+from voluptuous import Any, Optional, Schema
+
 from .cry import keccak256
 from .deprecation import deprecated_to_property
 
@@ -465,8 +467,8 @@ class Event(Encodable):
             ]
             "data": "0x..." (remain un-indexed parameters value)
 
-        If the event is "anonymous" then the signature is not inserted into the "topics" list,
-        hence topics[0] is not the signature.
+        If the event is "anonymous" then the signature is not inserted into
+        the "topics" list, hence topics[0] is not the signature.
         """
         if not self.anonymous:
             # if not anonymous, topics[0] is the signature of event.

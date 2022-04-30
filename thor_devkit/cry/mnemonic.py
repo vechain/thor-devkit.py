@@ -9,8 +9,9 @@ Derive the correct seed for BIP32.
 """
 
 from typing import List
-from mnemonic import Mnemonic
+
 from bip_utils import Bip32
+from mnemonic import Mnemonic
 
 # BIP-44 specified path notation:
 # m / purpose' / coin_type' / account' / change / address_index

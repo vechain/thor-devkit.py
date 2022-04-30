@@ -31,15 +31,13 @@ real world object => "item" conversion.
  "real world object" +--------------> item
 
 """
-from typing import Tuple
-from typing import Union
-from typing import List
-from typing import Any
 import re
-from rlp.sedes import BigEndianInt
-from rlp.exceptions import DeserializationError, SerializationError
-from rlp import encode as rlp_encode
+from typing import Any, List, Tuple, Union
+
 from rlp import decode as rlp_decode
+from rlp import encode as rlp_encode
+from rlp.exceptions import DeserializationError, SerializationError
+from rlp.sedes import BigEndianInt
 
 
 def _is_hex_string(a: str, must_contain_data: bool) -> bool:

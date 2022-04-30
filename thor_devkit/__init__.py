@@ -1,1 +1,1 @@
-from .bloom import Bloom
+from .bloom import Bloom  # noqa: F401

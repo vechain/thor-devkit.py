@@ -4,8 +4,9 @@ Keccak
 Keccak hash function.
 """
 
-import sha3  # pysha3
 from typing import List, Tuple
+
+import sha3  # pysha3
 
 
 def keccak256(list_of_bytes: List[bytes]) -> Tuple[bytes, int]:

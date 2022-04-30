@@ -1,7 +1,8 @@
 import copy
+
 import pytest
-from thor_devkit import certificate
-from thor_devkit import cry
+
+from thor_devkit import certificate, cry
 
 PRIV_KEY = bytes.fromhex(
     "7582be841ca040aa940fff6c05773129e135623e41acce3e0b8ba520dc1ae26a"
