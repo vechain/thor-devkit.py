@@ -32,16 +32,22 @@ string
 <type>[]
 """
 
+from abc import ABC, abstractmethod
 from collections import namedtuple
 
 # voluptuous is a better library in validating dict.
 from voluptuous import Schema, Any, Optional
-from typing import List
-from typing import Union
+from typing import List, Union
 import eth_utils
 import eth_abi
+import sys
 from .cry import keccak256
 from .deprecation import deprecated_to_property
+
+if sys.version_info < (3, 8):
+    from typing_extensions import Literal
+else:
+    from typing import Literal
 
 
 MUTABILITY = Schema(Any("pure", "view", "payable", "nonpayable"))
@@ -92,25 +98,16 @@ EVENT = Schema(
 )
 
 
-def is_dynamic_type(t: str):
-    """Check if the input type is dynamic"""
-    if t == "bytes" or t == "string" or t.endswith("[]"):
-        return True
-    else:
-        return False
-
-
-def dynamic_type_to_topic(t_type: str, value):
-    if t_type == "string":
-        return keccak256([value.encode("utf-8")])[0]
-    elif t_type == "bytes":
-        return keccak256([value])[0]
-    else:
-        raise ValueError(
-            "complex value type {} is not supported yet, open an issue on Github.".format(
-                t_type
+class FunctionResultMixin:
+    def to_dict(self) -> dict:
+        return {
+            k: (
+                v.to_dict()
+                if isinstance(v, FunctionResultMixin)
+                else ([v_.to_dict() for v_ in v] if isinstance(v, list) else v)
             )
-        )
+            for k, v in self._asdict().items()
+        }
 
 
 def calc_function_selector(abi_json: dict) -> bytes:
@@ -147,7 +144,82 @@ class Coder:
         return Coder.decode_list([t], data)[0]
 
 
-class Function:
+class Encodable(ABC):
+    @property
+    def name(self) -> str:
+        return self._definition["name"]
+
+    @deprecated_to_property
+    def get_name(self) -> str:
+        return self.name
+
+    @abstractmethod
+    def encode(self, parameters: List, to_hex=False) -> Union[bytes, str]:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def decode(self, output_data: bytes) -> dict:
+        raise NotImplementedError()
+
+    @classmethod
+    def make_proper_type(cls, elem: dict) -> dict:
+        """Convert dictionary type repr to type string (inline tuples)"""
+        if not elem["type"].startswith("tuple"):
+            return elem["type"]
+
+        return (
+            "({})".format(
+                ",".join(cls.make_proper_type(x) for x in elem["components"]),
+            )
+            + elem["type"][5:]
+        )
+        # It is elem["type"].removeprefix("tuple"), but compat. with python <3.9
+
+    @staticmethod
+    def _make_output_namedtuple_type(name: str, types: list) -> type:
+        top_names = [(t["name"] or f"ret_{i}") for i, t in enumerate(types)]
+        return type(name, (namedtuple(name, top_names), FunctionResultMixin), {})
+
+    @staticmethod
+    def get_array_dimensions_count(type_: str) -> int:
+        # We don't have to support nested stuff like (uint256, bool[4])[],
+        # because type in JSON will be tuple[], uint256 and bool[4] in this case
+        # without nesting in string
+        return type_.count("[")
+
+    def apply_recursive_names(
+        self,
+        value,
+        typeinfo: dict = None,
+        chain: list = None,
+        array_depth: int = 0,
+    ) -> list:
+        """Convert dictionary type repr to type string (inline tuples)"""
+        type_ = typeinfo["type"]
+
+        if not type_.startswith("tuple"):
+            return value
+
+        chain = [*(chain or []), typeinfo["name"].title() or "NoName"]
+
+        if self.get_array_dimensions_count(type_) > array_depth:
+            return [
+                self.apply_recursive_names(v, typeinfo, chain[:-1], array_depth + 1)
+                for v in value
+            ]
+
+        NewType = self._make_output_namedtuple_type(
+            "_".join(chain), typeinfo["components"]
+        )
+        return NewType(
+            *(
+                self.apply_recursive_names(v, t, chain)
+                for t, v in zip(typeinfo["components"], value)
+            )
+        )
+
+
+class Function(Encodable):
     def __init__(self, f_definition: dict):
         """Initialize a function by definition.
 
@@ -160,25 +232,12 @@ class Function:
         self._selector = calc_function_selector(f_definition)  # first 4 bytes.
 
     @property
-    def name(self) -> str:
-        return self._definition["name"]
-
-    @property
     def selector(self) -> bytes:
         return self._selector
-
-    @staticmethod
-    def _make_output_namedtuple_type(name: str, types: list) -> type:
-        top_names = [(t["name"] or f"ret_{i}") for i, t in enumerate(types)]
-        return namedtuple(name, top_names)
 
     @deprecated_to_property
     def get_selector(self) -> bytes:
         return self.selector
-
-    @deprecated_to_property
-    def get_name(self) -> str:
-        return self.name
 
     def encode(self, parameters: List, to_hex=False) -> Union[bytes, str]:
         """Encode the parameters according to the function definition.
@@ -195,53 +254,12 @@ class Function:
         Union[bytes, str]
             Return bytes or '0x...' hex string if needed.
         """
-        my_types = [x["type"] for x in self._definition["inputs"]]
+        my_types = [self.make_proper_type(x) for x in self._definition["inputs"]]
         my_bytes = self.selector + Coder.encode_list(my_types, parameters)
         if to_hex:
             return "0x" + my_bytes.hex()
         else:
             return my_bytes
-
-    @classmethod
-    def make_proper_type(cls, elem: dict) -> dict:
-        """Convert dictionary type repr to type string (inline tuples)"""
-        if not elem["type"].startswith("tuple"):
-            return elem["type"]
-
-        return (
-            "({})".format(
-                ",".join(cls.make_proper_type(x) for x in elem["components"]),
-            )
-            + elem["type"][5:]
-        )
-        # It is elem["type"].removeprefix("tuple"), but compat. with python <3.9
-
-    def apply_recursive_names(
-        self,
-        value,
-        typeinfo: dict = None,
-        chain: list = None,
-        is_array: bool = False,
-    ) -> list:
-        """Convert dictionary type repr to type string (inline tuples)"""
-        type_ = typeinfo["type"]
-        chain = [*(chain or []), typeinfo["name"].title() or "NoName"]
-        if type_.endswith("]") and not is_array:
-            return [
-                self.apply_recursive_names(v, typeinfo, chain[:-1], True) for v in value
-            ]
-        elif type_.startswith("tuple"):
-            NewType = self._make_output_namedtuple_type(
-                "_".join(chain), typeinfo["components"]
-            )
-            return NewType(
-                *(
-                    self.apply_recursive_names(v, t, chain)
-                    for t, v in zip(typeinfo["components"], value)
-                )
-            )
-        else:
-            return value
 
     def decode(self, output_data: bytes) -> dict:
         """Decode function call output data back into human readable results.
@@ -262,7 +280,7 @@ class Function:
         )
 
 
-class Event:
+class Event(Encodable):
     def __init__(self, e_definition: dict):
         """Initialize an Event with definition.
 
@@ -272,13 +290,72 @@ class Event:
             A dict with style of EVENT.
         """
         self._definition = EVENT(e_definition)
-        self.signature = calc_event_topic(self._definition)
+        self._signature = calc_event_topic(self._definition)
 
-    def get_name(self) -> str:
-        return self._definition["name"]
+        self.indexed_params = [x for x in self._definition["inputs"] if x["indexed"]]
 
+        if len(self.indexed_params) - int(self.anonymous) > 3:
+            raise ValueError("Too much indexed parameters!")
+
+    @property
+    def anonymous(self) -> bool:
+        return self._definition.get("anonymous", False)
+
+    @property
+    def signature(self) -> bytes:
+        return self._signature
+
+    @deprecated_to_property
     def get_signature(self) -> bytes:
         return self.signature
+
+    @classmethod
+    def is_dynamic_type(cls, t: str):
+        """Check if the input type is dynamic"""
+        return t == "bytes" or t == "string" or "[" in t or t.startswith("tuple")
+
+    def strip_dynamic_part(type_: str) -> str:
+        if "[" in type_:
+            return type_[: type_.index("[")]
+        return type_
+
+    @staticmethod
+    def pad(data: list[bytes] | bytes, mod: int, to: Literal["r", "l"] = "l") -> bytes:
+        if not isinstance(data, bytes):
+            data = b"".join(data)
+
+        length = len(data)
+        missing = (mod * (length // mod + 1) - length) % mod
+        if to == "l":
+            return data + missing * b"\x00"
+        else:
+            return missing * b"\x00" + data
+
+    @classmethod
+    def dynamic_type_to_topic(
+        cls, type_: dict, value, array_depth: int = 0
+    ) -> list[bytes]:
+        t_type = type_["type"]
+        if cls.get_array_dimensions_count(t_type) > array_depth:
+            return [
+                cls.pad(cls.dynamic_type_to_topic(type_, v, array_depth + 1), 32, "l")
+                for v in value
+            ]
+
+        if t_type.startswith("tuple"):
+            return [
+                cls.pad(cls.dynamic_type_to_topic(t, v, array_depth), 32, "l")
+                for t, v in zip(type_["components"], value)
+            ]
+
+        if t_type == "string":
+            assert isinstance(value, str), 'Value of type "string" must be str'
+            return [value.encode("utf-8")]
+        elif t_type == "bytes":
+            assert isinstance(value, bytes), 'Value of type "bytes" must be bytes'
+            return [value]
+        else:
+            return [Coder.encode_single(cls.strip_dynamic_part(t_type), value)]
 
     def encode(self, params: Union[dict, List]) -> List:
         """Assemble indexed keys into topics.
@@ -325,49 +402,40 @@ class Event:
         if not self._definition.get("anonymous", False):
             topics.append(self.signature)
 
-        indexed_params = [x for x in self._definition["inputs"] if x["indexed"]]
-        has_no_name_param = any([True for x in indexed_params if not x["name"]])
+        has_no_name_param = any([True for x in self.indexed_params if not x["name"]])
 
-        # Check #1
+        # Disallow lists of unnamed parameters
         if not isinstance(params, list) and has_no_name_param:
             raise ValueError(
-                "Event definition contains param without a name, use a list of params instead of dict."
+                "Event definition contains param without a name, use a list of params"
+                " instead of dict."
             )
 
-        # Check #2
-        if isinstance(params, list) and len(params) != len(indexed_params):
+        # Check arguments length
+        if len(params) != len(self.indexed_params):
             raise ValueError(
-                "Indexed params needs {} length, {} is given.".format(
-                    len(indexed_params), len(params)
+                "Indexed params needs {} items, {} is given.".format(
+                    len(self.indexed_params), len(params)
                 )
             )
 
-        # Check #3
-        if isinstance(params, dict) and len(params.keys()) != len(indexed_params):
-            raise ValueError(
-                "Indexed params needs {} keys, {} is given.".format(
-                    len(indexed_params), len(params.keys())
+        def parse(param, definition):
+            if self.is_dynamic_type(definition["type"]):
+                return keccak256(self.dynamic_type_to_topic(definition, param))[0]
+            else:
+                return Coder.encode_single(
+                    self.make_proper_type(definition),
+                    param,
                 )
-            )
 
         if isinstance(params, list):
-            for param, definition in zip(params, indexed_params):
-                if is_dynamic_type(definition["type"]):
-                    topics.append(dynamic_type_to_topic(definition["type"], param))
-                else:
-                    topics.append(Coder.encode_single(definition["type"], param))
+            for param, definition in zip(params, self.indexed_params):
+                topics.append(parse(param, definition))
 
         if isinstance(params, dict):
-            for definition in indexed_params:
-                value = params.get(definition["name"], None)
-                if value is None:
-                    topics.append(value)
-                    continue
-
-                if is_dynamic_type(definition["type"]):
-                    topics.append(dynamic_type_to_topic(definition["type"], value))
-                else:
-                    topics.append(Coder.encode_single(definition["type"], value))
+            for definition in self.indexed_params:
+                param = params.get(definition["name"])
+                topics.append(param if param is None else parse(param, definition))
 
         return topics
 
@@ -400,40 +468,37 @@ class Event:
         If the event is "anonymous" then the signature is not inserted into the "topics" list,
         hence topics[0] is not the signature.
         """
-        if not self._definition.get("anonymous", False):
+        if not self.anonymous:
             # if not anonymous, topics[0] is the signature of event.
             # we cut it out, because we already have self.signature
             topics = topics[1:]
 
-        _indexed_params_definitions = [
-            x for x in self._definition["inputs"] if x["indexed"]
-        ]
-        _un_indexed_params_definitions = [
+        unindexed_params_defs = [
             x for x in self._definition["inputs"] if not x["indexed"]
         ]
 
-        if len(_indexed_params_definitions) != len(topics):
-            raise Exception("topics count invalid.")
+        if len(self.indexed_params) != len(topics):
+            raise ValueError("Invalid topics count.")
 
-        un_indexed_params = Coder.decode_list(
-            [x["type"] for x in _un_indexed_params_definitions], data
+        my_types = list(map(self.make_proper_type, unindexed_params_defs))
+        result_list = Coder.decode_list(my_types, data)
+        unindexed_params = (
+            self.apply_recursive_names(value, typeinfo)
+            for typeinfo, value in zip(unindexed_params_defs, result_list)
         )
 
-        r = {}
-        for idx, each in enumerate(self._definition["inputs"]):
-            to_be_stored = None
+        inputs = self._definition["inputs"]
+        topics = iter(topics)
+        r = []
+        for idx, each in enumerate(inputs):
             if each["indexed"]:
-                topic = topics.pop(0)
-                if is_dynamic_type(each["type"]):
-                    to_be_stored = topic
+                topic = next(topics)
+                if self.is_dynamic_type(each["type"]):
+                    r.append(topic)
                 else:
-                    to_be_stored = Coder.decode_single(each["type"], topic)
+                    r.append(Coder.decode_single(each["type"], topic))
             else:
-                to_be_stored = un_indexed_params.pop(0)
+                r.append(next(unindexed_params))
 
-            r[str(idx)] = to_be_stored
-
-            if each["name"]:
-                r[each["name"]] = to_be_stored
-
-        return r
+        NewType = self._make_output_namedtuple_type("OutType", inputs)
+        return NewType(*r)
