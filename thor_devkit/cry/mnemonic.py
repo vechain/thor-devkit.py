@@ -92,8 +92,7 @@ def derive_seed(words: List[str]) -> bytes:
         raise ValueError("Input words doesn't pass validation check.")
 
     sentence = " ".join(words)
-    seed = Mnemonic.to_seed(sentence)  # bytes.
-    return seed
+    return Mnemonic.to_seed(sentence)  # bytes.
 
 
 def derive_private_key(words: List[str], index: int = 0) -> bytes:

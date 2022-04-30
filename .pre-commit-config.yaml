@@ -4,7 +4,6 @@ repos:
     hooks:
     -   id: trailing-whitespace
     -   id: end-of-file-fixer
-    -   id: debug-statements
     -   id: check-merge-conflict
 -   repo: https://github.com/pre-commit/mirrors-isort
     rev: v5.9.3
@@ -20,6 +19,23 @@ repos:
     rev: 3.9.2
     hooks:
       - id: flake8
+        additional_dependencies: [
+          'darglint',
+          'flake8-2020',
+          'flake8-alfred',
+          'flake8-broken-line',
+          'flake8-bugbear',
+          'flake8-builtins',
+          'flake8-debugger',
+          'flake8-functions-names',
+          'flake8-pep3101',
+          'flake8-pie',
+          'flake8-pytest',
+          'flake8-pytest-style',
+          'flake8-simplify',
+          'pep8-naming',
+          'pycodestyle',
+        ]
 -   repo: local
     hooks:
       - id: mypy

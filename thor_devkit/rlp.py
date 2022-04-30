@@ -39,34 +39,26 @@ from rlp import encode as rlp_encode
 from rlp.exceptions import DeserializationError, SerializationError
 from rlp.sedes import BigEndianInt
 
+HEX_STRING_PATTERN = re.compile("^0x[0-9a-f]*$", re.I)
+NONEMPTY_HEX_STRING_PATTERN = re.compile("^0x[0-9a-f]+$", re.I)
+NONEMPTY_DECIMAL_STRING_PATTERN = re.compile("^[0-9]+$", re.I)
+
 
 def _is_hex_string(a: str, must_contain_data: bool) -> bool:
-    c = None
-    if must_contain_data:
-        c = re.compile("^0x[0-9a-f]+$", re.I)
-    else:
-        c = re.compile("^0x[0-9a-f]*$", re.I)
-
-    if c.match(a):
-        return True
-    else:
-        return False
+    c = NONEMPTY_HEX_STRING_PATTERN if must_contain_data else HEX_STRING_PATTERN
+    return bool(c.match(a))
 
 
 def _is_decimal_string(a: str) -> bool:
-    c = re.compile("^[0-9]+$")
-    if c.match(a):
-        return True
-    else:
-        return False
+    return bool(NONEMPTY_DECIMAL_STRING_PATTERN.match(a))
 
 
 def _is_pure_int(a: int) -> bool:
-    return type(a) == int
+    return type(a) is int  # noqa: E721
 
 
 def _is_pure_str(a: str) -> bool:
-    return type(a) == str
+    return type(a) is str  # noqa: E721
 
 
 class ScalarKind:
@@ -404,8 +396,6 @@ class CompactFixedBlobKind(FixedBlobKind):
 class BaseWrapper:
     """BaseWrapper is a container for complex types to be encode/decoded."""
 
-    pass
-
 
 class DictWrapper(BaseWrapper):
     """DictWrapper is a container for parsing dict like objects."""
@@ -594,7 +584,7 @@ def pretty_print(packed: Union[bytes, List], indent: int):
         print(" " * (indent) + "]")
 
 
-class ComplexCodec(object):
+class ComplexCodec:
     def __init__(self, wrapper: BaseWrapper):
         self.wrapper = wrapper
 

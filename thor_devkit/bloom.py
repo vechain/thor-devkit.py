@@ -80,7 +80,7 @@ class Bloom:
             or True when adding element.
         """
         h, _ = blake2b256([element])
-        for x in range(0, self.k):
+        for x in range(self.k):
             d = (h[x * 2 + 1] + (h[x * 2] << 8)) % self.BITS_LENGTH
             bit = 1 << (d % 8)
             if not tester(int(d / 8), bit):

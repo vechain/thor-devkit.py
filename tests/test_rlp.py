@@ -4,7 +4,7 @@ from rlp.exceptions import DeserializationError, SerializationError
 from thor_devkit import rlp as m_rlp
 
 
-def test_bytesKind():
+def test_bytes_kind():
     kind = m_rlp.BytesKind()
 
     assert kind.serialize(bytes.fromhex("ff")) == b"\xff"
@@ -20,7 +20,7 @@ def test_bytesKind():
         kind.serialize("0x1234")
 
 
-def test_numericKind_encode():
+def test_numeric_kind_encode():
     # Set up a max 8 bytes width NumericKind.
     kind = m_rlp.NumericKind(8)
 
@@ -58,7 +58,7 @@ def test_numericKind_encode():
     #     kind.serialize(2 ** 64)
 
 
-def test_numericKind_decode():
+def test_numeric_kind_decode():
     # Set up a max 8 bytes width NumericKind.
     kind = m_rlp.NumericKind(8)
 
@@ -77,7 +77,7 @@ def test_numericKind_decode():
         kind.deserialize(bytes([0, 1, 2]))
 
 
-def test_blobKind_encode():
+def test_blob_kind_encode():
     kind = m_rlp.BlobKind()
     assert kind.serialize("0x1234567890").hex() == "1234567890"
 
@@ -91,13 +91,13 @@ def test_blobKind_encode():
         kind.serialize(1)
 
 
-def test_blobKind_decode():
+def test_blob_kind_decode():
     kind = m_rlp.BlobKind()
 
     assert kind.deserialize(bytes([1, 2, 3, 4, 5])) == "0x0102030405"
 
 
-def test_fixedBlob_encode():
+def test_fixed_blob_encode():
     kind = m_rlp.FixedBlobKind(4)
 
     assert kind.serialize("0x12345678").hex() == "12345678"
@@ -118,7 +118,7 @@ def test_fixedBlob_encode():
         kind.serialize(None)
 
 
-def test_fixedBlob_decode():
+def test_fixed_blob_decode():
     kind = m_rlp.FixedBlobKind(4)
 
     assert kind.deserialize(bytes([1, 2, 3, 4])) == "0x01020304"
@@ -130,7 +130,7 @@ def test_fixedBlob_decode():
         kind.deserialize(bytes(0))
 
 
-def test_noneableFixedBlobKind_encode():
+def test_noneable_fixed_blob_kind_encode():
     kind = m_rlp.NoneableFixedBlobKind(4)
 
     assert kind.serialize(None).hex() == ""
@@ -155,7 +155,7 @@ def test_noneableFixedBlobKind_encode():
         kind.serialize("0x")
 
 
-def test_noneableFixedBlobKind_decode():
+def test_noneable_fixed_blob_kind_decode():
     kind = m_rlp.NoneableFixedBlobKind(4)
 
     assert kind.deserialize(bytes(0)) is None

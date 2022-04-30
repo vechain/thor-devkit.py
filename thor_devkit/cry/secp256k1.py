@@ -29,10 +29,7 @@ def _is_valid_private_key(priv_key: bytes) -> bool:
     if priv_key >= MAX:
         return False
 
-    if len(priv_key) != 32:
-        return False
-
-    return True
+    return len(priv_key) == 32
 
 
 def _is_valid_message_hash(msg_hash: bytes) -> bool:

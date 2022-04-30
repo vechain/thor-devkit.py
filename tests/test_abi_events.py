@@ -4,7 +4,7 @@ from thor_devkit import abi, cry
 
 
 # *********************** FIXTURES **************************
-@pytest.fixture
+@pytest.fixture()
 def simple_event_no_hash():
     return abi.EVENT(
         {
@@ -19,7 +19,7 @@ def simple_event_no_hash():
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def anonymous_event_no_hash():
     return abi.EVENT(
         {
@@ -34,7 +34,7 @@ def anonymous_event_no_hash():
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def simple_event_hash():
     return abi.EVENT(
         {
@@ -45,7 +45,7 @@ def simple_event_hash():
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def simple_event_int():
     return abi.EVENT(
         {
@@ -57,7 +57,7 @@ def simple_event_int():
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def tuple_event():
     return abi.EVENT(
         {
@@ -81,7 +81,7 @@ def tuple_event():
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def tuple_fixed_array_event():
     return abi.EVENT(
         {
@@ -105,7 +105,7 @@ def tuple_fixed_array_event():
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def tuple_dynamic_array_event():
     return abi.EVENT(
         {
@@ -129,7 +129,7 @@ def tuple_dynamic_array_event():
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def fixed_array_event():
     return abi.EVENT(
         {
@@ -142,7 +142,7 @@ def fixed_array_event():
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def dynamic_array_event():
     return abi.EVENT(
         {
@@ -155,7 +155,7 @@ def dynamic_array_event():
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def unindexed_struct_event():
     return abi.EVENT(
         {
@@ -176,7 +176,7 @@ def unindexed_struct_event():
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def unindexed_struct_fixed_array_event():
     return abi.EVENT(
         {
@@ -197,7 +197,7 @@ def unindexed_struct_fixed_array_event():
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def unindexed_struct_dynamic_array_event():
     return abi.EVENT(
         {
@@ -218,7 +218,7 @@ def unindexed_struct_dynamic_array_event():
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def unindexed_struct_nested_event():
     return abi.EVENT(
         {
@@ -246,7 +246,7 @@ def unindexed_struct_nested_event():
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def only_unindexed_event():
     return abi.EVENT(
         {
@@ -262,8 +262,8 @@ def only_unindexed_event():
     )
 
 
-@pytest.fixture
-def indexed_and_unindexed_event():
+@pytest.fixture()
+def mixed_indexed_unindexed_event():
     return abi.EVENT(
         {
             "inputs": [
@@ -281,7 +281,7 @@ def indexed_and_unindexed_event():
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def too_much_indexed_event():
     return abi.EVENT(
         {
@@ -297,7 +297,7 @@ def too_much_indexed_event():
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def too_much_indexed_anon_event():
     return abi.EVENT(
         {
@@ -337,15 +337,15 @@ def test_event_basic(simple_event_no_hash):
 
     assert e.encode({"a1": 1}) == [e.signature, bytes.fromhex("0" * 63 + "1")]
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Indexed params needs 1 items, 2 is given."):
         e.encode({"a1": 1, "x": 3})
 
 
 def test_too_much_indexed(too_much_indexed_event, too_much_indexed_anon_event):
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Too much indexed parameters!"):
         abi.Event(too_much_indexed_event)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Too much indexed parameters!"):
         abi.Event(too_much_indexed_anon_event)
 
 
@@ -364,14 +364,14 @@ def test_event_anonymous(anonymous_event_no_hash):
 
 def test_event_hashed(simple_event_hash):
     e = abi.Event(simple_event_hash)
-    hashed = cry.keccak256(["hello".encode("utf-8")])[0]
+    hashed = cry.keccak256([b"hello"])[0]
 
     assert e.encode({"a1": "hello"}) == [e.signature, hashed]
 
     assert e.decode(b"\x00", [e.signature, hashed]).to_dict() == {"a1": hashed}
 
 
-def test_simple_event_int(simple_event_int):
+def test_simple_int_event(simple_event_int):
     e = abi.Event(simple_event_int)
     assert (
         e.signature.hex()
@@ -580,8 +580,8 @@ def test_decode_only_unindexed(only_unindexed_event):
     assert e.decode(encoded, [e.signature]).to_dict() == expected_data
 
 
-def test_decode_mixed(indexed_and_unindexed_event):
-    e = abi.Event(indexed_and_unindexed_event)
+def test_decode_mixed(mixed_indexed_unindexed_event):
+    e = abi.Event(mixed_indexed_unindexed_event)
 
     coded_str = cry.keccak256([b"bazz"])[0]
     indexed_enc = [b"\x01".rjust(32, b"\x00")] * 2 + [coded_str]

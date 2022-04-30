@@ -4,9 +4,10 @@ Transaction class defines VeChain's multi-clause transaction (tx).
 This module defines data structure of a tx, and the encoding/decoding of tx data.
 """
 from copy import deepcopy
-from typing import List, Union
+from typing import List, Optional
 
-from voluptuous import REMOVE_EXTRA, Any, Optional, Schema
+import voluptuous
+from voluptuous import REMOVE_EXTRA, Schema
 
 from .cry import address, blake2b256, secp256k1
 from .rlp import (
@@ -56,10 +57,9 @@ SignedTxWrapper = DictWrapper(_params + [("signature", BytesKind())])
 
 CLAUSE = Schema(
     {
-        "to": Any(
-            str, None
-        ),  # Destination contract address, or set to None to create contract.
-        "value": Any(str, int),  # VET to pass to the call.
+        # Destination contract address, or set to None to create contract.
+        "to": voluptuous.Any(str, None),
+        "value": voluptuous.Any(str, int),  # VET to pass to the call.
         "data": str,
     },
     required=True,
@@ -69,8 +69,8 @@ CLAUSE = Schema(
 
 RESERVED = Schema(
     {
-        Optional("features"): int,  # int.
-        Optional("unused"): [bytes]
+        voluptuous.Optional("features"): int,  # int.
+        voluptuous.Optional("unused"): [bytes]
         # "unused" In TypeScript version is of type: Buffer[]
         # Buffer itself is "byte[]",
         # which is equivalent to "bytes"/"bytearray" in Python.
@@ -88,10 +88,10 @@ BODY = Schema(
         "expiration": int,
         "clauses": [CLAUSE],
         "gasPriceCoef": int,
-        "gas": Any(str, int),
-        "dependsOn": Any(str, None),
-        "nonce": Any(str, int),
-        Optional("reserved"): RESERVED,
+        "gas": voluptuous.Any(str, int),
+        "dependsOn": voluptuous.Any(str, None),
+        "nonce": voluptuous.Any(str, int),
+        voluptuous.Optional("reserved"): RESERVED,
     },
     required=True,
     extra=REMOVE_EXTRA,
@@ -169,9 +169,7 @@ def right_trim_empty_bytes(m_list: List[bytes]) -> List:
     if right_most_none_empty is None:  # not found the right most none-empty string item
         return []
 
-    return_list = m_list[: right_most_none_empty + 1]
-
-    return return_list
+    return m_list[: right_most_none_empty + 1]
 
 
 class Transaction:
@@ -210,9 +208,7 @@ class Transaction:
         unused = reserved.get("unused") or []
         m_list = [FeaturesKind.serialize(f)] + unused
 
-        return_list = right_trim_empty_bytes(m_list)
-
-        return return_list
+        return right_trim_empty_bytes(m_list)
 
     def get_signing_hash(self, delegate_for: str = None) -> bytes:
         reserved_list = self._encode_reserved()
@@ -233,7 +229,7 @@ class Transaction:
         """Get the rough gas this tx will consume"""
         return intrinsic_gas(self.body["clauses"])
 
-    def get_signature(self) -> Union[None, bytes]:
+    def get_signature(self) -> Optional[bytes]:
         """Get the signature of current transaction."""
         return self.signature
 
@@ -241,7 +237,7 @@ class Transaction:
         """Set the signature"""
         self.signature = sig
 
-    def get_origin(self) -> Union[None, str]:
+    def get_origin(self) -> Optional[str]:
         if not self._signature_valid():
             return None
 
@@ -252,7 +248,7 @@ class Transaction:
         except Exception:
             return None
 
-    def get_delegator(self) -> Union[None, str]:
+    def get_delegator(self) -> Optional[str]:
         if not self.is_delegated():
             return None
 
@@ -294,7 +290,7 @@ class Transaction:
         else:
             return len(self.get_signature()) == expected_sig_len
 
-    def get_id(self) -> Union[None, str]:
+    def get_id(self) -> Optional[str]:
         if not self._signature_valid():
             return None
         try:

@@ -49,10 +49,7 @@ def is_address(address: str) -> bool:
         If it is valid address.
     """
 
-    if ADDRESS_RE.match(address):
-        return True
-    else:
-        return False
+    return bool(ADDRESS_RE.match(address))
 
 
 def to_checksum_address(address: str) -> str:
@@ -82,11 +79,11 @@ def to_checksum_address(address: str) -> str:
     body = body.lower()
 
     h, _ = keccak256([body.encode("ascii")])
-    hash = h.hex()
+    hash_ = h.hex()
 
     parts = ["0x"]
     for idx, value in enumerate(body):
-        if int(hash[idx], 16) >= 8:
+        if int(hash_[idx], 16) >= 8:
             parts.append(value.upper())
         else:
             parts.append(value)

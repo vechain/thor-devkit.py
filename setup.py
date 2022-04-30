@@ -5,6 +5,9 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 assert long_description
 
+with open("requirements.txt", "r") as req:
+    requirements = [x.strip() for x in req]
+
 setuptools.setup(
     name="thor-devkit",
     version="1.0.12",
@@ -28,6 +31,6 @@ setuptools.setup(
         "Issue Tracker": "https://github.com/laalaguer/thor-devkit.py/issues",
     },
     python_requires=">=3.6",
-    install_requires=[x.strip() for x in open("requirements.txt")],
+    install_requires=requirements,
     packages=setuptools.find_packages(),
 )

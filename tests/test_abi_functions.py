@@ -7,11 +7,9 @@ from thor_devkit import abi
 
 f1 = abi.FUNCTION(
     {
-        # "constant": False,
         "inputs": [{"name": "a1", "type": "uint256"}, {"name": "a2", "type": "string"}],
         "name": "f1",
         "outputs": [{"name": "r1", "type": "address"}, {"name": "r2", "type": "bytes"}],
-        # "payable": False,
         "stateMutability": "nonpayable",
         "type": "function",
     }
@@ -22,7 +20,6 @@ f2 = abi.FUNCTION(
     {
         "inputs": [],
         "name": "nodes",
-        # "payable": False,
         "outputs": [
             {
                 "components": [
@@ -91,7 +88,6 @@ f6 = abi.FUNCTION(
     {
         "inputs": [],
         "name": "nodes",
-        # "payable": False,
         "outputs": [
             {
                 "components": [

@@ -296,11 +296,11 @@ class Event(Encodable):
 
         self.indexed_params = [x for x in self._definition["inputs"] if x["indexed"]]
 
-        if len(self.indexed_params) - int(self.anonymous) > 3:
+        if len(self.indexed_params) - int(self.is_anonymous) > 3:
             raise ValueError("Too much indexed parameters!")
 
     @property
-    def anonymous(self) -> bool:
+    def is_anonymous(self) -> bool:
         return self._definition.get("anonymous", False)
 
     @property
@@ -316,6 +316,7 @@ class Event(Encodable):
         """Check if the input type is dynamic"""
         return t == "bytes" or t == "string" or "[" in t or t.startswith("tuple")
 
+    @staticmethod
     def strip_dynamic_part(type_: str) -> str:
         if "[" in type_:
             return type_[: type_.index("[")]
@@ -401,10 +402,10 @@ class Event(Encodable):
         topics = []
 
         # not anonymous? topic[0] = signature.
-        if not self._definition.get("anonymous", False):
+        if not self.is_anonymous:
             topics.append(self.signature)
 
-        has_no_name_param = any([True for x in self.indexed_params if not x["name"]])
+        has_no_name_param = any(True for x in self.indexed_params if not x["name"])
 
         # Disallow lists of unnamed parameters
         if not isinstance(params, list) and has_no_name_param:
@@ -470,7 +471,7 @@ class Event(Encodable):
         If the event is "anonymous" then the signature is not inserted into
         the "topics" list, hence topics[0] is not the signature.
         """
-        if not self.anonymous:
+        if not self.is_anonymous:
             # if not anonymous, topics[0] is the signature of event.
             # we cut it out, because we already have self.signature
             topics = topics[1:]
@@ -492,7 +493,7 @@ class Event(Encodable):
         inputs = self._definition["inputs"]
         topics = iter(topics)
         r = []
-        for idx, each in enumerate(inputs):
+        for each in inputs:
             if each["indexed"]:
                 topic = next(topics)
                 if self.is_dynamic_type(each["type"]):

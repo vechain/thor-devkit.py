@@ -63,10 +63,10 @@ def test_verify():
     sig = "0x" + sig_bytes.hex()
 
     # Signature doesn't match.
+    temp = copy.copy(cert_dict)
+    temp["signature"] = sig
+    temp["signer"] = "0x"
     with pytest.raises(Exception, match="signature does not match with the signer."):
-        temp = copy.copy(cert_dict)
-        temp["signature"] = sig
-        temp["signer"] = "0x"
         certificate.verify(certificate.Certificate(**temp))
 
     # Everything is fine.

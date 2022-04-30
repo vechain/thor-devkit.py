@@ -93,69 +93,69 @@ def test_empty_data():
 
 
 def test_invalid_body():
+    body_1 = copy.deepcopy(body)
+    body_1["chainTag"] = 256
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(body)
-        body_1["chainTag"] = 256
         transaction.Transaction(body_1).encode()
 
+    body_1 = copy.deepcopy(body)
+    body_1["chainTag"] = -1
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(body)
-        body_1["chainTag"] = -1
         transaction.Transaction(body_1).encode()
 
+    body_1 = copy.deepcopy(body)
+    body_1["chainTag"] = 1.1
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(body)
-        body_1["chainTag"] = 1.1
         transaction.Transaction(body_1).encode()
 
+    body_1 = copy.deepcopy(body)
+    body_1["blockRef"] = "0x"
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(body)
-        body_1["blockRef"] = "0x"
         transaction.Transaction(body_1).encode()
 
+    body_1 = copy.deepcopy(body)
+    body_1["blockRef"] = "0x" + "0" * 18
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(body)
-        body_1["blockRef"] = "0x" + "0" * 18
         transaction.Transaction(body_1).encode()
 
+    body_1 = copy.deepcopy(body)
+    body_1["expiration"] = 2**32
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(body)
-        body_1["expiration"] = 2**32
         transaction.Transaction(body_1).encode()
 
+    body_1 = copy.deepcopy(body)
+    body_1["expiration"] = -1
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(body)
-        body_1["expiration"] = -1
         transaction.Transaction(body_1).encode()
 
+    body_1 = copy.deepcopy(body)
+    body_1["expiration"] = 1.1
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(body)
-        body_1["expiration"] = 1.1
         transaction.Transaction(body_1).encode()
 
+    body_1 = copy.deepcopy(body)
+    body_1["gasPriceCoef"] = 256
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(body)
-        body_1["gasPriceCoef"] = 256
         transaction.Transaction(body_1).encode()
 
+    body_1 = copy.deepcopy(body)
+    body_1["gasPriceCoef"] = -1
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(body)
-        body_1["gasPriceCoef"] = -1
         transaction.Transaction(body_1).encode()
 
+    body_1 = copy.deepcopy(body)
+    body_1["gasPriceCoef"] = 1.1
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(body)
-        body_1["gasPriceCoef"] = 1.1
         transaction.Transaction(body_1).encode()
 
+    body_1 = copy.deepcopy(body)
+    body_1["gas"] = "0x10000000000000000"
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(body)
-        body_1["gas"] = "0x10000000000000000"
         transaction.Transaction(body_1).encode()
 
+    body_1 = copy.deepcopy(body)
+    body_1["nonce"] = "0x10000000000000000"
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(body)
-        body_1["nonce"] = "0x10000000000000000"
         transaction.Transaction(body_1).encode()
 
 
@@ -289,5 +289,5 @@ def test_body_copy():
     b2 = tx.get_body(False)
     b3 = tx.get_body(True)
 
-    assert id(b2) != id(b3)  # id should be different
+    assert b2 is not b3  # id should be different
     assert b2 == b3  # content should be the same

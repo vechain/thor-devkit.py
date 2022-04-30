@@ -46,8 +46,8 @@ def test_add():
 
 def test_test():
     b = Bloom(14)
-    for i in range(0, 100):
+    for i in range(100):
         b.add(bytes(str(i), "UTF-8"))
 
-    for i in range(0, 100):
+    for i in range(100):
         assert b.test(bytes(str(i), "UTF-8"))

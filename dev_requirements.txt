@@ -1,6 +1,4 @@
-black
-flake8
-isort
+-r requirements.txt
 mypy>=0.942
 pytest-cov
 pytest>=6.2.0
