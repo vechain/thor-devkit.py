@@ -4,21 +4,24 @@ Transaction class defines VeChain's multi-clause transaction (tx).
 This module defines data structure of a tx, and the encoding/decoding of tx data.
 """
 from copy import deepcopy
-from typing import List, Optional
+from typing import List, Optional, Tuple, Union
 
 import voluptuous
 from voluptuous import REMOVE_EXTRA, Schema
 
 from .cry import address, blake2b256, secp256k1
+from .deprecation import deprecated_to_property
 from .rlp import (
+    BaseWrapper,
     BlobKind,
     BytesKind,
     CompactFixedBlobKind,
     ComplexCodec,
     DictWrapper,
     HomoListWrapper,
-    NoneableFixedBlobKind,
     NumericKind,
+    OptionalFixedBlobKind,
+    ScalarKind,
 )
 
 # Kind Definitions
@@ -26,7 +29,7 @@ from .rlp import (
 FeaturesKind = NumericKind(4)
 
 # Unsigned/Signed RLP Wrapper.
-_params = [
+_params: List[Tuple[str, Union[BaseWrapper, ScalarKind]]] = [
     ("chainTag", NumericKind(1)),
     ("blockRef", CompactFixedBlobKind(8)),
     ("expiration", NumericKind(4)),
@@ -35,7 +38,7 @@ _params = [
         HomoListWrapper(
             codec=DictWrapper(
                 [
-                    ("to", NoneableFixedBlobKind(20)),
+                    ("to", OptionalFixedBlobKind(20)),
                     ("value", NumericKind(32)),
                     ("data", BlobKind()),
                 ]
@@ -44,7 +47,7 @@ _params = [
     ),
     ("gasPriceCoef", NumericKind(1)),
     ("gas", NumericKind(8)),
-    ("dependsOn", NoneableFixedBlobKind(32)),
+    ("dependsOn", OptionalFixedBlobKind(32)),
     ("nonce", NumericKind(8)),
     ("reserved", HomoListWrapper(codec=BytesKind())),
 ]
@@ -110,14 +113,10 @@ def data_gas(data: str) -> int:
     Z_GAS = 4
     NZ_GAS = 68
 
-    sum_up = 0
-    for x in range(2, len(data), 2):
-        if data[x] == "0" and data[x + 1] == "0":
-            sum_up += Z_GAS
-        else:
-            sum_up += NZ_GAS
-
-    return sum_up
+    return sum(
+        Z_GAS if odd == even == "0" else NZ_GAS
+        for odd, even in zip(data[2::2], data[3::2])
+    )
 
 
 def intrinsic_gas(clauses: List) -> int:
@@ -141,45 +140,37 @@ def intrinsic_gas(clauses: List) -> int:
     if not clauses:
         return TX_GAS + CLAUSE_GAS
 
-    sum_total = 0
-    sum_total += TX_GAS
-
+    sum_total = TX_GAS
     for clause in clauses:
-        clause_sum = 0
         if clause["to"]:  # contract create.
-            clause_sum += CLAUSE_GAS
+            sum_total += CLAUSE_GAS
         else:
-            clause_sum += CLAUSE_CONTRACT_CREATION
-        clause_sum += data_gas(clause["data"])
-
-        sum_total += clause_sum
+            sum_total += CLAUSE_CONTRACT_CREATION
+        sum_total += data_gas(clause["data"])
 
     return sum_total
 
 
 def right_trim_empty_bytes(m_list: List[bytes]) -> List:
     """Given a list of bytes, remove the b'' from the tail of the list."""
-    right_most_none_empty = None
+    rightmost_none_empty = next(
+        (idx for idx, item in enumerate(reversed(m_list)) if item), None
+    )
 
-    for i in range(len(m_list) - 1, -1, -1):
-        if len(m_list[i]) != 0:
-            right_most_none_empty = i
-            break
-
-    if right_most_none_empty is None:  # not found the right most none-empty string item
+    if rightmost_none_empty is None:
         return []
 
-    return m_list[: right_most_none_empty + 1]
+    return m_list[: len(m_list) - rightmost_none_empty]
 
 
 class Transaction:
     # The reserved feature of delegated (vip-191) is 1.
     DELEGATED_MASK = 1
+    _signature: Optional[bytes] = None
 
-    def __init__(self, body: dict):
+    def __init__(self, body: dict) -> None:
         """Construct a transaction from a given body."""
         self.body = BODY(body)
-        self.signature = None
 
     def get_body(self, as_copy: bool = True):
         """
@@ -198,19 +189,14 @@ class Transaction:
             return self.body
 
     def _encode_reserved(self) -> List:
-        r = self.body.get("reserved", None)
-        if not r:
-            reserved = {"features": None, "unused": None}
-        else:
-            reserved = self.body["reserved"]
-
+        reserved = self.body.get("reserved", {})
         f = reserved.get("features") or 0
-        unused = reserved.get("unused") or []
+        unused: List[bytes] = reserved.get("unused", []) or []
         m_list = [FeaturesKind.serialize(f)] + unused
 
         return right_trim_empty_bytes(m_list)
 
-    def get_signing_hash(self, delegate_for: str = None) -> bytes:
+    def get_signing_hash(self, delegate_for: Optional[str] = None) -> bytes:
         reserved_list = self._encode_reserved()
         _temp = deepcopy(self.body)
         _temp.update({"reserved": reserved_list})
@@ -225,53 +211,59 @@ class Transaction:
 
         return h
 
-    def get_intrinsic_gas(self) -> int:
-        """Get the rough gas this tx will consume"""
+    @property
+    def intrinsic_gas(self) -> int:
         return intrinsic_gas(self.body["clauses"])
 
-    def get_signature(self) -> Optional[bytes]:
-        """Get the signature of current transaction."""
-        return self.signature
+    @property
+    def signature(self) -> Optional[bytes]:
+        return self._signature
 
-    def set_signature(self, sig: bytes):
-        """Set the signature"""
-        self.signature = sig
+    @signature.setter
+    def signature(self, sig: Optional[bytes]) -> None:
+        self._signature = sig
 
-    def get_origin(self) -> Optional[str]:
+    @property
+    def origin(self) -> Optional[str]:
         if not self._signature_valid():
             return None
 
+        sig = self.signature
+        assert sig is not None
+
         try:
             my_sign_hash = self.get_signing_hash()
-            pub_key = secp256k1.recover(my_sign_hash, self.get_signature()[0:65])
+            pub_key = secp256k1.recover(my_sign_hash, sig[:65])
             return "0x" + address.public_key_to_address(pub_key).hex()
         except Exception:
             return None
 
-    def get_delegator(self) -> Optional[str]:
-        if not self.is_delegated():
+    @property
+    def delegator(self) -> Optional[str]:
+        if not self.is_delegated:
             return None
 
         if not self._signature_valid():
             return None
 
-        origin = self.get_origin()
+        sig = self.signature
+        assert sig is not None
+
+        origin = self.origin
         if not origin:
             return None
 
         try:
             my_sign_hash = self.get_signing_hash(origin)
-            pub_key = secp256k1.recover(my_sign_hash, self.get_signature()[65:])
+            pub_key = secp256k1.recover(my_sign_hash, sig[65:])
             return "0x" + address.public_key_to_address(pub_key).hex()
         except Exception:
             return None
 
-    def is_delegated(self):
+    @property
+    def is_delegated(self) -> bool:
         """Check if this transaction is delegated."""
-        if not self.body.get("reserved"):
-            return False
-
-        if not self.body.get("reserved").get("features"):
+        if not self.body.get("reserved", {}).get("features"):
             return False
 
         return (
@@ -279,27 +271,28 @@ class Transaction:
             == self.DELEGATED_MASK
         )
 
-    def _signature_valid(self) -> bool:
-        if self.is_delegated():
-            expected_sig_len = 65 * 2
-        else:
-            expected_sig_len = 65
-
-        if not self.get_signature():
-            return False
-        else:
-            return len(self.get_signature()) == expected_sig_len
-
-    def get_id(self) -> Optional[str]:
+    @property
+    def id(self) -> Optional[str]:  # noqa: A003
         if not self._signature_valid():
             return None
+
+        sig = self.signature
+        assert sig is not None
+
         try:
             my_sign_hash = self.get_signing_hash()
-            pub_key = secp256k1.recover(my_sign_hash, self.get_signature()[0:65])
+            pub_key = secp256k1.recover(my_sign_hash, sig[:65])
             origin = address.public_key_to_address(pub_key)
             return "0x" + blake2b256([my_sign_hash, origin])[0].hex()
         except Exception:
             return None
+
+    def _signature_valid(self) -> bool:
+        if not self.signature:
+            return False
+        else:
+            expected_sig_len = 65 * 2 if self.is_delegated else 65
+            return len(self.signature) == expected_sig_len
 
     def encode(self):
         """Encode the tx into bytes"""
@@ -314,9 +307,8 @@ class Transaction:
             return ComplexCodec(UnsignedTxWrapper).encode(temp)
 
     @staticmethod
-    def decode(raw: bytes, unsigned: bool):
+    def decode(raw: bytes, unsigned: bool) -> "Transaction":
         """Return a Transaction type instance"""
-        body = None
         sig = None
 
         if unsigned:
@@ -328,8 +320,8 @@ class Transaction:
             body = decoded
 
         r = body.get("reserved", [])  # list of bytes
-        if len(r) > 0:
-            if len(r[-1]) == 0:
+        if r:
+            if not r[-1]:
                 raise Exception("invalid reserved fields: not trimmed.")
 
             features = FeaturesKind.deserialize(r[0])
@@ -348,22 +340,52 @@ class Transaction:
         body["clauses"] = _clauses
 
         # Check if reserved is in good shape.
-        _reserved = None
-        if body.get("reserved"):
-            _reserved = RESERVED(body["reserved"])
+        _reserved = body.get("reserved")
+        if _reserved:
+            _reserved = RESERVED(_reserved)
             body["reserved"] = _reserved
 
         tx = Transaction(body)
 
         if sig:
-            tx.set_signature(sig)
+            tx.signature = sig
 
         return tx
 
     def __eq__(self, other):
         """Compare two tx to be the same?"""
-        flag_1 = self.signature == other.signature
-        flag_2 = (
-            self.encode() == other.encode()
-        )  # only because of ["reserved"]["unused"] may glitch.
-        return flag_1 and flag_2
+        if not isinstance(other, Transaction):
+            return NotImplemented
+
+        return (
+            self.signature == other.signature
+            # only because of ["reserved"]["unused"] may glitch.
+            and self.encode() == other.encode()
+        )
+
+    @deprecated_to_property
+    def get_delegator(self) -> Optional[str]:
+        return self.delegator
+
+    @deprecated_to_property
+    def get_intrinsic_gas(self) -> int:
+        """Get the rough gas this tx will consume"""
+        return self.intrinsic_gas
+
+    @deprecated_to_property
+    def get_signature(self) -> Optional[bytes]:
+        """Get the signature of current transaction."""
+        return self.signature
+
+    @deprecated_to_property
+    def set_signature(self, sig: bytes) -> None:
+        """Set the signature"""
+        self.signature = sig
+
+    @deprecated_to_property
+    def get_origin(self) -> Optional[str]:
+        return self.origin
+
+    @deprecated_to_property
+    def get_id(self) -> Optional[str]:
+        return self.id

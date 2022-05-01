@@ -50,7 +50,7 @@ class HDNode:
     new instances rather than instantiate one by hand.
     """
 
-    def __init__(self, bip32_ctx: Bip32):
+    def __init__(self, bip32_ctx: Bip32) -> None:
         """
         HDNode constructor, it is not recommended to use this directly.
         To construct an HDNode, use staticmethods below instead.
@@ -63,7 +63,7 @@ class HDNode:
         self.bip32_ctx = bip32_ctx
 
     @staticmethod
-    def from_seed(seed: bytes, init_path=VET_EXTERNAL_PATH):
+    def from_seed(seed: bytes, init_path: str = VET_EXTERNAL_PATH) -> "HDNode":
         """
         Construct an HD Node from a seed (64 bytes).
         The init_path is m/44'/818'/0'/0 for starting.
@@ -90,7 +90,7 @@ class HDNode:
         return HDNode(bip32_ctx)
 
     @staticmethod
-    def from_mnemonic(words: List[str], init_path=VET_EXTERNAL_PATH):
+    def from_mnemonic(words: List[str], init_path: str = VET_EXTERNAL_PATH) -> "HDNode":
         """
         Construct an HD Node from a set of words.
         The init_path is m/44'/818'/0'/0 by default on VeChain.
@@ -119,7 +119,7 @@ class HDNode:
         return HDNode(bip32_ctx)
 
     @staticmethod
-    def from_public_key(pub: bytes, chain_code: bytes):
+    def from_public_key(pub: bytes, chain_code: bytes) -> "HDNode":
         """
         Construct an HD Node from an uncompressed public key.
         (starts with 0x04 as first byte)
@@ -152,7 +152,7 @@ class HDNode:
         return HDNode(bip32_ctx)
 
     @staticmethod
-    def from_private_key(priv: bytes, chain_code: bytes):
+    def from_private_key(priv: bytes, chain_code: bytes) -> "HDNode":
         """
         Construct an HD Node from a private key.
 
@@ -186,7 +186,7 @@ class HDNode:
 
         return HDNode(bip32_ctx)
 
-    def derive(self, index: int):
+    def derive(self, index: int) -> "HDNode":
         """
         Derive the child HD Node from current HD Node.
 

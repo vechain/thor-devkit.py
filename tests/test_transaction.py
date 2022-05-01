@@ -46,7 +46,7 @@ priv_key = bytes.fromhex(
 )
 _a, _ = cry.blake2b256([signed.encode()])
 _b = cry.secp256k1.sign(_a, priv_key)
-signed.set_signature(_b)
+signed.signature = _b
 signer = cry.public_key_to_address(cry.secp256k1.derive_publicKey(priv_key))
 
 
@@ -63,13 +63,13 @@ def test_unsigned():
         == "2a1c25ce0d66f45276a5f308b99bf410e2fc7d5b6ea37a49f2ab9f1da9446478"
     )
 
-    assert unsigned.get_id() is None
+    assert unsigned.id is None
 
-    assert unsigned.get_intrinsic_gas() == 37432
+    assert unsigned.intrinsic_gas == 37432
 
-    assert unsigned.get_signature() is None
+    assert unsigned.signature is None
 
-    assert unsigned.get_origin() is None
+    assert unsigned.origin is None
 
     assert unsigned.encode().hex() == unsigned_encoded.hex()
 
@@ -78,12 +78,12 @@ def test_unsigned():
     body_1 = copy.deepcopy(body)
     body_1["clauses"] = []
 
-    assert transaction.Transaction(body_1).get_intrinsic_gas() == 21000
+    assert transaction.Transaction(body_1).intrinsic_gas == 21000
 
     body_2 = copy.deepcopy(body)
     body_2["clauses"] = [{"to": None, "value": 0, "data": "0x"}]
 
-    assert transaction.Transaction(body_2).get_intrinsic_gas() == 53000
+    assert transaction.Transaction(body_2).intrinsic_gas == 53000
 
 
 def test_empty_data():
@@ -160,13 +160,13 @@ def test_invalid_body():
 
 
 def test_signed():
-    assert signed.get_signature().hex() == (
+    assert signed.signature.hex() == (
         "f76f3c91a834165872aa9464fc55b03a13f46ea8d3b858e528fcceaf371ad6884"
         "193c3f313ff8effbb57fe4d1adc13dceb933bedbf9dbb528d2936203d5511df00"
     )
-    assert signed.get_origin() == "0x" + signer.hex()
+    assert signed.origin == "0x" + signer.hex()
     assert (
-        signed.get_id()
+        signed.id
         == "0xda90eaea52980bc4bb8d40cb2ff84d78433b3b4a6e7d50b75736c5e3e77b71ec"
     )
     assert (
@@ -189,9 +189,9 @@ def test_encode_decode():
 
 def test_incorrectly_signed():
     tx = transaction.Transaction(body)
-    tx.set_signature(bytes([1, 2, 3]))
-    assert tx.get_origin() is None
-    assert tx.get_id() is None
+    tx.signature = bytes([1, 2, 3])
+    assert tx.origin is None
+    assert tx.id is None
 
 
 delegated_body = {
@@ -221,8 +221,8 @@ delegated_tx = transaction.Transaction(copy.deepcopy(delegated_body))
 
 
 def test_features():
-    assert not unsigned.is_delegated()
-    assert delegated_tx.is_delegated()
+    assert not unsigned.is_delegated
+    assert delegated_tx.is_delegated
 
     # Sender
     # priv_1 = cry.secp256k1.generate_privateKey()
@@ -244,10 +244,10 @@ def test_features():
     # Concat two parts to forge a signature.
     sig = cry.secp256k1.sign(h, priv_1) + cry.secp256k1.sign(dh, priv_2)
 
-    delegated_tx.set_signature(sig)
+    delegated_tx.signature = sig
 
-    assert delegated_tx.get_origin() == "0x" + addr_1.hex()
-    assert delegated_tx.get_delegator() == "0x" + addr_2.hex()
+    assert delegated_tx.origin == "0x" + addr_1.hex()
+    assert delegated_tx.delegator == "0x" + addr_2.hex()
 
 
 # Well this is a dangerous part, we tests the "private" function.
@@ -259,7 +259,7 @@ def test_unused():
         bytes.fromhex("0101"),
     ]
     delegated_tx_2 = transaction.Transaction(delegated_body_2)
-    assert delegated_tx_2.is_delegated()
+    assert delegated_tx_2.is_delegated
     assert (
         transaction.Transaction.decode(delegated_tx_2.encode(), True) == delegated_tx_2
     )
@@ -274,7 +274,7 @@ def test_unused():
     delegated_body_3 = copy.deepcopy(delegated_body)
     delegated_body_3["reserved"]["unused"] = [bytes.fromhex("0F0F"), bytes(0)]
     delegated_tx_3 = transaction.Transaction(delegated_body_3)
-    assert delegated_tx_3.is_delegated()
+    assert delegated_tx_3.is_delegated
 
     reserved_list = delegated_tx_3._encode_reserved()
     assert reserved_list == [bytes.fromhex("01"), bytes.fromhex("0F0F")]

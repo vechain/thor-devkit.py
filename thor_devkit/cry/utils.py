@@ -1,7 +1,13 @@
 """ Utils helping with hex<->string conversion and stripping """
+import sys
+
+if sys.version_info < (3, 8):
+    from typing_extensions import Literal
+else:
+    from typing import Literal
 
 
-def strip_0x04(p: bytes):
+def strip_0x04(p: bytes) -> bytes:
     """Strip the 0x04 off the starting of a byte sequence."""
     if len(p) == 65 and p[0] == 4:
         return p[1:]
@@ -30,7 +36,7 @@ def remove_0x(address: str) -> str:
         return address
 
 
-def is_uncompressed_public_key(key_bytes: bytes) -> bool:
+def is_uncompressed_public_key(key_bytes: bytes) -> Literal[True]:
     """
     Check if bytes is the uncompressed public key.
 
@@ -42,7 +48,7 @@ def is_uncompressed_public_key(key_bytes: bytes) -> bool:
     Returns
     -------
     bool
-        True/False
+        True
 
     Raises
     ------

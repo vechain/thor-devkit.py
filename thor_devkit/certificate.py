@@ -6,7 +6,7 @@ https://github.com/vechain/VIPs/blob/master/vips/VIP-192.md
 import copy
 import json
 import re
-from typing import Optional
+from typing import Optional, TypeVar, cast
 
 from .cry import address, blake2b256, secp256k1
 
@@ -60,9 +60,13 @@ class Certificate:
         return self.obj
 
 
-def safe_tolowercase(s: str):
+_T = TypeVar("_T")
+
+
+def safe_tolowercase(s: _T) -> _T:
     if isinstance(s, str):
-        return s.lower()
+        # Cast, because mypy doesn't resolve TypeVar inside function body
+        return cast(_T, s.lower())
     else:
         return s
 

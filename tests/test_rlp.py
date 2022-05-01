@@ -33,20 +33,29 @@ def test_numeric_kind_encode():
     assert kind.serialize(0x123).hex() == "0123"
 
     # Should Throw
-    with pytest.raises(SerializationError):
+    with pytest.raises(
+        SerializationError, match="The input string does not represent a number"
+    ):
         kind.serialize("0x123z")
 
-    with pytest.raises(SerializationError):
+    with pytest.raises(SerializationError, match="The input is not str nor int."):
         kind.serialize({})
 
-    with pytest.raises(SerializationError):
+    with pytest.raises(
+        SerializationError, match="The input string does not represent a number"
+    ):
         kind.serialize("0x")
 
-    with pytest.raises(SerializationError):
+    with pytest.raises(SerializationError, match="Cannot serialize negative integers"):
         kind.serialize(-1)
 
-    with pytest.raises(SerializationError):
+    with pytest.raises(
+        SerializationError, match=r"Integer too large \(does not fit in 8 bytes\)"
+    ):
         kind.serialize("0x12345678123456780")
+
+    with pytest.raises(SerializationError, match="The input is not str nor int."):
+        kind.serialize(None)
 
     # We won't hit this exception because big int are safe in Python.
     # Max Integer problem in Javascript: 2^53 -1
@@ -130,8 +139,8 @@ def test_fixed_blob_decode():
         kind.deserialize(bytes(0))
 
 
-def test_noneable_fixed_blob_kind_encode():
-    kind = m_rlp.NoneableFixedBlobKind(4)
+def test_optional_fixed_blob_kind_encode():
+    kind = m_rlp.OptionalFixedBlobKind(4)
 
     assert kind.serialize(None).hex() == ""
     assert kind.serialize("0x12345678").hex() == "12345678"
@@ -155,8 +164,8 @@ def test_noneable_fixed_blob_kind_encode():
         kind.serialize("0x")
 
 
-def test_noneable_fixed_blob_kind_decode():
-    kind = m_rlp.NoneableFixedBlobKind(4)
+def test_optional_fixed_blob_kind_decode():
+    kind = m_rlp.OptionalFixedBlobKind(4)
 
     assert kind.deserialize(bytes(0)) is None
     assert kind.deserialize(bytes([1, 2, 3, 4])) == "0x01020304"

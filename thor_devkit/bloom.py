@@ -14,7 +14,7 @@ n = number of elements to be added to the filter.
 2048 bits / 256 bytes
 """
 import math
-from typing import Callable
+from typing import Callable, Optional
 
 from .cry import blake2b256
 
@@ -42,7 +42,7 @@ class Bloom:
         k = round(cls.BITS_LENGTH / count * math.log(2))
         return max(min(k, cls.MAX_K), 1)
 
-    def __init__(self, k: int, bits: bytes = None):
+    def __init__(self, k: int, bits: Optional[bytes] = None):
         """
         Construct a bloom filter.
         k is the number of different hash functions.

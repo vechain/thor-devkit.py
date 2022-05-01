@@ -32,12 +32,32 @@ real world object => "item" conversion.
 
 """
 import re
-from typing import Any, List, Tuple, Union
+import sys
+from abc import ABC, abstractmethod
+from typing import (
+    Any,
+    Dict,
+    Generic,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    TypeVar,
+    Union,
+    overload,
+)
 
 from rlp import decode as rlp_decode
 from rlp import encode as rlp_encode
 from rlp.exceptions import DeserializationError, SerializationError
 from rlp.sedes import BigEndianInt
+
+from .deprecation import class_renamed
+
+if sys.version_info < (3, 10):
+    from typing_extensions import TypeGuard
+else:
+    from typing import TypeGuard
 
 HEX_STRING_PATTERN = re.compile("^0x[0-9a-f]*$", re.I)
 NONEMPTY_HEX_STRING_PATTERN = re.compile("^0x[0-9a-f]+$", re.I)
@@ -53,25 +73,34 @@ def _is_decimal_string(a: str) -> bool:
     return bool(NONEMPTY_DECIMAL_STRING_PATTERN.match(a))
 
 
-def _is_pure_int(a: int) -> bool:
+def _is_pure_int(a: object) -> TypeGuard[int]:
     return type(a) is int  # noqa: E721
 
 
-def _is_pure_str(a: str) -> bool:
+def _is_pure_str(a: object) -> TypeGuard[str]:
     return type(a) is str  # noqa: E721
 
 
-class ScalarKind:
-    pass
+_T = TypeVar("_T")
 
 
-class BytesKind(ScalarKind):
+class ScalarKind(Generic[_T], ABC):
+    @abstractmethod
+    def serialize(self, __obj: _T) -> bytes:
+        raise NotImplementedError
+
+    @abstractmethod
+    def deserialize(self, __serial: bytes) -> _T:
+        raise NotImplementedError
+
+
+class BytesKind(ScalarKind[bytes]):
     """
     Convert bytes type of Python object to RLP "item".
     """
 
     @classmethod
-    def is_valid_type(cls, obj):
+    def is_valid_type(cls, obj: object) -> TypeGuard[Union[bytes, bytearray]]:
         return isinstance(obj, (bytes, bytearray))
 
     def serialize(self, obj: bytes) -> bytes:
@@ -127,7 +156,7 @@ class BytesKind(ScalarKind):
         return serial
 
 
-class NumericKind(ScalarKind, BigEndianInt):
+class NumericKind(BigEndianInt, ScalarKind[int]):
     """
     This is a pre-defined type for Number-like objects.
 
@@ -138,7 +167,7 @@ class NumericKind(ScalarKind, BigEndianInt):
     '0x123z', {}, '0x', -1, '0x12345678123456780', 2 ** 64
     """
 
-    def __init__(self, max_bytes: int = None):
+    def __init__(self, max_bytes: Optional[int] = None) -> None:
         """
         Initialize a NumericKind.
 
@@ -160,38 +189,29 @@ class NumericKind(ScalarKind, BigEndianInt):
             obj is either number in string or number int.
         """
 
-        if not (_is_pure_str(obj) or _is_pure_int(obj)):
-            raise SerializationError("The input is not str nor int.", obj)
-
-        number = None
-
         if _is_pure_str(obj):
             if _is_hex_string(obj, True):
                 number = int(obj, 16)
-
-            if _is_decimal_string(obj):
+            elif _is_decimal_string(obj):
                 number = int(obj)
-
-        if _is_pure_int(obj):
+            else:
+                raise SerializationError(
+                    "The input string does not represent a number.", obj
+                )
+        elif _is_pure_int(obj):
             number = obj
+        else:
+            raise SerializationError("The input is not str nor int.", obj)
+
+        result_bytes = super().serialize(number)
 
         # remove leading 0 from bytes sequence.
-        result_bytes = super().serialize(number)
-        byte_list = []
-        can_append_flag = False
-        for x in result_bytes:
-            if not can_append_flag:
-                if x != 0:
-                    can_append_flag = True
-                else:
-                    continue
+        first_nonzero = next(
+            (idx for idx, item in enumerate(result_bytes) if item), len(result_bytes)
+        )
+        return result_bytes[first_nonzero:]
 
-            if can_append_flag:
-                byte_list.append(x)
-
-        return bytes(byte_list)
-
-    def deserialize(self, serial) -> int:
+    def deserialize(self, serial: bytes) -> int:
         """
         Deserialize bytes to int.
 
@@ -210,7 +230,7 @@ class NumericKind(ScalarKind, BigEndianInt):
         DeserializationError
             If bytes contain leading 0.
         """
-        if serial and serial[0] == 0:
+        if serial and not serial[0]:
             raise DeserializationError("Leading 0 should be removed from bytes", serial)
 
         # add leading 0 to bytes sequence if width is set.
@@ -226,7 +246,7 @@ class NumericKind(ScalarKind, BigEndianInt):
         return super().deserialize(serial2)
 
 
-class BlobKind(ScalarKind):
+class BlobKind(ScalarKind[str]):
     """
     This is a pre-defined type for '0x....' like hex strings,
     which shouldn't be interpreted as a number, usually an identifier.
@@ -249,10 +269,10 @@ class BlobKind(ScalarKind):
             the "item" that can be rlp encodeded.
         """
         if not _is_hex_string(obj, False):
-            raise SerializationError("expect 0x... style string", obj)
+            raise SerializationError("Expected 0x... style string", obj)
 
         if len(obj) % 2:
-            raise SerializationError("expect 0x... style string of even length.", obj)
+            raise SerializationError("Expected 0x... style string of even length.", obj)
 
         obj2 = obj[2:]  # remove '0x'
 
@@ -289,7 +309,7 @@ class FixedBlobKind(BlobKind):
         (also means the input hex is fixed length)
     """
 
-    def __init__(self, byte_length):
+    def __init__(self, byte_length: int) -> None:
         self.byte_length = byte_length
 
     def serialize(self, obj: str) -> bytes:
@@ -312,7 +332,7 @@ class FixedBlobKind(BlobKind):
         return super().deserialize(serial)
 
 
-class NoneableFixedBlobKind(FixedBlobKind):
+class OptionalFixedBlobKind(FixedBlobKind):
     """
     This is a pre-defined type for '0x....' like hex strings,
     which shouldn't be interpreted as a number, usually an identifier.
@@ -328,20 +348,24 @@ class NoneableFixedBlobKind(FixedBlobKind):
         Then decoded is also None.
     """
 
-    def __init__(self, byte_length):
+    def __init__(self, byte_length: int) -> None:
         super().__init__(byte_length)
 
-    def serialize(self, obj: str = None) -> bytes:
+    def serialize(self, obj: Optional[str] = None) -> bytes:
         if obj is None:
             return bytes(0)
 
         return super().serialize(obj)
 
-    def deserialize(self, serial: bytes) -> str:
+    # Unsafe override
+    def deserialize(self, serial: bytes) -> Optional[str]:  # type: ignore[override]
         if not serial:
             return None
 
         return super().deserialize(serial)
+
+
+NoneableFixedBlobKind = class_renamed(OptionalFixedBlobKind, "NoneableFixedBlobKind")
 
 
 class CompactFixedBlobKind(FixedBlobKind):
@@ -360,22 +384,20 @@ class CompactFixedBlobKind(FixedBlobKind):
         and it pads the leading zeros back. Output '0x{0}paddingxxx...'
     """
 
-    def __init__(self, byte_length):
+    def __init__(self, byte_length: int) -> None:
         super().__init__(byte_length)
 
     def serialize(self, obj: str) -> bytes:
         b = super().serialize(obj)
-        first_non_zero_index = -1
-        for idx, each in enumerate(b):
-            if each != 0:
-                first_non_zero_index = idx
-                break
+        first_non_zero_index = next(
+            (idx for idx, each in enumerate(b) if each != 0), None
+        )
 
-        b_list = []
-        if first_non_zero_index != -1:
+        if first_non_zero_index is not None:
             b_list = b[first_non_zero_index:]
+            return bytes(b_list) if b_list else bytes(0)
 
-        return bytes(b_list if b_list else 0)
+        return bytes(0)
 
     def deserialize(self, serial: bytes) -> str:
         if len(serial) > self.byte_length:
@@ -401,8 +423,8 @@ class DictWrapper(BaseWrapper):
     """DictWrapper is a container for parsing dict like objects."""
 
     def __init__(
-        self, list_of_tuples: List[Tuple[str, Union[BaseWrapper, ScalarKind]]]
-    ):
+        self, list_of_tuples: Iterable[Tuple[str, Union[BaseWrapper, ScalarKind]]]
+    ) -> None:
         """Constructor
 
         Parameters
@@ -413,8 +435,7 @@ class DictWrapper(BaseWrapper):
             key is a string.
             codec is either a BaseWrapper, or a ScalarKind.
         """
-        self.keys = [x[0] for x in list_of_tuples]
-        self.codecs = [x[1] for x in list_of_tuples]
+        self.keys, self.codecs = zip(*list_of_tuples)
 
 
 class ListWrapper(BaseWrapper):
@@ -423,7 +444,9 @@ class ListWrapper(BaseWrapper):
     the items type in the list can be heterogeneous.
     """
 
-    def __init__(self, list_of_codecs: List[Union[BaseWrapper, ScalarKind]]):
+    def __init__(
+        self, list_of_codecs: Iterable[Union[BaseWrapper, ScalarKind]]
+    ) -> None:
         """Constructor
 
         Parameters
@@ -433,7 +456,7 @@ class ListWrapper(BaseWrapper):
             eg. [codec, codec, codec...]
             codec is either a BaseWrapper, or a ScalarKind.
         """
-        self.codecs = list_of_codecs
+        self.codecs = list(list_of_codecs)
 
 
 class HomoListWrapper(BaseWrapper):
@@ -442,7 +465,7 @@ class HomoListWrapper(BaseWrapper):
     the items in the list are of the same type.
     """
 
-    def __init__(self, codec: Union[BaseWrapper, ScalarKind]):
+    def __init__(self, codec: Union[BaseWrapper, ScalarKind]) -> None:
         """Constructor
 
         Parameters
@@ -455,7 +478,18 @@ class HomoListWrapper(BaseWrapper):
         self.codec = codec
 
 
-def pack(obj, wrapper: Union[BaseWrapper, ScalarKind]) -> Union[bytes, List]:
+@overload
+def pack(obj, wrapper: ScalarKind) -> bytes:
+    ...
+
+
+@overload
+def pack(obj, wrapper: BaseWrapper) -> List[Any]:
+    ...
+
+
+# We cannot express list[bytes | list[bytes | ...]] recursive type
+def pack(obj, wrapper: Union[BaseWrapper, ScalarKind]) -> Union[bytes, List[Any]]:
     """Pack a Python object according to wrapper.
 
     Parameters
@@ -483,27 +517,43 @@ def pack(obj, wrapper: Union[BaseWrapper, ScalarKind]) -> Union[bytes, List]:
     # Complicated wrapper: BaseWrapper
     if isinstance(wrapper, BaseWrapper):
         if isinstance(wrapper, DictWrapper):
-            r = []
-            for (key, codec) in zip(wrapper.keys, wrapper.codecs):
-                r.append(pack(obj[key], codec))
-            return r
+            return [
+                pack(obj[key], codec)
+                for (key, codec) in zip(wrapper.keys, wrapper.codecs)
+            ]
 
         if isinstance(wrapper, ListWrapper):
-            r = []
-            for (item, codec) in zip(obj, wrapper.codecs):
-                r.append(pack(item, codec))
-            return r
+            return [pack(item, codec) for (item, codec) in zip(obj, wrapper.codecs)]
 
         if isinstance(wrapper, HomoListWrapper):
-            r = []
-            for item in obj:
-                r.append(pack(item, wrapper.codec))
-            return r
+            return [pack(item, wrapper.codec) for item in obj]
 
-        raise Exception("codec type is unknown.")
+        raise Exception("Codec type is unknown.")
 
     # Wrapper type is unknown, raise.
-    raise Exception("wrapper type is unknown.{}".format(wrapper))
+    raise Exception("Wrapper type is unknown.{}".format(wrapper))
+
+
+@overload  # FIXME: need generic here
+def unpack(packed: bytes, wrapper: ScalarKind) -> Any:
+    ...
+
+
+@overload
+def unpack(packed: List[Any], wrapper: DictWrapper) -> Dict[str, Any]:
+    ...
+
+
+@overload
+def unpack(
+    packed: List[Any], wrapper: Union[ListWrapper, HomoListWrapper]
+) -> List[Any]:
+    ...
+
+
+@overload
+def unpack(packed: List[Any], wrapper: BaseWrapper) -> Union[Dict[str, Any], List[Any]]:
+    ...
 
 
 def unpack(
@@ -531,27 +581,25 @@ def unpack(
     """
     # Simple wrapper: ScalarKind
     if isinstance(wrapper, ScalarKind):
+        assert isinstance(packed, bytes)
         return wrapper.deserialize(packed)
 
     # Complicated wrapper: BaseWrapper
     if isinstance(wrapper, BaseWrapper):
+        assert isinstance(packed, List)
         if isinstance(wrapper, DictWrapper):
-            r = {}
-            for (blob, key, codec) in zip(packed, wrapper.keys, wrapper.codecs):
-                r[key] = unpack(blob, codec)
-            return r
+            return {
+                key: unpack(blob, codec)
+                for (blob, key, codec) in zip(packed, wrapper.keys, wrapper.codecs)
+            }
 
         if isinstance(wrapper, ListWrapper):
-            r = []
-            for (blob, codec) in zip(packed, wrapper.codecs):
-                r.append(unpack(blob, codec))
-            return r
+            return [
+                unpack(blob, codec) for (blob, codec) in zip(packed, wrapper.codecs)
+            ]
 
         if isinstance(wrapper, HomoListWrapper):
-            r = []
-            for blob in packed:
-                r.append(unpack(blob, wrapper.codec))
-            return r
+            return [unpack(blob, wrapper.codec) for blob in packed]
 
         raise Exception("codec type is unknown.")
 
@@ -559,7 +607,7 @@ def unpack(
     raise Exception("wrapper type is unknown.")
 
 
-def pretty_print(packed: Union[bytes, List], indent: int):
+def pretty_print(packed: Union[bytes, List], indent: int) -> None:  # pragma: no cover
     """Debug function.
     Input: [] or bytes, or [bytes, [], [bytes]]
     Target: Pretty print the bytes into hex.
@@ -570,10 +618,7 @@ def pretty_print(packed: Union[bytes, List], indent: int):
 
     # bytes? Direct print it.
     if isinstance(packed, (bytes, bytearray)):
-        if len(packed) == 0:
-            print(" " * (indent) + "(empty byte[])")
-        else:
-            print(" " * (indent) + packed.hex())
+        print(" " * (indent) + (packed.hex() or "(empty byte[])"))
         return
 
     # list?
@@ -585,7 +630,7 @@ def pretty_print(packed: Union[bytes, List], indent: int):
 
 
 class ComplexCodec:
-    def __init__(self, wrapper: BaseWrapper):
+    def __init__(self, wrapper: BaseWrapper) -> None:
         self.wrapper = wrapper
 
     def encode(self, data: Any) -> bytes:

@@ -15,3 +15,4 @@ exclude_lines =
 
     @(abc\.)?abstractmethod
     @deprecated_to_property
+    @overload

@@ -13,9 +13,18 @@ The "keystore" dict should contain following format:
 }
 
 """
+import sys
+from typing import Dict
+
 import eth_keyfile
 
 from .address import ADDRESS_RE
+
+if sys.version_info < (3, 8):
+    from typing_extensions import Literal
+else:
+    from typing import Literal
+
 
 N = 131072  # aka. work_factor
 P = 1
@@ -23,8 +32,10 @@ R = 8
 DK_LEN = 32
 SALT_LEN = 16
 
+_KeyStoreT = Dict[str, str]
 
-def encrypt(private_key: bytes, password: bytes) -> dict:
+
+def encrypt(private_key: bytes, password: bytes) -> _KeyStoreT:
     """
     Encrypt a private key to a keystore.
     The keystore is a json-style python dict.
@@ -44,7 +55,7 @@ def encrypt(private_key: bytes, password: bytes) -> dict:
     return eth_keyfile.create_keyfile_json(private_key, password, 3, "scrypt", N)
 
 
-def decrypt(keystore: dict, password: bytes) -> bytes:
+def decrypt(keystore: _KeyStoreT, password: bytes) -> bytes:
     """
     Decrypt a keystore into a private key (bytes).
 
@@ -63,7 +74,7 @@ def decrypt(keystore: dict, password: bytes) -> bytes:
     return eth_keyfile.decode_keyfile_json(keystore, password)
 
 
-def _normalize(keystore: dict) -> dict:
+def _normalize(keystore: _KeyStoreT) -> _KeyStoreT:
     """
     Normalize the keystore key:value pairs.
     Make each value in lower case.
@@ -81,7 +92,7 @@ def _normalize(keystore: dict) -> dict:
     return keystore
 
 
-def _validate(keystore: dict) -> bool:
+def _validate(keystore: _KeyStoreT) -> Literal[True]:
     """
     Validate the format of a key store.
 
@@ -93,7 +104,7 @@ def _validate(keystore: dict) -> bool:
     Returns
     -------
     bool
-        True/False
+        True
 
     Raises
     ------
@@ -101,12 +112,12 @@ def _validate(keystore: dict) -> bool:
         If is not in good shape then throw.
     """
     if keystore.get("version") != 3:
-        raise ValueError("unsupported version {}".format(keystore.version))
+        raise ValueError("Unsupported version: {}".format(keystore.get("version")))
 
-    if not ADDRESS_RE.match(keystore.get("address")):
+    if not ADDRESS_RE.match(keystore.get("address", "")):
         raise ValueError(
-            "invalid address {}, should be 40 characters and alphanumero.".format(
-                keystore.address
+            "invalid address {}, should be 40 characters and alphanumeric.".format(
+                keystore.get("address")
             )
         )
 
@@ -119,7 +130,7 @@ def _validate(keystore: dict) -> bool:
     return True
 
 
-def well_formed(keystore: dict) -> bool:
+def well_formed(keystore: _KeyStoreT) -> Literal[True]:
     """
     Validate if the keystore is in good shape (roughly).
 
@@ -131,7 +142,7 @@ def well_formed(keystore: dict) -> bool:
     Returns
     -------
     bool
-        True/False
+        True
     """
 
     return _validate(keystore)

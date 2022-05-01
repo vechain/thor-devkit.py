@@ -35,35 +35,62 @@ string
 import sys
 from abc import ABC, abstractmethod
 from collections import namedtuple
-from typing import List, Union
+from typing import (
+    Any,
+    Dict,
+    Generic,
+    List,
+    NamedTuple,
+    Optional,
+    TypeVar,
+    Union,
+    cast,
+    overload,
+)
 
 import eth_abi
 import eth_utils
-
-# voluptuous is a better library in validating dict.
-from voluptuous import Any, Optional, Schema
+import voluptuous
+from voluptuous import Schema
 
 from .cry import keccak256
 from .deprecation import deprecated_to_property
 
 if sys.version_info < (3, 8):
-    from typing_extensions import Literal
+    from typing_extensions import Literal, TypedDict
 else:
-    from typing import Literal
+    from typing import Literal, TypedDict
 
 
-MUTABILITY = Schema(Any("pure", "view", "payable", "nonpayable"))
+MUTABILITY = Schema(voluptuous.Any("pure", "view", "payable", "nonpayable"))
+
+
+def _FUNC_PARAMETER(value):
+    return FUNC_PARAMETER(value)
 
 
 FUNC_PARAMETER = Schema(
     {
         "name": str,
         "type": str,
-        Optional("components"): list,  # if the "type" field is "tuple" or "type[]"
-        Optional("internalType"): str,
+        voluptuous.Optional("internalType"): str,
+        # if the "type" field is "tuple" or "type[]"
+        voluptuous.Optional("components"): [_FUNC_PARAMETER],
     },
     required=True,
 )
+
+
+class _FuncParameterT(TypedDict):
+    name: str
+    type: str  # noqa: A003
+
+
+class FuncParameterT(_FuncParameterT, total=False):
+    internalType: str  # noqa: N815
+    # Recursive types aren't really supported, but do partially work
+    # This will be expanded a few times and then replaced with Any (deeply nested)
+    components: List["FuncParameterT"]  # type: ignore[misc]
 
 
 FUNCTION = Schema(
@@ -78,47 +105,76 @@ FUNCTION = Schema(
 )
 
 
+class FunctionT(TypedDict):
+    type: Literal["function"]  # noqa: A003
+    name: str
+    stateMutability: Literal["pure", "view", "payable", "nonpayable"]  # noqa: N815
+    inputs: List["FuncParameterT"]
+    outputs: List["FuncParameterT"]
+
+
 EVENT_PARAMETER = Schema(
     {
         "name": str,
         "type": str,
-        Optional("components"): list,
+        voluptuous.Optional("components"): list,
         "indexed": bool,
-        Optional("internalType"): str,  # since 0.5.11+
+        voluptuous.Optional("internalType"): str,  # since 0.5.11+
     },
     required=True,
 )
+
+
+class _EventParameterT(_FuncParameterT):
+    indexed: bool
+
+
+class EventParameterT(_EventParameterT, total=False):
+    internalType: str  # noqa: N815
+    # Recursive types aren't really supported, but do partially work
+    # This will be expanded a few times and then replaced with Any (deeply nested)
+    components: List["EventParameterT"]  # type: ignore[misc]
 
 
 EVENT = Schema(
     {
         "type": "event",
         "name": str,
-        Optional("anonymous"): bool,
+        voluptuous.Optional("anonymous"): bool,
         "inputs": [EVENT_PARAMETER],
     }
 )
 
 
+class _EventT(TypedDict):
+    type: Literal["event"]  # noqa: A003
+    name: str
+    inputs: list["EventParameterT"]
+
+
+class EventT(_EventT, total=False):
+    anonymous: bool
+
+
 class FunctionResultMixin:
-    def to_dict(self) -> dict:
+    def to_dict(self) -> Dict[str, Any]:
         return {
             k: (
                 v.to_dict()
                 if isinstance(v, FunctionResultMixin)
                 else ([v_.to_dict() for v_ in v] if isinstance(v, list) else v)
             )
-            for k, v in self._asdict().items()
+            for k, v in self._asdict().items()  # type: ignore[attr-defined]
         }
 
 
-def calc_function_selector(abi_json: dict) -> bytes:
+def calc_function_selector(abi_json: FunctionT) -> bytes:
     """Calculate the function selector (4 bytes) from the abi json"""
     f = FUNCTION(abi_json)
     return eth_utils.function_abi_to_4byte_selector(f)
 
 
-def calc_event_topic(abi_json: dict) -> bytes:
+def calc_event_topic(abi_json: EventT) -> bytes:
     """Calculate the event log topic (32 bytes) from the abi json"""
     e = EVENT(abi_json)
     return eth_utils.event_abi_to_log_topic(e)
@@ -126,27 +182,36 @@ def calc_event_topic(abi_json: dict) -> bytes:
 
 class Coder:
     @staticmethod
-    def encode_list(types: List[str], values) -> bytes:
+    def encode_list(types: List[str], values: List[Any]) -> bytes:
         """Encode a sequence of values, into a single bytes"""
         return eth_abi.encode_abi(types, values)
 
     @staticmethod
-    def decode_list(types: List[str], data: bytes) -> List:
+    def decode_list(types: List[str], data: bytes) -> List[Any]:
         """Decode the data, back to a (,,,) tuple"""
         return list(eth_abi.decode_abi(types, data))
 
     @staticmethod
-    def encode_single(t: str, value) -> bytes:
+    def encode_single(t: str, value: Any) -> bytes:
         """Encode value of type t into single bytes"""
         return Coder.encode_list([t], [value])
 
     @staticmethod
-    def decode_single(t: str, data):
+    def decode_single(t: str, data: bytes) -> Any:
         """Decode data of type t back to a single object"""
         return Coder.decode_list([t], data)[0]
 
 
-class Encodable(ABC):
+# The first should be right, but results in a crash.
+# See https://github.com/python/mypy/issues/8320
+# _ParamT = TypeVar("_ParamT", EventParameterT, FuncParameterT)
+_ParamT = TypeVar("_ParamT", bound=_FuncParameterT)
+_BaseT = TypeVar("_BaseT")
+
+
+class Encodable(Generic[_ParamT], ABC):
+    _definition: FunctionT | EventT
+
     @property
     def name(self) -> str:
         return self._definition["name"]
@@ -156,22 +221,26 @@ class Encodable(ABC):
         return self.name
 
     @abstractmethod
-    def encode(self, parameters: List, to_hex=False) -> Union[bytes, str]:
+    def encode(self, parameters: List[Any]) -> Union[bytes, str, List[Optional[bytes]]]:
         raise NotImplementedError()
 
     @abstractmethod
-    def decode(self, output_data: bytes) -> dict:
+    def decode(self, __data: bytes) -> NamedTuple:
         raise NotImplementedError()
 
     @classmethod
-    def make_proper_type(cls, elem: dict) -> dict:
+    def make_proper_type(cls, elem: _ParamT) -> str:
         """Convert dictionary type repr to type string (inline tuples)"""
         if not elem["type"].startswith("tuple"):
             return elem["type"]
 
         return (
             "({})".format(
-                ",".join(cls.make_proper_type(x) for x in elem["components"]),
+                ",".join(
+                    cls.make_proper_type(x)
+                    # cast is required thanks to unbound variable
+                    for x in cast(list[_ParamT], elem.get("components", []))
+                ),
             )
             + elem["type"][5:]
         )
@@ -192,10 +261,10 @@ class Encodable(ABC):
     def apply_recursive_names(
         self,
         value,
-        typeinfo: dict = None,
-        chain: list = None,
+        typeinfo: _ParamT,
+        chain: Optional[List[str]] = None,
         array_depth: int = 0,
-    ) -> list:
+    ) -> Union[NamedTuple, List[NamedTuple], Any]:
         """Convert dictionary type repr to type string (inline tuples)"""
         type_ = typeinfo["type"]
 
@@ -210,19 +279,20 @@ class Encodable(ABC):
                 for v in value
             ]
 
-        NewType = self._make_output_namedtuple_type(
-            "_".join(chain), typeinfo["components"]
-        )
+        components = cast(list[_ParamT], typeinfo.get("components", []))
+        NewType = self._make_output_namedtuple_type("_".join(chain), components)
         return NewType(
             *(
                 self.apply_recursive_names(v, t, chain)
-                for t, v in zip(typeinfo["components"], value)
+                for t, v in zip(components, value)
             )
         )
 
 
-class Function(Encodable):
-    def __init__(self, f_definition: dict):
+class Function(Encodable[FuncParameterT]):
+    _definition: FunctionT
+
+    def __init__(self, f_definition: FunctionT) -> None:
         """Initialize a function by definition.
 
         Parameters
@@ -241,7 +311,19 @@ class Function(Encodable):
     def get_selector(self) -> bytes:
         return self.selector
 
-    def encode(self, parameters: List, to_hex=False) -> Union[bytes, str]:
+    @overload
+    def encode(self, parameters: List[Any], to_hex: Literal[True]) -> str:
+        ...
+
+    @overload
+    def encode(self, parameters: List[Any], to_hex: Literal[False] = ...) -> bytes:
+        ...
+
+    @overload
+    def encode(self, parameters: List[Any], to_hex: bool) -> Union[bytes, str]:
+        ...
+
+    def encode(self, parameters: List[Any], to_hex: bool = False) -> Union[bytes, str]:
         """Encode the parameters according to the function definition.
 
         Parameters
@@ -263,7 +345,7 @@ class Function(Encodable):
         else:
             return my_bytes
 
-    def decode(self, output_data: bytes) -> dict:
+    def decode(self, output_data: bytes) -> NamedTuple:
         """Decode function call output data back into human readable results.
 
         The result is in dual format. Contains both position and named index.
@@ -282,7 +364,9 @@ class Function(Encodable):
         )
 
 
-class Event(Encodable):
+class Event(Encodable[EventParameterT]):
+    _definition: EventT
+
     def __init__(self, e_definition: dict):
         """Initialize an Event with definition.
 
@@ -360,7 +444,9 @@ class Event(Encodable):
         else:
             return [Coder.encode_single(cls.strip_dynamic_part(t_type), value)]
 
-    def encode(self, params: Union[dict, List]) -> List:
+    def encode(
+        self, parameters: Union[Dict[str, Any], List[Any]]
+    ) -> List[Optional[bytes]]:
         """Assemble indexed keys into topics.
 
         Usage
@@ -371,7 +457,7 @@ class Event(Encodable):
 
         Parameters
         ----------
-        params : Union[dict, List]
+        parameters : Union[dict, List]
             A dict/list of indexed param of the given event,
             fill in None to occupy the position,
             if you aren't sure about the value.
@@ -380,7 +466,7 @@ class Event(Encodable):
 
             EventName(address from indexed, address to indexed, uint256 value)
 
-            the params can be:
+            the parameters can be:
             ['0xa32f..ff', '0x1f...ac']
             or:
             {'from': '0xa32f..ff', 'to': '0x1f...ac'}
@@ -399,7 +485,7 @@ class Event(Encodable):
         ValueError
             [description]
         """
-        topics = []
+        topics: List[Optional[bytes]] = []
 
         # not anonymous? topic[0] = signature.
         if not self.is_anonymous:
@@ -408,17 +494,17 @@ class Event(Encodable):
         has_no_name_param = any(True for x in self.indexed_params if not x["name"])
 
         # Disallow lists of unnamed parameters
-        if not isinstance(params, list) and has_no_name_param:
+        if not isinstance(parameters, list) and has_no_name_param:
             raise ValueError(
-                "Event definition contains param without a name, use a list of params"
-                " instead of dict."
+                "Event definition contains param without a name, use a list"
+                " of parameters instead of dict."
             )
 
         # Check arguments length
-        if len(params) != len(self.indexed_params):
+        if len(parameters) != len(self.indexed_params):
             raise ValueError(
-                "Indexed params needs {} items, {} is given.".format(
-                    len(self.indexed_params), len(params)
+                "Indexed parameters needs {} items, {} is given.".format(
+                    len(self.indexed_params), len(parameters)
                 )
             )
 
@@ -431,18 +517,23 @@ class Event(Encodable):
                     param,
                 )
 
-        if isinstance(params, list):
-            for param, definition in zip(params, self.indexed_params):
+        if isinstance(parameters, list):
+            for param, definition in zip(parameters, self.indexed_params):
                 topics.append(parse(param, definition))
 
-        if isinstance(params, dict):
+        if isinstance(parameters, dict):
             for definition in self.indexed_params:
-                param = params.get(definition["name"])
+                param = parameters.get(definition["name"])
                 topics.append(param if param is None else parse(param, definition))
 
         return topics
 
-    def decode(self, data: bytes, topics: List[bytes]):
+    def decode(
+        self,
+        data: bytes,
+        topics: Optional[List[Optional[bytes]]] = None,
+        strict: bool = True,
+    ) -> NamedTuple:
         """Decode "data" according to the "topic"s.
 
         One output can contain an array of logs.
@@ -471,7 +562,7 @@ class Event(Encodable):
         If the event is "anonymous" then the signature is not inserted into
         the "topics" list, hence topics[0] is not the signature.
         """
-        if not self.is_anonymous:
+        if not self.is_anonymous and topics:
             # if not anonymous, topics[0] is the signature of event.
             # we cut it out, because we already have self.signature
             topics = topics[1:]
@@ -480,8 +571,13 @@ class Event(Encodable):
             x for x in self._definition["inputs"] if not x["indexed"]
         ]
 
-        if len(self.indexed_params) != len(topics):
-            raise ValueError("Invalid topics count.")
+        indexed_count, topics_count = len(self.indexed_params), len(topics or [])
+        if topics is not None and indexed_count != topics_count:
+            if not strict and indexed_count > topics_count:
+                topics = (topics or []) + [None] * (indexed_count - topics_count)
+            else:
+                raise ValueError("Invalid topics count.")
+        topics = topics or []
 
         my_types = list(map(self.make_proper_type, unindexed_params_defs))
         result_list = Coder.decode_list(my_types, data)
@@ -492,11 +588,11 @@ class Event(Encodable):
 
         inputs = self._definition["inputs"]
         topics = iter(topics)
-        r = []
+        r: List[Any] = []
         for each in inputs:
             if each["indexed"]:
                 topic = next(topics)
-                if self.is_dynamic_type(each["type"]):
+                if self.is_dynamic_type(each["type"]) or topic is None:
                     r.append(topic)
                 else:
                     r.append(Coder.decode_single(each["type"], topic))
