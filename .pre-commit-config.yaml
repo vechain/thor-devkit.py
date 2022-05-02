@@ -15,11 +15,13 @@ repos:
     rev: 22.3.0
     hooks:
       - id: black
--   repo: https://gitlab.com/pycqa/flake8
-    rev: 3.9.2
+-   repo: https://github.com/csachs/pyproject-flake8
+    rev: v0.0.1a4
     hooks:
-      - id: flake8
+      - id: pyproject-flake8
+        name: flake8
         additional_dependencies: [
+          'flake8',
           'darglint',
           'flake8-2020',
           'flake8-alfred',
@@ -40,14 +42,14 @@ repos:
     hooks:
       - id: mypy
         name: mypy
-        entry: mypy --config=mypy.ini --cache-dir=/dev/null --no-incremental
+        entry: mypy --config=pyproject.toml --cache-dir=/dev/null --no-incremental
         language: system
         types: [ python ]
-        exclude: "tests/"
       - id: pytest
         name: pytest
-        entry: pytest --cov=thor_devkit --no-cov-on-fail --cov-report=term-missing -vv -s
+        entry: pytest -vv -s
         language: system
         types: [ python ]
         pass_filenames: false
         exclude: "setup.py"
+        always_run: true

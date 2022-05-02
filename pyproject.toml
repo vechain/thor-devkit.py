@@ -1,0 +1,133 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+dynamic = ["version"]
+name = "thor-devkit"
+authors = [{name = "laalaguer", email = "laalaguer@gmail.com"}]
+readme = "README.md"
+description = "SDK to interact with VeChain Thor public blockchain."
+license = { file = "LICENSE" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Build Tools",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: OS Independent",
+]
+keywords = ["vechain", "thor", "blockchain", "sdk"]
+dependencies = [
+    "bip-utils>=1.0.5,<1.1.0",
+    "ecdsa>=0.16.1,<0.17.0",
+    "eth-abi>=3.0.0,<3.1.0",
+    "eth-keyfile>=0.6.0,<0.7.0",
+    "eth-keys>=0.4.0,<0.5.0",
+    "eth-utils>=2.0.0,<2.1.0",
+    "mnemonic==0.19",
+    "pysha3>=1.0.2,<=1.1.0",
+    "rlp>=3.0.0,<=3.1.0",
+    "typing_extensions>=4.2.0,<=5.0.0",
+    "twine",
+    "voluptuous>=0.12.0,<=0.13.0",
+]
+requires-python = ">=3.6"
+
+[tool.setuptools.dynamic]
+version = {attr = "thor_devkit.VERSION"}
+
+[project.optional-dependencies]
+test = [
+    "mypy>=0.942",
+    "pytest>=6.2.0",
+    "pytest-cov"
+]
+
+[project.urls]
+Home = "https://github.com/laalaguer/thor-devkit.py"
+Documentation = "https://github.com/laalaguer/thor-devkit.py"
+Source = "https://github.com/laalaguer/thor-devkit.py"
+Issues = "https://github.com/laalaguer/thor-devkit.py/issues"
+
+
+[tool.pytest.ini_options]
+addopts = """
+    --cov=thor_devkit
+    --no-cov-on-fail
+    --cov-report=term-missing
+"""
+
+
+[tool.coverage.run]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    'if self\.debug',
+
+    "raise AssertionError",
+    "raise NotImplementedError",
+
+    "if 0:",
+    "if __name__ == .__main__.:",
+
+    '@(abc.)?abstractmethod',
+    "@deprecated_to_property",
+    "@overload",
+]
+
+
+[tool.mypy]
+allow_redefinition = true
+check_untyped_defs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = true
+disallow_any_generics = true
+ignore_missing_imports = true
+incremental = true
+strict_optional = true
+no_implicit_optional = true
+show_traceback = true
+warn_no_return = false
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unused_configs = true
+warn_unreachable = true
+
+[[tool.mypy.overrides]]
+module = "thor_devkit.*"
+disallow_untyped_defs = true
+
+
+[tool.flake8]
+exclude = """
+    .git,
+    .github,
+    __pycache__,
+    .pytest_cache,
+    .env,
+    env,
+    .pyenv,
+    pyenv,
+    *.egg_info,
+"""
+max_line_length = 88
+extend_ignore = [
+    "SIM905",
+    "N806",
+    "PIE798",
+    "PT011",  # FIXME: awaits tests and exceptions
+    "DAR",  # FIXME: until docstrings are fixed
+    "PIE786",  # FIXME: until new exceptions are added
+]
+# FIXME: requires renaming
+per-file-ignores = "thor_devkit/*:FNE,N802"
+max-complexity = 12
+# darglint
+docstring_style = "numpy"
+
+
+[tool.isort]
+profile = "black"
