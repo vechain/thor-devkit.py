@@ -130,7 +130,7 @@ extend_ignore = [
 # FIXME: requires renaming
 per-file-ignores = """
     thor_devkit/*:FNE,N802
-    tests/*:DAR,D,RST
+    tests/*:D,RST
 """
 max-complexity = 12
 rst-roles = [
