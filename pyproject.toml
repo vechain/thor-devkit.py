@@ -124,13 +124,31 @@ extend_ignore = [
     "SIM905",
     "N806",
     "PIE798",
-    "DAR",  # FIXME: until docstrings are fixed
+    "D100", "D101", "D102", "D103", "D104", # FIXME: until all docstrings are added
+    "D105",  # Magic methods may remain unannotated
 ]
 # FIXME: requires renaming
-per-file-ignores = "thor_devkit/*:FNE,N802"
+per-file-ignores = """
+    thor_devkit/*:FNE,N802
+    tests/*:DAR,D,RST
+"""
 max-complexity = 12
-# darglint
-docstring_style = "numpy"
+rst-roles = [
+    "mod",
+    "func",
+    "data",
+    "const",
+    "class",
+    "meth",
+    "attr",
+    "exc",
+]
+rst-directives = [
+    "versionadded",
+    "versionchanged",
+    "deprecated",
+]
+docstring-convention = "numpy"
 
 
 [tool.isort]

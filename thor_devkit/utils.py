@@ -1,4 +1,4 @@
-""" Utils helping with hex<->string conversion and stripping """
+"""Utils helping with hex<->string conversion and stripping."""
 import sys
 from typing import TypeVar, Union, cast
 
@@ -22,8 +22,7 @@ def strip_0x04(p: _AnyBytes) -> bytes:
 
 
 def remove_0x(address: str) -> str:
-    """
-    Remove the 0x if any. Returns the string without 0x
+    """Remove the 0x prefix if any.
 
     Parameters
     ----------
@@ -35,7 +34,6 @@ def remove_0x(address: str) -> str:
     str
         Address string without prefix "0x"
     """
-
     if address.startswith("0x") or address.startswith("0X"):
         return address[2:]
     else:
@@ -43,23 +41,20 @@ def remove_0x(address: str) -> str:
 
 
 def validate_uncompressed_public_key(key_bytes: _AnyBytes) -> Literal[True]:
-    """
-    Check if bytes is the uncompressed public key.
+    """Check if bytes is the uncompressed public key.
 
     Parameters
     ----------
-    address : bytes
-        Address in bytes. Should be 65 bytes.
+    key_bytes : bytes or bytearray
+        Address in bytes.
 
     Returns
     -------
-    bool
-        True
+    Literal[True]
+        Always ``True`` if public key is valid, raises otherwise.
 
     Raises
     ------
-    ValueError
-        If address isn't 65 bytes.
     ValueError
         If address doesn't begin with 04 as first byte.
     """
@@ -70,6 +65,13 @@ def validate_uncompressed_public_key(key_bytes: _AnyBytes) -> Literal[True]:
         raise ValueError("Should begin with 04 as first byte.")
 
     return True
+
+
+def is_valid_uncompressed_public_key(key_bytes: _AnyBytes) -> bool:
+    try:
+        return validate_uncompressed_public_key(key_bytes)
+    except ValueError:
+        return False
 
 
 @renamed_function("validate_uncompressed_public_key")

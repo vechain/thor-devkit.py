@@ -20,8 +20,8 @@ class DefaultTextExceptionMixin(BaseException):
 
 
 class BadSignature(DefaultTextExceptionMixin, Exception):
-    """The signature of certificate does not match with the signer"""
+    """The signature of certificate does not match with the signer."""
 
 
 class BadTransaction(DefaultTextExceptionMixin, ValueError):
-    """The decoded transaction is invalid"""
+    """The decoded transaction is invalid."""

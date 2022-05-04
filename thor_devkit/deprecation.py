@@ -29,11 +29,15 @@ def class_renamed(cls: Type[_T], old_name: str) -> Type[_T]:
     return cast(Type[_T], type(old_name, (cls,), {"__init__": __init__}))
 
 
-def _renamed_function(old_name: str, kind: str) -> Callable[[_C], _C]:
+def _renamed_function(new_name: str, kind: str) -> Callable[[_C], _C]:
     def decorator(func: _C) -> _C:
         @wraps(func)
         def inner(*args: Any, **kwargs: Any) -> Any:
-            warnings.warn(DeprecationWarning(f"This {kind} was renamed to {old_name}"))
+            warnings.warn(
+                DeprecationWarning(
+                    f"{kind} {func.__name__} is deprecated. Use {new_name} instead."
+                )
+            )
             return func(*args, **kwargs)
 
         return cast(_C, inner)
@@ -41,5 +45,5 @@ def _renamed_function(old_name: str, kind: str) -> Callable[[_C], _C]:
     return decorator
 
 
-renamed_function = partial(_renamed_function, kind="function")
-renamed_method = partial(_renamed_function, kind="method")
+renamed_function = partial(_renamed_function, kind="Function")
+renamed_method = partial(_renamed_function, kind="Method")

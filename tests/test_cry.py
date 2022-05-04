@@ -117,18 +117,18 @@ def test_mnemonic():
 
     # Valid: True
     words = SENTENCE.split(" ")
-    assert mnemonic.validate(words)
+    assert mnemonic.is_valid(words)
 
     # Valid: True
-    assert mnemonic.validate(mnemonic.generate())
+    assert mnemonic.is_valid(mnemonic.generate())
 
     # Valid: False
     words2 = "hello word".split(" ")
-    assert not mnemonic.validate(words2)
+    assert not mnemonic.is_valid(words2)
 
     # Valid: False
     words3 = sorted(SENTENCE.split(" "))
-    assert not mnemonic.validate(words3)
+    assert not mnemonic.is_valid(words3)
 
     # Seed generated from words.
     assert mnemonic.derive_seed(words) == bytes.fromhex(SEED)

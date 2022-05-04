@@ -58,23 +58,20 @@ class HDNode:
     """
 
     def __init__(self, bip32_ctx: Bip32) -> None:
-        """
-        HDNode constructor, it is not recommended to use this directly.
+        """Class constructor, it is not recommended to use this directly.
+
         To construct an HDNode, use staticmethods below instead.
 
         Parameters
         ----------
         bip32_ctx : Bip32
+            Context to build node from.
         """
-
         self.bip32_ctx = bip32_ctx
 
     @staticmethod
     def from_seed(seed: _AnyBytes, init_path: str = VET_EXTERNAL_PATH) -> "HDNode":
-        """
-        Construct an HD Node from a seed (64 bytes).
-        The init_path is m/44'/818'/0'/0 for starting.
-        or you can simply put in 44'/818'/0'/0
+        """Construct an HD Node from a seed (64 bytes).
 
         Note
         ----
@@ -83,10 +80,10 @@ class HDNode:
 
         Parameters
         ----------
-        seed : bytes
+        seed : bytes or bytearray
             Seed itself.
-        init_path : str, optional
-            The derive path, by default VET_EXTERNAL_PATH
+        init_path : str, default: :const:`VET_EXTERNAL_PATH`
+            The initial derivation path
 
         Returns
         -------
@@ -100,9 +97,7 @@ class HDNode:
     def from_mnemonic(
         words: Iterable[str], init_path: str = VET_EXTERNAL_PATH
     ) -> "HDNode":
-        """
-        Construct an HD Node from a set of words.
-        The init_path is m/44'/818'/0'/0 by default on VeChain.
+        """Construct an HD Node from a mnemonic (set of words).
 
         Note
         ----
@@ -112,32 +107,29 @@ class HDNode:
 
         Parameters
         ----------
-        words : List[str]
+        words : Iterable of str
             Mnemonic words, usually 12 words.
-        init_path : str, optional
-            The initial derivation path, by default VET_EXTERNAL_PATH
+        init_path : str, default: :const:`VET_EXTERNAL_PATH`
+            The initial derivation path
 
         Returns
         -------
         HDNode
             A new HDNode.
         """
-
         seed = derive_seed(words)  # 64 bytes
         bip32_ctx = Bip32.FromSeedAndPath(seed, init_path)
         return HDNode(bip32_ctx)
 
     @staticmethod
     def from_public_key(pub: _AnyBytes, chain_code: _AnyBytes) -> "HDNode":
-        """
-        Construct an HD Node from an uncompressed public key.
-        (starts with 0x04 as first byte)
+        """Construct an HD Node from an uncompressed public key.
 
         Parameters
         ----------
-        pub : bytes
-            An uncompressed public key in bytes.
-        chain_code : bytes
+        pub : bytes or bytearray
+            An uncompressed public key in bytes (starts with ``0x04`` as first byte).
+        chain_code : bytes or bytearray
             32 bytes
 
         Returns
@@ -168,9 +160,9 @@ class HDNode:
 
         Parameters
         ----------
-        priv : bytes
-            The privte key in bytes.
-        chain_code : bytes
+        priv : bytes or bytearray
+            The private key in bytes.
+        chain_code : bytes or bytearray
             32 bytes of random number you choose.
 
         Returns
@@ -178,7 +170,6 @@ class HDNode:
         HDNode
             A new HDNode.
         """
-
         all_bytes = b"".join(
             [
                 VERSION_MAINNET_PRIVATE,
@@ -200,12 +191,11 @@ class HDNode:
         """
         Derive the child HD Node from current HD Node.
 
-        Note
-        ----
-            private key -> private key.
-            private key -> public key.
-            public key -> public key.
-            public key -> private key. (CAN NOT!)
+        Possible derivation paths:
+            * private key -> private key
+            * private key -> public key
+            * public key -> public key
+            * public key -> private key (**impossible!**)
 
         Parameters
         ----------
@@ -217,28 +207,27 @@ class HDNode:
         HDNode
             A New HDNode.
         """
-
         bip32_ctx = self.bip32_ctx.DerivePath(str(index))
 
         return HDNode(bip32_ctx)
 
     def public_key(self) -> bytes:
-        """
-        Get current node's public key in uncompressed format bytes.
-        (starts with 0x04)
+        """Get current node's public key in uncompressed format bytes.
 
         Returns
         -------
         bytes
-            The uncompressed public key.
+            The uncompressed public key (starts with ``0x04``)
         """
         return b"\x04" + self.bip32_ctx.PublicKey().RawUncompressed().ToBytes()
 
     def private_key(self) -> bytes:
-        """
-        Get current node's private key in bytes format.
+        """Get current node's private key in bytes format.
+
+        Note
+        ----
         If this node was publicly derived,
-        then call this function may cause a Bip32KeyError exception.
+        then calling this function may cause a Bip32KeyError exception.
 
         Returns
         -------
@@ -248,8 +237,7 @@ class HDNode:
         return self.bip32_ctx.PrivateKey().Raw().ToBytes()
 
     def chain_code(self) -> bytes:
-        """
-        Get the chaincode of current HD node.
+        """Get the chaincode of current HD node.
 
         Returns
         -------
@@ -259,8 +247,7 @@ class HDNode:
         return self.bip32_ctx.Chain()
 
     def address(self) -> bytes:
-        """
-        Get the common address format.
+        """Get the common address format.
 
         Returns
         -------
@@ -270,8 +257,7 @@ class HDNode:
         return public_key_to_address(self.public_key())
 
     def finger_print(self) -> bytes:
-        """
-        Get the finger print of current HD Node public key.
+        """Get the finger print of current HD Node public key.
 
         Returns
         -------

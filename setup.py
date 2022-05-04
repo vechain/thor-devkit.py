@@ -1,4 +1,4 @@
-"""This file is needed only to allow editable installs"""
+"""Required only to allow editable installs."""
 import setuptools
 
 setuptools.setup()

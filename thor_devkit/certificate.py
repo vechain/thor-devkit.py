@@ -6,12 +6,12 @@ https://github.com/vechain/VIPs/blob/master/vips/VIP-192.md
 import json
 import re
 import sys
-import warnings
 from datetime import datetime
 from typing import Optional, Union
 
 from .cry import blake2b256, secp256k1
 from .cry.address import public_key_to_address
+from .deprecation import renamed_function
 from .exceptions import BadSignature
 from .utils import safe_tolowercase
 
@@ -61,15 +61,22 @@ class Certificate:
         Parameters
         ----------
         purpose : str
+            Certificate purpose.
         payload : PayloadT
             Dictionary of style { "type": str, "content": str}
         domain : str
+            Certificate domain.
         timestamp : Union[int, datetime]
             Integer Unix timestamp or datetime.datetime object.
         signer : str
             0x... the signer address.
         signature : Optional[str], optional, default: None
             A secp256k1 signed bytes, but turned into a '0x' + bytes.hex() format
+
+        Raises
+        ------
+        ValueError
+            When ``payload`` dictionary is malformed.
         """
         if not payload.get("type"):
             raise ValueError('payload needs a string field "type"')
@@ -155,35 +162,23 @@ class Certificate:
         return True
 
 
+@renamed_function("Certificate.encode")
 def encode(cert: Certificate) -> str:
-    """
-    Encode a certificate into json.
+    """Encode a certificate into json.
 
     .. deprecated:: 2.0.0
-        `encode` module-level function is replaced by
-        `Certificate.encode` method to conform with OOP standards.
+        :func:`encode` module-level function is replaced by
+        :meth:`Certificate.encode` method to conform with OOP standards.
     """
-    warnings.warn(
-        DeprecationWarning(
-            "Module-level `encode` function is deprecated. "
-            "Use Certificate.encode method instead"
-        )
-    )
     return cert.encode()
 
 
+@renamed_function("Certificate.verify")
 def verify(cert: Certificate) -> Literal[True]:
-    """
-    Verify certificate signature.
+    """Verify certificate signature.
 
     .. deprecated:: 2.0.0
-        `verify` module-level function is replaced by
-        `Certificate.verify` method to conform with OOP standards.
+        :func:`verify` module-level function is replaced by
+        :meth:`Certificate.verify` method to conform with OOP standards.
     """
-    warnings.warn(
-        DeprecationWarning(
-            "Module-level `verify` function is deprecated. "
-            "Use Certificate.verify method instead"
-        )
-    )
     return cert.verify()

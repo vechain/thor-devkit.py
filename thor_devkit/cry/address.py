@@ -20,14 +20,12 @@ ADDRESS_RE: Final = re.compile("^0x[0-9a-f]{40}$", re.I)
 
 
 def public_key_to_address(key_bytes: _AnyBytes) -> bytes:
-    """
-    Derive an address from a public key
-    (uncompressed, starts with 0x04).
+    """Derive an address from a public key.
 
     Parameters
     ----------
-    key_bytes : bytes
-        bytes that represent a public key.
+    key_bytes : bytes or bytearray
+        public key (uncompressed, starts with 0x04).
 
     Returns
     -------
@@ -42,8 +40,7 @@ def public_key_to_address(key_bytes: _AnyBytes) -> bytes:
 
 
 def is_address(address: str) -> bool:
-    """
-    Check if a text string is valid address.
+    """Check if a text string is valid address.
 
     Parameters
     ----------
@@ -55,13 +52,11 @@ def is_address(address: str) -> bool:
     bool
         If it is valid address.
     """
-
     return bool(ADDRESS_RE.match(address))
 
 
 def to_checksum_address(address: str) -> str:
-    """
-    Turn an address to a checksum address that is compatible with eip-55.
+    """Turn an address to a checksum address that is compatible with eip-55.
 
     Parameters
     ----------
@@ -76,9 +71,8 @@ def to_checksum_address(address: str) -> str:
     Raises
     ------
     ValueError
-        If the address is not  valid.
+        If the address is not valid.
     """
-
     if not is_address(address):
         raise ValueError("The address is not valid.")
 

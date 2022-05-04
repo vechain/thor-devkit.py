@@ -32,9 +32,7 @@ class Bloom:
 
     @classmethod
     def estimate_k(cls, count: int) -> int:
-        """
-        Estimate the k based on the number of elements
-        to be inserted into bloom filter.
+        """Estimate the k based on expected elements count.
 
         Parameters
         ----------
@@ -50,18 +48,15 @@ class Bloom:
         return max(min(k, cls.MAX_K), 1)
 
     def __init__(self, k: int, bits: Optional[_AnyBytes] = None):
-        """
-        Construct a bloom filter.
-        k is the number of different hash functions.
-
+        """Construct a bloom filter.
 
         Parameters
         ----------
         k : int
             The number of different hash functions to use.
-        bits : bytes, optional, default: None
-            bits of previous bloom filter to inherit.
-            Leave it None to create an empty bloom filter.
+        bits : Optional[bytes or bytearray], optional
+            Bits of previous bloom filter to inherit.
+            Leave it ``None`` to create an empty bloom filter.
         """
         self.k = k
         if bits is None:
@@ -72,12 +67,11 @@ class Bloom:
     def _distribute(
         self, element: _AnyBytes, tester: Callable[[int, int], bool]
     ) -> bool:
-        """
-        Distribute the element into the bloom filter.
+        """Distribute the element into the bloom filter.
 
         Parameters
         ----------
-        element : bytes
+        element : bytes or bytearray
             the element to be fit into the bloom filter.
         tester : Callable[[int, int], bool]
             a function to test the bit, return False to stop the operation.
@@ -85,8 +79,8 @@ class Bloom:
         Returns
         -------
         bool
-            True/False if element is inside during testing,
-            or True when adding element.
+            ``True``/``False`` if element is inside during testing,
+            or ``True`` when adding element.
         """
         h, _ = blake2b256([element])
         for x in range(self.k):
@@ -97,18 +91,17 @@ class Bloom:
         return True
 
     def add(self, element: _AnyBytes) -> Literal[True]:
-        """
-        Add an element to the bloom filter.
+        """Add an element to the bloom filter.
 
         Parameters
         ----------
-        element : bytes
+        element : bytes or bytearray
             The element in bytes.
 
         Returns
         -------
-        bool
-            True
+        Literal[True]
+            Always ``True``
         """
 
         def t(index: int, bit: int) -> Literal[True]:
@@ -121,18 +114,17 @@ class Bloom:
         return True
 
     def test(self, element: _AnyBytes) -> bool:
-        """
-        Test if element is inside the bloom filter.
+        """Test if element is inside the bloom filter.
 
         Parameters
         ----------
-        element : bytes
+        element : bytes or bytearray
             The element in bytes.
 
         Returns
         -------
         bool
-            True if inside, False if not inside.
+            ``True`` if inside, ``False`` if not inside.
         """
 
         def t(index: int, bit: int) -> bool:

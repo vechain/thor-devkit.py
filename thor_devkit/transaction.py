@@ -136,13 +136,17 @@ BODY: Final = Schema(
 
 
 def data_gas(data: str) -> int:
-    """
-    Calculate the gas the data will consume.
+    """Calculate the gas the data will consume.
 
     Parameters
     ----------
     data : str
         '0x...' style hex string.
+
+    Returns
+    -------
+    int
+        Estimated gas consumption.
     """
     Z_GAS = 4
     NZ_GAS = 68
@@ -154,18 +158,17 @@ def data_gas(data: str) -> int:
 
 
 def intrinsic_gas(clauses: Sequence[ClauseT]) -> int:
-    """
-    Calculate roughly the gas from a list of clauses.
+    """Calculate roughly the gas from a list of clauses.
 
     Parameters
     ----------
-    clauses : List
+    clauses : Sequence[ClauseT]
         A list of clauses (in dict format).
 
     Returns
     -------
     int
-        The sum of gas.
+        The amount of gas.
     """
     TX_GAS = 5000
     CLAUSE_GAS = 16000
@@ -207,15 +210,18 @@ class Transaction:
         self.body = BODY(body)
 
     def get_body(self, as_copy: bool = True) -> TransactionBodyT:
-        """
-        Get a dict of the body represents the transaction.
-        If as_copy, return a newly created dict.
-        If not, return the body used in this Transaction object.
+        """Get a dict of the body represents the transaction.
 
         Parameters
         ----------
-        as_copy : bool, optional
-            Return a new dict clone of the body, by default True
+        as_copy : bool, default: True
+            Return a new dict clone of the body
+
+        Returns
+        -------
+        TransactionBodyT
+            If as_copy, return a newly created dict.
+            If not, return the body of this Transaction object.
         """
         if as_copy:
             return deepcopy(self.body)
@@ -245,18 +251,34 @@ class Transaction:
 
     @property
     def intrinsic_gas(self) -> int:
+        """Roughly estimate amount of gas this transaction will consume.
+
+        .. versionadded:: 2.0.0
+        """
         return intrinsic_gas(self.body["clauses"])
 
     @property
     def signature(self) -> Optional[bytes]:
+        """Get signature of transaction.
+
+        .. versionadded:: 2.0.0
+        """
         return self._signature
 
     @signature.setter
     def signature(self, sig: Optional[_AnyBytes]) -> None:
+        """Set signature of transaction.
+
+        .. versionadded:: 2.0.0
+        """
         self._signature = bytes(sig) if sig is not None else sig
 
     @property
     def origin(self) -> Optional[str]:
+        """Get transaction origin.
+
+        .. versionadded:: 2.0.0
+        """
         if not self._signature_valid():
             return None
 
@@ -272,6 +294,10 @@ class Transaction:
 
     @property
     def delegator(self) -> Optional[str]:
+        """Get delegator.
+
+        .. versionadded:: 2.0.0
+        """
         if not self.is_delegated:
             return None
 
@@ -294,7 +320,12 @@ class Transaction:
 
     @property
     def is_delegated(self) -> bool:
-        """Check if this transaction is delegated."""
+        """Check if this transaction is delegated.
+
+        .. versionchanged:: 2.0.0
+            :attr:`is_delegated` is a property now.
+
+        """
         if not self.body.get("reserved", {}).get("features"):
             return False
 
@@ -305,6 +336,10 @@ class Transaction:
 
     @property
     def id(self) -> Optional[str]:  # noqa: A003
+        """Get transaction id.
+
+        .. versionadded:: 2.0.0
+        """
         if not self._signature_valid():
             return None
 
@@ -327,7 +362,7 @@ class Transaction:
             return len(self.signature) == expected_sig_len
 
     def encode(self, force_unsigned: bool = False) -> bytes:
-        """Encode the tx into bytes"""
+        """Encode the tx into bytes."""
         reserved_list = self._encode_reserved()
         temp = deepcopy(self.body)
         temp["reserved"] = reserved_list
@@ -340,7 +375,7 @@ class Transaction:
 
     @staticmethod
     def decode(raw: _AnyBytes, unsigned: bool) -> "Transaction":
-        """Return a Transaction type instance"""
+        """Create a Transaction type instance from encoded bytes."""
         sig = None
 
         if unsigned:
@@ -383,27 +418,54 @@ class Transaction:
 
     @deprecated_to_property
     def get_delegator(self) -> Optional[str]:
+        """Get delegator.
+
+        .. deprecated:: 2.0.0
+            Use :attr:`delegator` property instead.
+        """
         return self.delegator
 
     @deprecated_to_property
     def get_intrinsic_gas(self) -> int:
-        """Get the rough gas this tx will consume"""
+        """Get intrinsic gas estimate.
+
+        .. deprecated:: 2.0.0
+            Use :attr:`intrinsic_gas` property instead.
+        """
         return self.intrinsic_gas
 
     @deprecated_to_property
     def get_signature(self) -> Optional[bytes]:
-        """Get the signature of current transaction."""
+        """Get signature.
+
+        .. deprecated:: 2.0.0
+            Use :attr:`signature` property instead.
+        """
         return self.signature
 
     @deprecated_to_property
     def set_signature(self, sig: _AnyBytes) -> None:
-        """Set the signature"""
+        """Set signature.
+
+        .. deprecated:: 2.0.0
+            Use :attr:`signature` property setter instead.
+        """
         self.signature = sig
 
     @deprecated_to_property
     def get_origin(self) -> Optional[str]:
+        """Get origin.
+
+        .. deprecated:: 2.0.0
+            Use :attr:`origin` property instead.
+        """
         return self.origin
 
     @deprecated_to_property
     def get_id(self) -> Optional[str]:
+        """Get transaction ID.
+
+        .. deprecated:: 2.0.0
+            Use :attr:`.id` property instead.
+        """
         return self.id

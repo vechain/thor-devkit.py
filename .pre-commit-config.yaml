@@ -22,7 +22,8 @@ repos:
         name: flake8
         additional_dependencies: [
           'flake8',
-          'darglint',
+          'flake8-docstrings',
+          'flake8-rst-docstrings',
           'flake8-2020',
           'flake8-alfred',
           'flake8-broken-line',

@@ -14,6 +14,8 @@ from typing import Iterable, List, Tuple
 from bip_utils import Bip32
 from mnemonic import Mnemonic
 
+from ..deprecation import renamed_function
+
 if sys.version_info < (3, 8):
     from typing_extensions import Final, Literal, get_args
 else:
@@ -40,13 +42,12 @@ def _get_vet_key_path(index: int = 0) -> str:
 
 
 def generate(strength: _ALLOWED_STRENGTHS = 128) -> List[str]:
-    """
-    Generate BIP39 mnemonic words.
+    """Generate BIP39 mnemonic words.
 
     Parameters
     ----------
-    strength : int, optional
-         Any of [128, 160, 192, 224, 256], by default 128
+    strength : int, default: 128
+         Any of [128, 160, 192, 224, 256] (:const:`ALLOWED_STRENGTHS`)
 
     Returns
     -------
@@ -56,7 +57,7 @@ def generate(strength: _ALLOWED_STRENGTHS = 128) -> List[str]:
     Raises
     ------
     ValueError
-        If the strength is not of correct length.
+        If the strength is not allowed.
     """
     if strength not in ALLOWED_STRENGTHS:
         raise ValueError(f"strength should be one of {ALLOWED_STRENGTHS}.")
@@ -66,39 +67,53 @@ def generate(strength: _ALLOWED_STRENGTHS = 128) -> List[str]:
     return sentence.split(" ")
 
 
-def validate(words: Iterable[str]) -> bool:
-    """
-    Check if the words form a valid BIP39 mnemonic words.
+def is_valid(words: Iterable[str]) -> bool:
+    """Check if the words form a valid BIP39 mnemonic words.
 
     Parameters
     ----------
-    words : Iterable[str]
+    words : Iterable of str
         A list of english words.
 
     Returns
     -------
     bool
-        True/False
+        Whether mnemonic is valid.
     """
     sentence = " ".join(words)
     return Mnemonic("english").check(sentence)
 
 
-def derive_seed(words: Iterable[str]) -> bytes:
+@renamed_function("is_valid")
+def validate(words: Iterable[str]) -> bool:
+    """Check if the words form a valid BIP39 mnemonic phrase.
+
+    .. deprecated:: 2.0.0
+        Function :func:`validate` is deprecated for naming consistency.
+        Use :func:`is_valid` instead. There is no raising equivalent.
     """
-    Derive a seed from a word list.
+    return is_valid(words)
+
+
+def derive_seed(words: Iterable[str]) -> bytes:
+    """Derive a seed from a word list.
 
     Parameters
     ----------
-    words : Iterable[str]
+    words : Iterable of str
         A list of english words.
 
     Returns
     -------
     bytes
         64 bytes
+
+    Raises
+    ------
+    ValueError
+        Seed phrase is malformed.
     """
-    if not validate(words):
+    if not is_valid(words):
         raise ValueError("Input words doesn't pass validation check.")
 
     sentence = " ".join(words)
@@ -106,21 +121,19 @@ def derive_seed(words: Iterable[str]) -> bytes:
 
 
 def derive_private_key(words: Iterable[str], index: int = 0) -> bytes:
-    """
-    Get a private key from the mnemonic wallet,
-    default to the 0 index of the deviration. (first key)
+    """Get a private key from the mnemonic wallet.
 
     Parameters
     ----------
-    words : List[str]
+    words : Iterable of str
         A list of english words.
-    index : int, optional
-        The private key index, first private key., by default 0
+    index : int, default: 0
+        The private key index, starting from zero.
 
     Returns
     -------
     bytes
-        [description]
+        Private key.
     """
     seed = derive_seed(words)
     bip32_ctx = Bip32.FromSeedAndPath(seed, _get_vet_key_path(index))

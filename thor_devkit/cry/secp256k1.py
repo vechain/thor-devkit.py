@@ -1,10 +1,9 @@
-"""
-secp256k1 Elliptic Curve related functions.
+"""Elliptic curve secp256k1 related functions.
 
-1) Generate a private Key.
-2) Derive uncompressed public key from private key.
-3) Sign a message hash using the private key, generate signature.
-4) Given the message hash and signature, recover the uncompressed public key.
+#. Generate a private Key.
+#. Derive uncompressed public key from private key.
+#. Sign a message hash using the private key, generate signature.
+#. Given the message hash and signature, recover the uncompressed public key.
 """
 import sys
 
@@ -25,19 +24,6 @@ ZERO: Final = bytes(32)
 
 
 def _is_valid_private_key(priv_key: _AnyBytes) -> bool:
-    """
-    Verify if a private key is good.
-
-    Returns
-    -------
-    bool
-        True if the private key is valid.
-
-    Parameters
-    ----------
-    priv_key : _AnyBytes
-        Description
-    """
     priv_key = bytes(priv_key)
 
     if priv_key == ZERO:
@@ -49,27 +35,42 @@ def _is_valid_private_key(priv_key: _AnyBytes) -> bool:
     return len(priv_key) == 32
 
 
-def _is_valid_message_hash(msg_hash: _AnyBytes) -> bool:
-    """
-    Verify if a message hash is in correct format.
-    (as in terms of VeChain)
+def is_valid_private_key(priv_key: _AnyBytes) -> bool:
+    """Verify if a private key is well-formed.
+
+    .. versionadded:: 2.0.0
 
     Parameters
     ----------
-    msg_hash : _AnyBytes
-        The msg hash to be processed.
+    priv_key : bytes or bytearray
+        Private key to check.
 
     Returns
     -------
     bool
-        If the message hash is in correct format or not.
+        True if the private key is valid.
+    """
+    return _is_valid_private_key(priv_key)
+
+
+def _is_valid_message_hash(msg_hash: _AnyBytes) -> bool:
+    """Verify if a message hash is in correct format (as in terms of VeChain).
+
+    Parameters
+    ----------
+    msg_hash : bytes or bytearray
+        The message hash to be processed.
+
+    Returns
+    -------
+    bool
+        Whether the message hash is in correct format.
     """
     return len(msg_hash) == 32
 
 
 def generate_privateKey() -> bytes:
-    """
-    Create a random number(32 bytes) as private key.
+    """Create a random number (32 bytes) as private key.
 
     Returns
     -------
@@ -78,17 +79,16 @@ def generate_privateKey() -> bytes:
     """
     while True:
         _a = SigningKey.generate(curve=SECP256k1).to_string()
-        if _is_valid_private_key(_a):
+        if is_valid_private_key(_a):
             return _a
 
 
 def derive_publicKey(priv_key: _AnyBytes) -> bytes:
-    """
-    Derive public key from a private key(uncompressed).
+    """Derive public key from a private key(uncompressed).
 
     Parameters
     ----------
-    priv_key : _AnyBytes
+    priv_key : bytes or bytearray
         The private key in bytes.
 
     Returns
@@ -102,7 +102,7 @@ def derive_publicKey(priv_key: _AnyBytes) -> bytes:
     ValueError
         If the private key is not valid.
     """
-    if not _is_valid_private_key(priv_key):
+    if not is_valid_private_key(priv_key):
         raise ValueError("Private Key not valid.")
 
     _a = SigningKey.from_string(priv_key, curve=SECP256k1)
@@ -110,15 +110,17 @@ def derive_publicKey(priv_key: _AnyBytes) -> bytes:
 
 
 def sign(msg_hash: _AnyBytes, priv_key: _AnyBytes) -> bytes:
-    """
-    Sign the message hash.
-    (not the message itself)
+    """Sign the message hash.
+
+    Note
+    ----
+    It signs **message hash**, not the message itself!
 
     Parameters
     ----------
-    msg_hash : _AnyBytes
+    msg_hash : bytes or bytearray
         The message hash.
-    priv_key : _AnyBytes
+    priv_key : bytes or bytearray
         The private key in bytes.
 
     Returns
@@ -134,7 +136,7 @@ def sign(msg_hash: _AnyBytes, priv_key: _AnyBytes) -> bytes:
     if not _is_valid_message_hash(msg_hash):
         raise ValueError("Message hash not valid.")
 
-    if not _is_valid_private_key(priv_key):
+    if not is_valid_private_key(priv_key):
         raise ValueError("Private Key not valid.")
 
     sig = KeyAPI().ecdsa_sign(msg_hash, KeyAPI.PrivateKey(priv_key))
@@ -147,14 +149,13 @@ def sign(msg_hash: _AnyBytes, priv_key: _AnyBytes) -> bytes:
 
 
 def recover(msg_hash: _AnyBytes, sig: _AnyBytes) -> bytes:
-    """
-    Recover the uncompressed public key from signature.
+    """Recover the uncompressed public key from signature.
 
     Parameters
     ----------
-    msg_hash : _AnyBytes
+    msg_hash : bytes or bytearray
         The message hash.
-    sig : _AnyBytes
+    sig : bytes or bytearray
         The signature.
 
     Returns
@@ -169,7 +170,6 @@ def recover(msg_hash: _AnyBytes, sig: _AnyBytes) -> bytes:
         or recovery bit is bad,
         or cannot recover(sig and msg_hash doesn't match).
     """
-
     if not _is_valid_message_hash(msg_hash):
         raise ValueError("Message Hash must be 32 bytes.")
 

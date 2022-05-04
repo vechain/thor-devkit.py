@@ -161,25 +161,51 @@ class EventT(TypedDict):
 
 
 class FunctionResult:
+    """NamedTuple mixin with convenience methods.
+
+    It is returned from :meth:`Event.decode` and :meth:`Function.decode`.
+
+    .. versionadded:: 2.0.0
+    """
+
     def to_dict(self) -> Dict[str, Any]:
+        """Return dictionary representation (recursively).
+
+        Returns
+        -------
+        Dict[str, Any]
+            Dictionary of form ``{name: value}``
+            (all inner namedtuples are converted too)
+        """
         return {
             k: (
                 v.to_dict()
                 if isinstance(v, FunctionResult)
                 else ([v_.to_dict() for v_ in v] if isinstance(v, list) else v)
             )
-            for k, v in self._asdict().items()  # type: ignore[attr-defined]
+            for k, v in self._asdict().items()
         }
+
+    def __getattr__(self, name: str) -> Any:
+        """Dot attribute access (if not found).
+
+        This is needed to make mypy happy with mix of this and dynamic namedtuple.
+        We could use a mypy plugin to resolve names dynamically, but it is too
+        difficult with small benefits. Now any attribute access is allowed,
+        but all types are Any. If type-checking is very important, make sure to
+        `assert` proper types to narrow them.
+        """  # noqa: DAR
+        return super().__getattr__(name)  # type: ignore[misc]
 
 
 def calc_function_selector(abi_json: FunctionT) -> bytes:
-    """Calculate the function selector (4 bytes) from the abi json"""
+    """Calculate the function selector (4 bytes) from the abi json."""
     f = FUNCTION(abi_json)
     return eth_utils.function_abi_to_4byte_selector(f)
 
 
 def calc_event_topic(abi_json: EventT) -> bytes:
-    """Calculate the event log topic (32 bytes) from the abi json"""
+    """Calculate the event log topic (32 bytes) from the abi json."""
     e = EVENT(abi_json)
     return eth_utils.event_abi_to_log_topic(e)
 
@@ -187,22 +213,22 @@ def calc_event_topic(abi_json: EventT) -> bytes:
 class Coder:
     @staticmethod
     def encode_list(types: Sequence[str], values: Sequence[Any]) -> bytes:
-        """Encode a sequence of values, into a single bytes"""
+        """Encode a sequence of values, into a single bytes."""
         return eth_abi.encode_abi(types, values)
 
     @staticmethod
     def decode_list(types: Sequence[str], data: _AnyBytes) -> List[Any]:
-        """Decode the data, back to a (,,,) tuple"""
+        """Decode the data, back to a ``(,,,)`` tuple."""
         return list(eth_abi.decode_abi(types, data))
 
     @staticmethod
     def encode_single(t: str, value: Any) -> bytes:
-        """Encode value of type t into single bytes"""
+        """Encode value of type t into single bytes."""
         return Coder.encode_list([t], [value])
 
     @staticmethod
     def decode_single(t: str, data: _AnyBytes) -> Any:
-        """Decode data of type t back to a single object"""
+        """Decode data of type t back to a single object."""
         return Coder.decode_list([t], data)[0]
 
 
@@ -214,6 +240,11 @@ _BaseT = TypeVar("_BaseT")
 
 
 class Encodable(Generic[_ParamT], ABC):
+    """Base class for :class:`Function` and :class:`Event`.
+
+    .. versionadded:: 2.0.0
+    """
+
     _definition: FunctionT | EventT
 
     @property
@@ -236,7 +267,7 @@ class Encodable(Generic[_ParamT], ABC):
 
     @classmethod
     def make_proper_type(cls, elem: _ParamT) -> str:
-        """Convert dictionary type repr to type string (inline tuples)"""
+        """Convert dictionary type repr to type string (inline tuples)."""
         return eth_utils.abi.collapse_if_tuple(dict(elem))
 
     @staticmethod
@@ -260,7 +291,7 @@ class Encodable(Generic[_ParamT], ABC):
         chain: Optional[Sequence[str]] = None,
         array_depth: int = 0,
     ) -> Union[FunctionResult, List[FunctionResult], Any]:
-        """Convert dictionary type repr to type string (inline tuples)"""
+        """Convert dictionary type repr to type string (inline tuples)."""
         type_ = typeinfo["type"]
 
         if not type_.startswith("tuple"):
@@ -292,14 +323,18 @@ class Function(Encodable[FuncParameterT]):
 
         Parameters
         ----------
-        f_definition : dict
-            See FUNCTION type in this document.
+        f_definition : FunctionT
+            A dict with style of :const:`FUNCTION`
         """
         self._definition = FUNCTION(f_definition)  # Protect.
         self._selector = calc_function_selector(f_definition)  # first 4 bytes.
 
     @property
     def selector(self) -> bytes:
+        """First 4 bytes of function signature hash.
+
+        .. versionadded:: 2.0.0
+        """
         return self._selector
 
     @overload
@@ -319,17 +354,23 @@ class Function(Encodable[FuncParameterT]):
     ) -> Union[bytes, str]:
         """Encode the parameters according to the function definition.
 
+        .. versionchanged:: 2.0.0
+            parameter ``to_hex`` is deprecated, use ``"0x" + result.hex()``
+            directly instead.
+
         Parameters
         ----------
-        parameters : List
+        parameters : Sequence of Any
             A list of parameters waiting to be encoded.
-        to_hex : bool, optional
-            If the return should be '0x...' hex string, by default False
+        to_hex : bool, optional, default: False
+            If the return should be '0x...' hex string
 
         Returns
         -------
-        Union[bytes, str]
-            Return bytes or '0x...' hex string if needed.
+        bytes
+            By default or if ``to_hex=False`` was passed.
+        str
+            If ``to_hex=True`` was passed.
         """
         my_types = [self.make_proper_type(x) for x in self._definition["inputs"]]
         my_bytes = self.selector + Coder.encode_list(my_types, parameters)
@@ -347,8 +388,19 @@ class Function(Encodable[FuncParameterT]):
     def decode(self, output_data: _AnyBytes) -> FunctionResult:
         """Decode function call output data back into human readable results.
 
-        The result is in dual format. Contains both position and named index.
-        eg. { '0': 'john', 'name': 'john' }
+        The result is dynamic subclass of
+        :class:`typing.NamedTuple` (:func:`collections.namedtuple` return type)
+        and :class:`FunctionResult`
+
+        Parameters
+        ----------
+        output_data : bytes or bytearray
+            Data to decode.
+
+        Returns
+        -------
+        FunctionResult
+            Decoded data.
         """
         my_types = [self.make_proper_type(x) for x in self._definition["outputs"]]
         result_list = Coder.decode_list(my_types, output_data)
@@ -364,6 +416,11 @@ class Function(Encodable[FuncParameterT]):
 
     @deprecated_to_property
     def get_selector(self) -> bytes:
+        """First 4 bytes of function signature hash.
+
+        .. deprecated:: 2.0.0
+            Use :attr:`selector` property instead.
+        """
         return self.selector
 
 
@@ -375,8 +432,13 @@ class Event(Encodable[EventParameterT]):
 
         Parameters
         ----------
-        e_definition : dict
-            A dict with style of EVENT.
+        e_definition : EventT
+            A dict with style of :const:`EVENT`.
+
+        Raises
+        ------
+        ValueError
+            Number of indexed parameters exceeds the limit.
         """
         self._definition = EVENT(e_definition)
         self._signature = calc_event_topic(self._definition)
@@ -388,19 +450,28 @@ class Event(Encodable[EventParameterT]):
 
     @property
     def is_anonymous(self) -> bool:
+        """Whether this event is anonymous.
+
+        .. versionadded:: 2.0.0
+        """
         return self._definition.get("anonymous", False)
 
     @property
     def signature(self) -> bytes:
+        """First 4 bytes of event signature hash.
+
+        .. versionadded:: 2.0.0
+        """
         return self._signature
 
     @classmethod
     def is_dynamic_type(cls, t: str) -> bool:
-        """Check if the input type requires hashing in indexed parameter
+        """Check if the input type requires hashing in indexed parameter.
 
         All bytes, strings and dynamic arrays are dynamic, plus all structs and
         fixed-size arrays are hashed (see spec)
-        https://docs.soliditylang.org/en/latest/abi-spec.html#encoding-of-indexed-event-parameters
+
+        .. [1] Specification: https://docs.soliditylang.org/en/latest/abi-spec.html
         """
         return t in {"bytes", "string"} or "[" in t or t.startswith("tuple")
 
@@ -459,39 +530,46 @@ class Event(Encodable[EventParameterT]):
 
         Usage
         -----
-
         Commonly used to filter out logs of concerned topics,
-        eg. To filter out VIP180 transfer logs of a certain wallet, certain amount.
+        e.g. To filter out VIP180 transfer logs of a certain wallet, certain amount.
 
         Parameters
         ----------
-        parameters : Union[dict, List]
-            A dict/list of indexed param of the given event,
-            fill in None to occupy the position,
-            if you aren't sure about the value.
+        parameters : Mapping[str, Any] or Sequence[Any]
+            A dict/list of indexed param of the given event.
+            Fill in None to occupy the position, if you aren't sure about the value.
 
-            eg. For event:
+            e.g. For event::
 
-            EventName(address from indexed, address to indexed, uint256 value)
+                EventName(address from indexed, address to indexed, uint256 value)
 
-            the parameters can be:
-            ['0xa32f..ff', '0x1f...ac']
-            or:
-            {'from': '0xa32f..ff', 'to': '0x1f...ac'}
-            or:
-            [None, '0x1f...ac']
-            or:
-            {'from': None, 'to': '0x1f...ac'}
+            the parameters can be::
+
+                ['0xa32f..ff', '0x1f...ac']
+
+            or::
+
+                {'from': '0xa32f..ff', 'to': '0x1f...ac'}
+
+            or::
+
+                [None, '0x1f...ac']
+
+            or::
+                {'from': None, 'to': '0x1f...ac'}
 
         Returns
         -------
-        List
-            [description]
+        List[bytes or None]
+            Encoded parameters with ``None`` preserved from input.
 
         Raises
         ------
+        TypeError
+            Unknown parameters type (neither mapping nor sequence)
         ValueError
-            [description]
+            If there is unnamed parameter in definition and dict of parameters is given,
+            or if parameters count doesn't match the definition.
         """
         topics: List[Optional[bytes]] = []
 
@@ -549,9 +627,33 @@ class Event(Encodable[EventParameterT]):
         """Decode "data" according to the "topic"s.
 
         One output can contain an array of logs.
-        One log contains mainly 3 entries:
 
-        - For a non-indexed parameters event:
+        Parameters
+        ----------
+        data : bytes or bytearray
+            Data to decode.
+        topics : Sequence[bytes or bytearray or None], optional
+            Sequence of topics.
+            Fill unknown or not important positions with ``None``, it will be preserved.
+            None is interpreted like empty list.
+        strict : bool, default: True
+            Raise an exception if topics count is less than expected.
+            If ``False``, topics will be padded with ``None`` (to the left).
+
+        Returns
+        -------
+        FunctionResult
+            Decoded data.
+
+        Raises
+        ------
+        ValueError
+            If topics count does not match the number of indexed parameters.
+
+        Note
+        ----
+        One log contains mainly 3 entries:
+        - For a non-indexed parameters event::
 
             "address": The emitting contract address.
             "topics": [
@@ -559,7 +661,7 @@ class Event(Encodable[EventParameterT]):
             ]
             "data": "0x..." (contains parameters value)
 
-        - For an indexed parameters event:
+        - For an indexed parameters event::
 
             "address": The emitting contract address.
             "topics": [
@@ -572,7 +674,7 @@ class Event(Encodable[EventParameterT]):
             "data": "0x..." (remain un-indexed parameters value)
 
         If the event is "anonymous" then the signature is not inserted into
-        the "topics" list, hence topics[0] is not the signature.
+        the "topics" list, hence ``topics[0]`` is not the signature.
         """
         if not self.is_anonymous and topics:
             # if not anonymous, topics[0] is the signature of event.
@@ -616,4 +718,9 @@ class Event(Encodable[EventParameterT]):
 
     @deprecated_to_property
     def get_signature(self) -> bytes:
+        """Get signature.
+
+        .. deprecated:: 2.0.0
+            Use :attr:`signature` property instead
+        """
         return self.signature

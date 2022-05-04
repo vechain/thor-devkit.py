@@ -1,9 +1,4 @@
-"""
-Keccak
-
-Keccak hash function.
-"""
-
+"""Keccak hash function."""
 from typing import Iterable, Tuple
 
 import sha3  # pysha3
@@ -12,23 +7,22 @@ from ..utils import _AnyBytes
 
 
 def keccak256(list_of_bytes: Iterable[_AnyBytes]) -> Tuple[bytes, int]:
-    """
-    Compute the sha3_256 flavor hash, outputs 256 bits / 32 bytes.
+    """Compute the sha3_256 flavor hash.
 
     Parameters
     ----------
-    list_of_bytes : Iterable[_AnyBytes]
+    list_of_bytes : Iterable of (bytes or bytearray)
         A list of bytes to be hashed.
 
     Returns
     -------
     Tuple[bytes, int]
-        Hash value in bytes and length of bytes.
+        Hash value in bytes (32 bytes) and length of bytes.
 
     Raises
     ------
     TypeError
-        If bytes or bytearray is used instead of sequence as input.
+        If ``bytes`` or ``bytearray`` is used instead of sequence as input.
     """
     if isinstance(list_of_bytes, (bytes, bytearray)):  # type: ignore[unreachable]
         raise TypeError(

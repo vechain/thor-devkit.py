@@ -294,7 +294,7 @@ def f_in_struct_fixarray_enc(f_in_struct_fixarray_data):
 # ***********************************************************
 
 
-def test_function(simple_dynamic):
+def test_function(simple_dynamic: Function):
     selector = "27fcbb2f"
     assert simple_dynamic.selector.hex() == selector
     assert simple_dynamic.name == "f1"
@@ -327,7 +327,7 @@ def test_function(simple_dynamic):
         simple_dynamic.encode([1, "foo"], to_hex=True)
 
 
-def test_string(f_get_str):
+def test_string(f_get_str: Function):
     assert f_get_str.selector.hex() == "b8c9e4ed"
     assert f_get_str.name == "getStr"
 
@@ -345,17 +345,18 @@ def test_string(f_get_str):
     )
 
 
-def test_bool(f_get_bool):
+def test_bool(f_get_bool: Function):
     assert f_get_bool.selector.hex() == "12a7b914"
     assert f_get_bool.name == "getBool"
 
     expected = {"ret_0": True}
     result = f_get_bool.decode(bytes.fromhex("1".rjust(64, "0")))
     assert result.to_dict() == expected
+    assert result.ret_0 == expected["ret_0"]
     assert result == tuple(expected.values())
 
 
-def test_big_number(f_get_big_numbers):
+def test_big_number(f_get_big_numbers: Function):
     assert f_get_big_numbers.selector.hex() == "ff0d6c7d"
     assert f_get_big_numbers.name == "getBigNumbers"
 
@@ -373,7 +374,9 @@ def test_big_number(f_get_big_numbers):
 
 
 def test_abiv2(
-    f_out_struct_dynarray, f_out_struct_dynarray_data, f_out_struct_dynarray_enc
+    f_out_struct_dynarray: Function,
+    f_out_struct_dynarray_data,
+    f_out_struct_dynarray_enc: bytes,
 ):
     assert (
         f_out_struct_dynarray.decode(f_out_struct_dynarray_enc).to_dict()
@@ -381,7 +384,7 @@ def test_abiv2(
     )
 
 
-def test_inputs_struct(f_in_struct, f_in_struct_data, f_in_struct_enc):
+def test_inputs_struct(f_in_struct: Function, f_in_struct_data, f_in_struct_enc: bytes):
     assert (
         f_in_struct.encode([f_in_struct_data]).hex()
         == "3ca45dbf" + f_in_struct_enc.hex()
@@ -389,7 +392,9 @@ def test_inputs_struct(f_in_struct, f_in_struct_data, f_in_struct_enc):
 
 
 def test_inputs_struct_dynarray(
-    f_in_struct_dynarray, f_in_struct_dynarray_data, f_in_struct_dynarray_enc
+    f_in_struct_dynarray: Function,
+    f_in_struct_dynarray_data,
+    f_in_struct_dynarray_enc: bytes,
 ):
     assert (
         f_in_struct_dynarray.encode([f_in_struct_dynarray_data]).hex()
@@ -398,7 +403,9 @@ def test_inputs_struct_dynarray(
 
 
 def test_inputs_struct_fixarray(
-    f_in_struct_fixarray, f_in_struct_fixarray_data, f_in_struct_fixarray_enc
+    f_in_struct_fixarray: Function,
+    f_in_struct_fixarray_data,
+    f_in_struct_fixarray_enc: bytes,
 ):
     assert (
         f_in_struct_fixarray.encode([f_in_struct_fixarray_data]).hex()
