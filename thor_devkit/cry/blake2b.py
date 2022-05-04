@@ -2,7 +2,7 @@
 import hashlib  # python3 lib/hashlib
 from typing import Iterable, Tuple
 
-from ..utils import _AnyBytes
+from thor_devkit.cry.utils import _AnyBytes
 
 
 def blake2b256(list_of_bytes: Iterable[_AnyBytes]) -> Tuple[bytes, int]:

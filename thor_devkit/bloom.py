@@ -17,8 +17,8 @@ import math
 import sys
 from typing import Callable, Optional
 
-from .cry import blake2b256
-from .utils import _AnyBytes
+from thor_devkit.cry import blake2b256
+from thor_devkit.cry.utils import _AnyBytes
 
 if sys.version_info < (3, 8):
     from typing_extensions import Literal

@@ -10,7 +10,7 @@ import sys
 from ecdsa import SECP256k1, SigningKey
 from eth_keys import KeyAPI
 
-from ..utils import _AnyBytes
+from thor_devkit.cry.utils import _AnyBytes
 
 if sys.version_info < (3, 8):
     from typing_extensions import Final

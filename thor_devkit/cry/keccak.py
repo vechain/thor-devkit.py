@@ -3,7 +3,7 @@ from typing import Iterable, Tuple
 
 import sha3  # pysha3
 
-from ..utils import _AnyBytes
+from thor_devkit.cry.utils import _AnyBytes
 
 
 def keccak256(list_of_bytes: Iterable[_AnyBytes]) -> Tuple[bytes, int]:

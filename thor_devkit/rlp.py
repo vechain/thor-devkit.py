@@ -54,9 +54,9 @@ from rlp import decode as rlp_decode
 from rlp import encode as rlp_encode
 from rlp.sedes import BigEndianInt
 
-from .deprecation import class_renamed
-from .exceptions import DeserializationError, SerializationError
-from .utils import _AnyBytes
+from thor_devkit.cry.utils import _AnyBytes
+from thor_devkit.deprecation import class_renamed
+from thor_devkit.exceptions import DeserializationError, SerializationError
 
 if sys.version_info < (3, 8):
     from typing_extensions import Final

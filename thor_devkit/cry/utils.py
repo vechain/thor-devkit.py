@@ -2,7 +2,7 @@
 import sys
 from typing import TypeVar, Union, cast
 
-from .deprecation import renamed_function
+from thor_devkit.deprecation import renamed_function
 
 if sys.version_info < (3, 8):
     from typing_extensions import Literal

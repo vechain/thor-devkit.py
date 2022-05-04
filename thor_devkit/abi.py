@@ -57,9 +57,9 @@ import eth_utils
 import voluptuous
 from voluptuous import Schema
 
-from .cry import keccak256
-from .deprecation import deprecated_to_property
-from .utils import _AnyBytes
+from thor_devkit.cry import keccak256
+from thor_devkit.cry.utils import _AnyBytes
+from thor_devkit.deprecation import deprecated_to_property
 
 if sys.version_info < (3, 8):
     from typing_extensions import Final, Literal, TypedDict

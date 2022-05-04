@@ -1,5 +1,5 @@
-from thor_devkit import cry, utils
-from thor_devkit.cry import keystore, mnemonic, secp256k1
+from thor_devkit import cry
+from thor_devkit.cry import keystore, mnemonic, secp256k1, utils
 
 
 def test_utils():

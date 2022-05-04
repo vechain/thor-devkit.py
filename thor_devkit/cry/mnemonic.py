@@ -14,7 +14,7 @@ from typing import Iterable, List, Tuple
 from bip_utils import Bip32
 from mnemonic import Mnemonic
 
-from ..deprecation import renamed_function
+from thor_devkit.deprecation import renamed_function
 
 if sys.version_info < (3, 8):
     from typing_extensions import Final, Literal, get_args

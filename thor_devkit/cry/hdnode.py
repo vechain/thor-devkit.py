@@ -30,9 +30,9 @@ from typing import Iterable
 from bip_utils import Base58Encoder, Bip32
 from eth_keys import KeyAPI
 
-from ..utils import _AnyBytes, strip_0x04
-from .address import public_key_to_address
-from .mnemonic import derive_seed
+from thor_devkit.cry.address import public_key_to_address
+from thor_devkit.cry.mnemonic import derive_seed
+from thor_devkit.cry.utils import _AnyBytes, strip_0x04
 
 if sys.version_info < (3, 8):
     from typing_extensions import Final

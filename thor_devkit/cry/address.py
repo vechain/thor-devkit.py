@@ -7,8 +7,8 @@ VeChain "public key" and "address" related operations and verifications.
 import re
 import sys
 
-from ..utils import _AnyBytes, remove_0x, validate_uncompressed_public_key
-from .keccak import keccak256
+from thor_devkit.cry.keccak import keccak256
+from thor_devkit.cry.utils import _AnyBytes, remove_0x, validate_uncompressed_public_key
 
 if sys.version_info < (3, 8):
     from typing_extensions import Final

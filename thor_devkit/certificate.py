@@ -9,11 +9,13 @@ import sys
 from datetime import datetime
 from typing import Optional, Union
 
-from .cry import blake2b256, secp256k1
-from .cry.address import public_key_to_address
-from .deprecation import renamed_function
-from .exceptions import BadSignature
-from .utils import safe_tolowercase
+from thor_devkit.cry import blake2b256, secp256k1
+from thor_devkit.cry.address import public_key_to_address
+
+# Re-export, it was public interface
+from thor_devkit.cry.utils import safe_tolowercase as safe_tolowercase
+from thor_devkit.deprecation import renamed_function
+from thor_devkit.exceptions import BadSignature
 
 if sys.version_info < (3, 8):
     from typing_extensions import Final, Literal, TypedDict

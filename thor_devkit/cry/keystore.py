@@ -18,9 +18,9 @@ from typing import Any, Dict, Union
 
 import eth_keyfile
 
-from ..deprecation import renamed_function
-from ..utils import _AnyBytes
-from .address import is_address
+from thor_devkit.cry.address import is_address
+from thor_devkit.cry.utils import _AnyBytes
+from thor_devkit.deprecation import renamed_function
 
 if sys.version_info < (3, 8):
     from typing_extensions import Final, Literal, TypedDict
