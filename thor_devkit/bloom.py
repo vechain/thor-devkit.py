@@ -14,9 +14,16 @@ n = number of elements to be added to the filter.
 2048 bits / 256 bytes
 """
 import math
+import sys
 from typing import Callable, Optional
 
 from .cry import blake2b256
+from .utils import _AnyBytes
+
+if sys.version_info < (3, 8):
+    from typing_extensions import Literal
+else:
+    from typing import Literal
 
 
 class Bloom:
@@ -42,7 +49,7 @@ class Bloom:
         k = round(cls.BITS_LENGTH / count * math.log(2))
         return max(min(k, cls.MAX_K), 1)
 
-    def __init__(self, k: int, bits: Optional[bytes] = None):
+    def __init__(self, k: int, bits: Optional[_AnyBytes] = None):
         """
         Construct a bloom filter.
         k is the number of different hash functions.
@@ -52,8 +59,8 @@ class Bloom:
         ----------
         k : int
             The number of different hash functions to use.
-        bits : bytes, optional
-            previous bloom filter to inherit, by default None.
+        bits : bytes, optional, default: None
+            bits of previous bloom filter to inherit.
             Leave it None to create an empty bloom filter.
         """
         self.k = k
@@ -62,7 +69,9 @@ class Bloom:
         else:
             self.bits = bits
 
-    def _distribute(self, element: bytes, tester: Callable[[int, int], bool]) -> bool:
+    def _distribute(
+        self, element: _AnyBytes, tester: Callable[[int, int], bool]
+    ) -> bool:
         """
         Distribute the element into the bloom filter.
 
@@ -87,7 +96,7 @@ class Bloom:
                 return False
         return True
 
-    def add(self, element: bytes) -> bool:
+    def add(self, element: _AnyBytes) -> Literal[True]:
         """
         Add an element to the bloom filter.
 
@@ -102,15 +111,16 @@ class Bloom:
             True
         """
 
-        def t(index: int, bit: int):
+        def t(index: int, bit: int) -> Literal[True]:
             temp = list(self.bits)
             temp[index] = temp[index] | bit
             self.bits = bytes(temp)
             return True
 
-        return self._distribute(element, t)
+        assert self._distribute(element, t)
+        return True
 
-    def test(self, element: bytes) -> bool:
+    def test(self, element: _AnyBytes) -> bool:
         """
         Test if element is inside the bloom filter.
 
@@ -125,7 +135,10 @@ class Bloom:
             True if inside, False if not inside.
         """
 
-        def t(index: int, bit: int):
+        def t(index: int, bit: int) -> bool:
             return (self.bits[index] & bit) == bit
 
         return self._distribute(element, t)
+
+    def __contains__(self, element: _AnyBytes) -> bool:
+        return self.test(element)

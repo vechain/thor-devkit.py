@@ -33,15 +33,19 @@ string
 """
 
 import sys
+import warnings
 from abc import ABC, abstractmethod
 from collections import namedtuple
 from typing import (
     Any,
     Dict,
     Generic,
+    Iterable,
     List,
-    NamedTuple,
+    Mapping,
     Optional,
+    Sequence,
+    Type,
     TypeVar,
     Union,
     cast,
@@ -55,21 +59,27 @@ from voluptuous import Schema
 
 from .cry import keccak256
 from .deprecation import deprecated_to_property
+from .utils import _AnyBytes
 
 if sys.version_info < (3, 8):
-    from typing_extensions import Literal, TypedDict
+    from typing_extensions import Final, Literal, TypedDict
 else:
-    from typing import Literal, TypedDict
+    from typing import Final, Literal, TypedDict
+if sys.version_info < (3, 11):
+    from typing_extensions import NotRequired
+else:
+    from typing import NotRequired
 
 
-MUTABILITY = Schema(voluptuous.Any("pure", "view", "payable", "nonpayable"))
+MUTABILITY: Final = Schema(voluptuous.Any("pure", "view", "payable", "nonpayable"))
 
 
-def _FUNC_PARAMETER(value):
+# Support recursion
+def _FUNC_PARAMETER(value: Any) -> Schema:
     return FUNC_PARAMETER(value)
 
 
-FUNC_PARAMETER = Schema(
+FUNC_PARAMETER: Final = Schema(
     {
         "name": str,
         "type": str,
@@ -81,19 +91,19 @@ FUNC_PARAMETER = Schema(
 )
 
 
-class _FuncParameterT(TypedDict):
+class _ParameterT(TypedDict):
     name: str
     type: str  # noqa: A003
 
 
-class FuncParameterT(_FuncParameterT, total=False):
+class FuncParameterT(_ParameterT, total=False):
     internalType: str  # noqa: N815
     # Recursive types aren't really supported, but do partially work
     # This will be expanded a few times and then replaced with Any (deeply nested)
-    components: List["FuncParameterT"]  # type: ignore[misc]
+    components: Sequence["FuncParameterT"]  # type: ignore[misc]
 
 
-FUNCTION = Schema(
+FUNCTION: Final = Schema(
     {
         "type": "function",
         "name": str,
@@ -109,11 +119,11 @@ class FunctionT(TypedDict):
     type: Literal["function"]  # noqa: A003
     name: str
     stateMutability: Literal["pure", "view", "payable", "nonpayable"]  # noqa: N815
-    inputs: List["FuncParameterT"]
-    outputs: List["FuncParameterT"]
+    inputs: Sequence["FuncParameterT"]
+    outputs: Sequence["FuncParameterT"]
 
 
-EVENT_PARAMETER = Schema(
+EVENT_PARAMETER: Final = Schema(
     {
         "name": str,
         "type": str,
@@ -125,18 +135,15 @@ EVENT_PARAMETER = Schema(
 )
 
 
-class _EventParameterT(_FuncParameterT):
+class EventParameterT(_ParameterT, total=False):
     indexed: bool
-
-
-class EventParameterT(_EventParameterT, total=False):
-    internalType: str  # noqa: N815
+    internalType: NotRequired[str]  # noqa: N815
     # Recursive types aren't really supported, but do partially work
     # This will be expanded a few times and then replaced with Any (deeply nested)
-    components: List["EventParameterT"]  # type: ignore[misc]
+    components: NotRequired[Sequence["EventParameterT"]]  # type: ignore[misc]
 
 
-EVENT = Schema(
+EVENT: Final = Schema(
     {
         "type": "event",
         "name": str,
@@ -146,22 +153,19 @@ EVENT = Schema(
 )
 
 
-class _EventT(TypedDict):
+class EventT(TypedDict):
     type: Literal["event"]  # noqa: A003
     name: str
     inputs: list["EventParameterT"]
+    anonymous: NotRequired[bool]
 
 
-class EventT(_EventT, total=False):
-    anonymous: bool
-
-
-class FunctionResultMixin:
+class FunctionResult:
     def to_dict(self) -> Dict[str, Any]:
         return {
             k: (
                 v.to_dict()
-                if isinstance(v, FunctionResultMixin)
+                if isinstance(v, FunctionResult)
                 else ([v_.to_dict() for v_ in v] if isinstance(v, list) else v)
             )
             for k, v in self._asdict().items()  # type: ignore[attr-defined]
@@ -182,12 +186,12 @@ def calc_event_topic(abi_json: EventT) -> bytes:
 
 class Coder:
     @staticmethod
-    def encode_list(types: List[str], values: List[Any]) -> bytes:
+    def encode_list(types: Sequence[str], values: Sequence[Any]) -> bytes:
         """Encode a sequence of values, into a single bytes"""
         return eth_abi.encode_abi(types, values)
 
     @staticmethod
-    def decode_list(types: List[str], data: bytes) -> List[Any]:
+    def decode_list(types: Sequence[str], data: _AnyBytes) -> List[Any]:
         """Decode the data, back to a (,,,) tuple"""
         return list(eth_abi.decode_abi(types, data))
 
@@ -197,7 +201,7 @@ class Coder:
         return Coder.encode_list([t], [value])
 
     @staticmethod
-    def decode_single(t: str, data: bytes) -> Any:
+    def decode_single(t: str, data: _AnyBytes) -> Any:
         """Decode data of type t back to a single object"""
         return Coder.decode_list([t], data)[0]
 
@@ -205,7 +209,7 @@ class Coder:
 # The first should be right, but results in a crash.
 # See https://github.com/python/mypy/issues/8320
 # _ParamT = TypeVar("_ParamT", EventParameterT, FuncParameterT)
-_ParamT = TypeVar("_ParamT", bound=_FuncParameterT)
+_ParamT = TypeVar("_ParamT", bound=_ParameterT)
 _BaseT = TypeVar("_BaseT")
 
 
@@ -221,35 +225,26 @@ class Encodable(Generic[_ParamT], ABC):
         return self.name
 
     @abstractmethod
-    def encode(self, parameters: List[Any]) -> Union[bytes, str, List[Optional[bytes]]]:
+    def encode(
+        self, __parameters: Sequence[Any]
+    ) -> Union[bytes, str, List[Optional[bytes]]]:
         raise NotImplementedError()
 
     @abstractmethod
-    def decode(self, __data: bytes) -> NamedTuple:
+    def decode(self, __data: _AnyBytes) -> FunctionResult:
         raise NotImplementedError()
 
     @classmethod
     def make_proper_type(cls, elem: _ParamT) -> str:
         """Convert dictionary type repr to type string (inline tuples)"""
-        if not elem["type"].startswith("tuple"):
-            return elem["type"]
-
-        return (
-            "({})".format(
-                ",".join(
-                    cls.make_proper_type(x)
-                    # cast is required thanks to unbound variable
-                    for x in cast(list[_ParamT], elem.get("components", []))
-                ),
-            )
-            + elem["type"][5:]
-        )
-        # It is elem["type"].removeprefix("tuple"), but compat. with python <3.9
+        return eth_utils.abi.collapse_if_tuple(dict(elem))
 
     @staticmethod
-    def _make_output_namedtuple_type(name: str, types: list) -> type:
+    def _make_output_namedtuple_type(
+        name: str, types: Iterable[_ParamT]
+    ) -> Type[FunctionResult]:
         top_names = [(t["name"] or f"ret_{i}") for i, t in enumerate(types)]
-        return type(name, (namedtuple(name, top_names), FunctionResultMixin), {})
+        return type(name, (namedtuple(name, top_names), FunctionResult), {})
 
     @staticmethod
     def get_array_dimensions_count(type_: str) -> int:
@@ -260,11 +255,11 @@ class Encodable(Generic[_ParamT], ABC):
 
     def apply_recursive_names(
         self,
-        value,
+        value: Any,
         typeinfo: _ParamT,
-        chain: Optional[List[str]] = None,
+        chain: Optional[Sequence[str]] = None,
         array_depth: int = 0,
-    ) -> Union[NamedTuple, List[NamedTuple], Any]:
+    ) -> Union[FunctionResult, List[FunctionResult], Any]:
         """Convert dictionary type repr to type string (inline tuples)"""
         type_ = typeinfo["type"]
 
@@ -307,23 +302,21 @@ class Function(Encodable[FuncParameterT]):
     def selector(self) -> bytes:
         return self._selector
 
-    @deprecated_to_property
-    def get_selector(self) -> bytes:
-        return self.selector
-
     @overload
-    def encode(self, parameters: List[Any], to_hex: Literal[True]) -> str:
+    def encode(self, parameters: Sequence[Any], to_hex: Literal[True]) -> str:
         ...
 
     @overload
-    def encode(self, parameters: List[Any], to_hex: Literal[False] = ...) -> bytes:
+    def encode(self, parameters: Sequence[Any], to_hex: Literal[False] = ...) -> bytes:
         ...
 
     @overload
-    def encode(self, parameters: List[Any], to_hex: bool) -> Union[bytes, str]:
+    def encode(self, parameters: Sequence[Any], to_hex: bool) -> Union[bytes, str]:
         ...
 
-    def encode(self, parameters: List[Any], to_hex: bool = False) -> Union[bytes, str]:
+    def encode(
+        self, parameters: Sequence[Any], to_hex: bool = False
+    ) -> Union[bytes, str]:
         """Encode the parameters according to the function definition.
 
         Parameters
@@ -341,11 +334,17 @@ class Function(Encodable[FuncParameterT]):
         my_types = [self.make_proper_type(x) for x in self._definition["inputs"]]
         my_bytes = self.selector + Coder.encode_list(my_types, parameters)
         if to_hex:
+            warnings.warn(
+                DeprecationWarning(
+                    "to_hex parameter is deprecated. "
+                    "Use ``'0x' + output.hex()`` instead to replicate that behaviour"
+                )
+            )
             return "0x" + my_bytes.hex()
         else:
             return my_bytes
 
-    def decode(self, output_data: bytes) -> NamedTuple:
+    def decode(self, output_data: _AnyBytes) -> FunctionResult:
         """Decode function call output data back into human readable results.
 
         The result is in dual format. Contains both position and named index.
@@ -363,11 +362,15 @@ class Function(Encodable[FuncParameterT]):
             )
         )
 
+    @deprecated_to_property
+    def get_selector(self) -> bytes:
+        return self.selector
+
 
 class Event(Encodable[EventParameterT]):
     _definition: EventT
 
-    def __init__(self, e_definition: dict):
+    def __init__(self, e_definition: EventT) -> None:
         """Initialize an Event with definition.
 
         Parameters
@@ -391,37 +394,40 @@ class Event(Encodable[EventParameterT]):
     def signature(self) -> bytes:
         return self._signature
 
-    @deprecated_to_property
-    def get_signature(self) -> bytes:
-        return self.signature
-
     @classmethod
-    def is_dynamic_type(cls, t: str):
-        """Check if the input type is dynamic"""
-        return t == "bytes" or t == "string" or "[" in t or t.startswith("tuple")
+    def is_dynamic_type(cls, t: str) -> bool:
+        """Check if the input type requires hashing in indexed parameter
+
+        All bytes, strings and dynamic arrays are dynamic, plus all structs and
+        fixed-size arrays are hashed (see spec)
+        https://docs.soliditylang.org/en/latest/abi-spec.html#encoding-of-indexed-event-parameters
+        """
+        return t in {"bytes", "string"} or "[" in t or t.startswith("tuple")
 
     @staticmethod
     def strip_dynamic_part(type_: str) -> str:
-        if "[" in type_:
-            return type_[: type_.index("[")]
-        return type_
+        return type_.split("[")[0]
 
     @staticmethod
-    def pad(data: list[bytes] | bytes, mod: int, to: Literal["r", "l"] = "l") -> bytes:
-        if not isinstance(data, bytes):
+    def pad(
+        data: Union[Sequence[_AnyBytes], _AnyBytes],
+        mod: int,
+        to: Literal["r", "l"] = "l",
+    ) -> bytes:
+        if not isinstance(data, (bytes, bytearray)):
             data = b"".join(data)
 
         length = len(data)
         missing = (mod * (length // mod + 1) - length) % mod
         if to == "l":
-            return data + missing * b"\x00"
+            return bytes(data) + missing * b"\x00"
         else:
-            return missing * b"\x00" + data
+            return missing * b"\x00" + bytes(data)
 
     @classmethod
     def dynamic_type_to_topic(
-        cls, type_: dict, value, array_depth: int = 0
-    ) -> list[bytes]:
+        cls, type_: EventParameterT, value: Any, array_depth: int = 0
+    ) -> List[bytes]:
         t_type = type_["type"]
         if cls.get_array_dimensions_count(t_type) > array_depth:
             return [
@@ -439,13 +445,15 @@ class Event(Encodable[EventParameterT]):
             assert isinstance(value, str), 'Value of type "string" must be str'
             return [value.encode("utf-8")]
         elif t_type == "bytes":
-            assert isinstance(value, bytes), 'Value of type "bytes" must be bytes'
+            assert isinstance(
+                value, (bytes, bytearray)
+            ), 'Value of type "bytes" must be bytes'
             return [value]
         else:
             return [Coder.encode_single(cls.strip_dynamic_part(t_type), value)]
 
     def encode(
-        self, parameters: Union[Dict[str, Any], List[Any]]
+        self, parameters: Union[Mapping[str, Any], Sequence[Any]]
     ) -> List[Optional[bytes]]:
         """Assemble indexed keys into topics.
 
@@ -493,8 +501,8 @@ class Event(Encodable[EventParameterT]):
 
         has_no_name_param = any(True for x in self.indexed_params if not x["name"])
 
-        # Disallow lists of unnamed parameters
-        if not isinstance(parameters, list) and has_no_name_param:
+        # Disallow dicts for unnamed parameters
+        if isinstance(parameters, Mapping) and has_no_name_param:
             raise ValueError(
                 "Event definition contains param without a name, use a list"
                 " of parameters instead of dict."
@@ -508,32 +516,36 @@ class Event(Encodable[EventParameterT]):
                 )
             )
 
-        def parse(param, definition):
+        def encode(param: Any, definition: EventParameterT) -> bytes:
             if self.is_dynamic_type(definition["type"]):
                 return keccak256(self.dynamic_type_to_topic(definition, param))[0]
             else:
-                return Coder.encode_single(
-                    self.make_proper_type(definition),
-                    param,
-                )
+                return Coder.encode_single(self.make_proper_type(definition), param)
 
-        if isinstance(parameters, list):
-            for param, definition in zip(parameters, self.indexed_params):
-                topics.append(parse(param, definition))
-
-        if isinstance(parameters, dict):
+        if isinstance(parameters, Mapping):
             for definition in self.indexed_params:
                 param = parameters.get(definition["name"])
-                topics.append(param if param is None else parse(param, definition))
+                topics.append(param if param is None else encode(param, definition))
+        elif (
+            isinstance(parameters, Sequence)
+            and not isinstance(parameters, (bytes, bytearray))
+            # bytes are Sequence too!
+        ):
+            for param, definition in zip(parameters, self.indexed_params):
+                topics.append(param if param is None else encode(param, definition))
+        else:
+            raise TypeError(
+                f"Expected sequence or mapping of parameters, got: {type(parameters)}"
+            )
 
         return topics
 
     def decode(
         self,
-        data: bytes,
-        topics: Optional[List[Optional[bytes]]] = None,
+        data: _AnyBytes,
+        topics: Optional[Sequence[Optional[_AnyBytes]]] = None,
         strict: bool = True,
-    ) -> NamedTuple:
+    ) -> FunctionResult:
         """Decode "data" according to the "topic"s.
 
         One output can contain an array of logs.
@@ -574,7 +586,7 @@ class Event(Encodable[EventParameterT]):
         indexed_count, topics_count = len(self.indexed_params), len(topics or [])
         if topics is not None and indexed_count != topics_count:
             if not strict and indexed_count > topics_count:
-                topics = (topics or []) + [None] * (indexed_count - topics_count)
+                topics = list(topics or []) + [None] * (indexed_count - topics_count)
             else:
                 raise ValueError("Invalid topics count.")
         topics = topics or []
@@ -601,3 +613,7 @@ class Event(Encodable[EventParameterT]):
 
         NewType = self._make_output_namedtuple_type("OutType", inputs)
         return NewType(*r)
+
+    @deprecated_to_property
+    def get_signature(self) -> bytes:
+        return self.signature

@@ -330,10 +330,7 @@ def test_event_basic(simple_event_no_hash):
         [e.signature, bytes.fromhex("0" * 63 + "1")],
     ).to_dict() == {"a1": 1, "a2": "foo"}
 
-    assert e.encode({"a1": None}) == [
-        e.signature,
-        None,
-    ]
+    assert e.encode({"a1": None}) == [e.signature, None]
 
     assert e.encode({"a1": 1}) == [e.signature, bytes.fromhex("0" * 63 + "1")]
 
@@ -395,18 +392,20 @@ def test_event_tuple_abiv2(tuple_event):
     e = abi.Event(tuple_event)
 
     expected = [
-        e.signature.hex(),
+        e.signature,
         cry.keccak256(
             [
                 b"bar1".ljust(32, b"\x00")
                 + b"bar2".ljust(32, b"\x00")
                 + b"\x08".rjust(32, b"\x00")
             ]
-        )[0].hex(),
-        cry.keccak256([b"baz"])[0].hex(),
+        )[0],
+        cry.keccak256([b"baz"])[0],
     ]
-    given = list(map(bytes.hex, e.encode([("bar1", "bar2", 8), b"baz"])))
-    assert given == expected
+    given = e.encode([("bar1", "bar2", 8), b"baz"])
+    assert [(d.hex() if d is not None else None) for d in given] == [
+        d.hex() for d in expected
+    ]
 
     assert e.decode(bytes.fromhex("0" * 63 + "1"), expected).to_dict() == {
         "a1": expected[1],
@@ -418,7 +417,7 @@ def test_event_tuple_abiv2(tuple_event):
 def test_event_tuple_dynarr_abiv2(tuple_dynamic_array_event):
     e = abi.Event(tuple_dynamic_array_event)
     expected = [
-        e.signature.hex(),
+        e.signature,
         cry.keccak256(
             [
                 b"bar1".ljust(32, b"\x00")
@@ -431,25 +430,23 @@ def test_event_tuple_dynarr_abiv2(tuple_dynamic_array_event):
                 + b"bar6".ljust(32, b"\x00")
                 + b"\x06".rjust(32, b"\x00"),
             ]
-        )[0].hex(),
-        cry.keccak256([b"baz"])[0].hex(),
+        )[0],
+        cry.keccak256([b"baz"])[0],
     ]
-    given = list(
-        map(
-            bytes.hex,
-            e.encode(
-                [
-                    (
-                        ("bar1", "bar2", 8),
-                        ("bar3", "bar4", 7),
-                        ("bar5", "bar6", 6),
-                    ),
-                    "baz",
-                ]
+    given = e.encode(
+        [
+            (
+                ("bar1", "bar2", 8),
+                ("bar3", "bar4", 7),
+                ("bar5", "bar6", 6),
             ),
-        )
+            "baz",
+        ]
     )
-    assert given == expected
+
+    assert [(d.hex() if d is not None else None) for d in given] == [
+        d.hex() for d in expected
+    ]
 
     assert e.decode(bytes.fromhex("0" * 63 + "1"), expected).to_dict() == {
         "a1": expected[1],
@@ -461,7 +458,7 @@ def test_event_tuple_dynarr_abiv2(tuple_dynamic_array_event):
 def test_event_tuple_fixarr_abiv2(tuple_fixed_array_event):
     e = abi.Event(tuple_fixed_array_event)
     expected = [
-        e.signature.hex(),
+        e.signature,
         cry.keccak256(
             [
                 b"bar1".ljust(32, b"\x00")
@@ -474,25 +471,22 @@ def test_event_tuple_fixarr_abiv2(tuple_fixed_array_event):
                 + b"bar6".ljust(32, b"\x00")
                 + b"\x06".rjust(32, b"\x00"),
             ]
-        )[0].hex(),
-        cry.keccak256([b"baz"])[0].hex(),
+        )[0],
+        cry.keccak256([b"baz"])[0],
     ]
-    given = list(
-        map(
-            bytes.hex,
-            e.encode(
-                [
-                    (
-                        ("bar1", "bar2", 8),
-                        ("bar3", "bar4", 7),
-                        ("bar5", "bar6", 6),
-                    ),
-                    "baz",
-                ]
+    given = e.encode(
+        [
+            (
+                ("bar1", "bar2", 8),
+                ("bar3", "bar4", 7),
+                ("bar5", "bar6", 6),
             ),
-        )
+            "baz",
+        ]
     )
-    assert given == expected
+    assert [(d.hex() if d is not None else None) for d in given] == [
+        d.hex() for d in expected
+    ]
 
     assert e.decode(bytes.fromhex("0" * 63 + "0"), expected).to_dict() == {
         "a1": expected[1],
@@ -504,37 +498,39 @@ def test_event_tuple_fixarr_abiv2(tuple_fixed_array_event):
 def test_event_fixarr_abiv2(fixed_array_event):
     e = abi.Event(fixed_array_event)
     expected = [
-        e.signature.hex(),
+        e.signature,
         cry.keccak256(
             [
                 b"\x07".rjust(32, b"\x00")
                 + b"\x08".rjust(32, b"\x00")
                 + b"\x09".rjust(32, b"\x00")
             ]
-        )[0].hex(),
+        )[0],
     ]
-    given = list(map(bytes.hex, e.encode([[7, 8, 9]])))
-    assert given == expected
+    given = e.encode([[7, 8, 9]])
+    assert [(d.hex() if d is not None else None) for d in given] == [
+        d.hex() for d in expected
+    ]
 
-    assert e.decode(b"\x00", expected).to_dict() == {
-        "a1": expected[1],
-    }
+    assert e.decode(b"\x00", expected).to_dict() == {"a1": expected[1]}
 
 
 def test_event_dynarr_abiv2(dynamic_array_event):
     e = abi.Event(dynamic_array_event)
     expected = [
-        e.signature.hex(),
+        e.signature,
         cry.keccak256(
             [
                 b"\x07".rjust(32, b"\x00")
                 + b"\x08".rjust(32, b"\x00")
                 + b"\x09".rjust(32, b"\x00")
             ]
-        )[0].hex(),
+        )[0],
     ]
-    given = list(map(bytes.hex, e.encode([[7, 8, 9]])))
-    assert given == expected
+    given = e.encode([[7, 8, 9]])
+    assert [(d.hex() if d is not None else None) for d in given] == [
+        d.hex() for d in expected
+    ]
 
     assert e.decode(b"\x00", expected).to_dict() == {
         "a1": expected[1],

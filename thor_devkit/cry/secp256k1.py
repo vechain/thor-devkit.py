@@ -60,9 +60,9 @@ def generate_privateKey() -> bytes:
         The private key in 32 bytes format.
     """
     while True:
-        _a = SigningKey.generate(curve=SECP256k1)
-        if _is_valid_private_key(_a.to_string()):
-            return _a.to_string()
+        _a = SigningKey.generate(curve=SECP256k1).to_string()
+        if _is_valid_private_key(_a):
+            return _a
 
 
 def derive_publicKey(priv_key: bytes) -> bytes:
@@ -159,7 +159,7 @@ def recover(msg_hash: bytes, sig: bytes) -> bytes:
     if len(sig) != 65:
         raise ValueError("Signature must be 65 bytes.")
 
-    if not (sig[64] == 0 or sig[64] == 1):
+    if sig[-1] not in {0, 1}:
         raise ValueError("Signature last byte must be 0 or 1")
 
     pk = KeyAPI().ecdsa_recover(msg_hash, KeyAPI.Signature(signature_bytes=sig))

@@ -40,7 +40,8 @@ version = {attr = "thor_devkit.VERSION"}
 test = [
     "mypy>=0.942",
     "pytest>=6.2.0",
-    "pytest-cov"
+    "pytest-cov",
+    "pytest-mock",
 ]
 
 [project.urls]
@@ -55,11 +56,15 @@ addopts = """
     --cov=thor_devkit
     --no-cov-on-fail
     --cov-report=term-missing
+    --cov-branch
 """
 
 
 [tool.coverage.run]
-omit = ["tests/*"]
+omit = [
+    "tests/*",
+    "thor_devkit/deprecation.py",
+]
 
 [tool.coverage.report]
 exclude_lines = [
@@ -75,6 +80,8 @@ exclude_lines = [
 
     '@(abc.)?abstractmethod',
     "@deprecated_to_property",
+    "@renamed_function",
+    "@renamed_method",
     "@overload",
 ]
 
@@ -82,15 +89,11 @@ exclude_lines = [
 [tool.mypy]
 allow_redefinition = true
 check_untyped_defs = true
-disallow_untyped_defs = false
-disallow_incomplete_defs = true
-disallow_any_generics = true
 ignore_missing_imports = true
 incremental = true
 strict_optional = true
 no_implicit_optional = true
 show_traceback = true
-warn_no_return = false
 warn_unused_ignores = true
 warn_redundant_casts = true
 warn_unused_configs = true
@@ -99,6 +102,9 @@ warn_unreachable = true
 [[tool.mypy.overrides]]
 module = "thor_devkit.*"
 disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_any_generics = true
+warn_no_return = true
 
 
 [tool.flake8]
@@ -118,9 +124,7 @@ extend_ignore = [
     "SIM905",
     "N806",
     "PIE798",
-    "PT011",  # FIXME: awaits tests and exceptions
     "DAR",  # FIXME: until docstrings are fixed
-    "PIE786",  # FIXME: until new exceptions are added
 ]
 # FIXME: requires renaming
 per-file-ignores = "thor_devkit/*:FNE,N802"

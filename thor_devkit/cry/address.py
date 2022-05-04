@@ -6,8 +6,8 @@ VeChain "public key" and "address" related operations and verifications.
 
 import re
 
+from ..utils import remove_0x, validate_uncompressed_public_key
 from .keccak import keccak256
-from .utils import is_uncompressed_public_key, remove_0x
 
 ADDRESS_RE = re.compile("^0x[0-9a-f]{40}$", re.I)
 
@@ -27,7 +27,7 @@ def public_key_to_address(key_bytes: bytes) -> bytes:
     bytes
         bytes that represents the address.
     """
-    is_uncompressed_public_key(key_bytes)
+    validate_uncompressed_public_key(key_bytes)
     # Get rid of the 0x04 (first byte) at the beginning.
     buffer = key_bytes[1:]
     # last 20 bytes from the 32 bytes hash.

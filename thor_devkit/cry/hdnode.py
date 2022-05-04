@@ -24,22 +24,29 @@ The following is the "first" key pair on the "external" node chain.
 m / 44' / 818' / 0' / 0 / 0
 
 """
-from typing import List
+import sys
+from typing import Iterable
 
 from bip_utils import Base58Encoder, Bip32
 from eth_keys import KeyAPI
 
+from ..utils import _AnyBytes, strip_0x04
 from .address import public_key_to_address
 from .mnemonic import derive_seed
-from .utils import strip_0x04
 
-VET_EXTERNAL_PATH = "m/44'/818'/0'/0"
+if sys.version_info < (3, 8):
+    from typing_extensions import Final
+else:
+    from typing import Final
 
-VERSION_MAINNET_PUBLIC = bytes.fromhex("0488B21E")
-VERSION_MAINNET_PRIVATE = bytes.fromhex("0488ADE4")
-DEPTH_MASTER_NODE = bytes.fromhex("00")
-FINGER_PRINT_MASTER_KEY = bytes.fromhex("00000000")
-CHILD_NUMBER_MASTER_KEY = bytes.fromhex("00000000")
+
+VET_EXTERNAL_PATH: Final = "m/44'/818'/0'/0"
+
+VERSION_MAINNET_PUBLIC: Final = bytes.fromhex("0488B21E")
+VERSION_MAINNET_PRIVATE: Final = bytes.fromhex("0488ADE4")
+DEPTH_MASTER_NODE: Final = bytes.fromhex("00")
+FINGER_PRINT_MASTER_KEY: Final = bytes.fromhex("00000000")
+CHILD_NUMBER_MASTER_KEY: Final = bytes.fromhex("00000000")
 
 
 class HDNode:
@@ -63,7 +70,7 @@ class HDNode:
         self.bip32_ctx = bip32_ctx
 
     @staticmethod
-    def from_seed(seed: bytes, init_path: str = VET_EXTERNAL_PATH) -> "HDNode":
+    def from_seed(seed: _AnyBytes, init_path: str = VET_EXTERNAL_PATH) -> "HDNode":
         """
         Construct an HD Node from a seed (64 bytes).
         The init_path is m/44'/818'/0'/0 for starting.
@@ -90,7 +97,9 @@ class HDNode:
         return HDNode(bip32_ctx)
 
     @staticmethod
-    def from_mnemonic(words: List[str], init_path: str = VET_EXTERNAL_PATH) -> "HDNode":
+    def from_mnemonic(
+        words: Iterable[str], init_path: str = VET_EXTERNAL_PATH
+    ) -> "HDNode":
         """
         Construct an HD Node from a set of words.
         The init_path is m/44'/818'/0'/0 by default on VeChain.
@@ -119,7 +128,7 @@ class HDNode:
         return HDNode(bip32_ctx)
 
     @staticmethod
-    def from_public_key(pub: bytes, chain_code: bytes) -> "HDNode":
+    def from_public_key(pub: _AnyBytes, chain_code: _AnyBytes) -> "HDNode":
         """
         Construct an HD Node from an uncompressed public key.
         (starts with 0x04 as first byte)
@@ -136,23 +145,24 @@ class HDNode:
         HDNode
             A new HDNode.
         """
-        # parts
-        net_version = VERSION_MAINNET_PUBLIC
-        depth = DEPTH_MASTER_NODE
-        fprint = FINGER_PRINT_MASTER_KEY
-        index = CHILD_NUMBER_MASTER_KEY
-        chain = chain_code
-        key_bytes = KeyAPI.PublicKey(strip_0x04(pub)).to_compressed_bytes()
+        all_bytes = b"".join(
+            [
+                VERSION_MAINNET_PUBLIC,
+                DEPTH_MASTER_NODE,
+                FINGER_PRINT_MASTER_KEY,
+                CHILD_NUMBER_MASTER_KEY,
+                chain_code,
+                KeyAPI.PublicKey(strip_0x04(pub)).to_compressed_bytes(),
+            ]
+        )
 
-        # assemble
-        all_bytes = net_version + depth + fprint + index + chain + key_bytes
         # double sha-256 checksum
         xpub_str = Base58Encoder.CheckEncode(all_bytes)
         bip32_ctx = Bip32.FromExtendedKey(xpub_str)
         return HDNode(bip32_ctx)
 
     @staticmethod
-    def from_private_key(priv: bytes, chain_code: bytes) -> "HDNode":
+    def from_private_key(priv: _AnyBytes, chain_code: _AnyBytes) -> "HDNode":
         """
         Construct an HD Node from a private key.
 
@@ -169,17 +179,17 @@ class HDNode:
             A new HDNode.
         """
 
-        # print('input priv', len(priv))
-        # parts
-        net_version = VERSION_MAINNET_PRIVATE
-        depth = DEPTH_MASTER_NODE
-        fprint = FINGER_PRINT_MASTER_KEY
-        index = CHILD_NUMBER_MASTER_KEY
-        chain = chain_code
-        key_bytes = b"\x00" + priv
+        all_bytes = b"".join(
+            [
+                VERSION_MAINNET_PRIVATE,
+                DEPTH_MASTER_NODE,
+                FINGER_PRINT_MASTER_KEY,
+                CHILD_NUMBER_MASTER_KEY,
+                chain_code,
+                b"\x00" + priv,
+            ]
+        )
 
-        # assemble
-        all_bytes = net_version + depth + fprint + index + chain + key_bytes
         # double sha-256 checksum
         xpriv = Base58Encoder.CheckEncode(all_bytes)
         bip32_ctx = Bip32.FromExtendedKey(xpriv)

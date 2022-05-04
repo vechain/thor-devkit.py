@@ -3,14 +3,16 @@ Transaction class defines VeChain's multi-clause transaction (tx).
 
 This module defines data structure of a tx, and the encoding/decoding of tx data.
 """
+import sys
 from copy import deepcopy
-from typing import List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 import voluptuous
 from voluptuous import REMOVE_EXTRA, Schema
 
 from .cry import address, blake2b256, secp256k1
 from .deprecation import deprecated_to_property
+from .exceptions import BadTransaction
 from .rlp import (
     BaseWrapper,
     BlobKind,
@@ -23,42 +25,57 @@ from .rlp import (
     OptionalFixedBlobKind,
     ScalarKind,
 )
+from .utils import _AnyBytes
+
+if sys.version_info < (3, 8):
+    from typing_extensions import Final, TypedDict
+else:
+    from typing import Final, TypedDict
+if sys.version_info < (3, 11):
+    from typing_extensions import NotRequired
+else:
+    from typing import NotRequired
+
 
 # Kind Definitions
 # Used for VeChain's "reserved features" kind.
-FeaturesKind = NumericKind(4)
+FeaturesKind: Final = NumericKind(4)
 
 # Unsigned/Signed RLP Wrapper.
-_params: List[Tuple[str, Union[BaseWrapper, ScalarKind]]] = [
-    ("chainTag", NumericKind(1)),
-    ("blockRef", CompactFixedBlobKind(8)),
-    ("expiration", NumericKind(4)),
-    (
-        "clauses",
-        HomoListWrapper(
-            codec=DictWrapper(
-                [
-                    ("to", OptionalFixedBlobKind(20)),
-                    ("value", NumericKind(32)),
-                    ("data", BlobKind()),
-                ]
-            )
-        ),
+_params: Final[Dict[str, Union[BaseWrapper, ScalarKind[Any]]]] = {
+    "chainTag": NumericKind(1),
+    "blockRef": CompactFixedBlobKind(8),
+    "expiration": NumericKind(4),
+    "clauses": HomoListWrapper(
+        DictWrapper(
+            {
+                "to": OptionalFixedBlobKind(20),
+                "value": NumericKind(32),
+                "data": BlobKind(),
+            }
+        )
     ),
-    ("gasPriceCoef", NumericKind(1)),
-    ("gas", NumericKind(8)),
-    ("dependsOn", OptionalFixedBlobKind(32)),
-    ("nonce", NumericKind(8)),
-    ("reserved", HomoListWrapper(codec=BytesKind())),
-]
+    "gasPriceCoef": NumericKind(1),
+    "gas": NumericKind(8),
+    "dependsOn": OptionalFixedBlobKind(32),
+    "nonce": NumericKind(8),
+    "reserved": HomoListWrapper(codec=BytesKind()),
+}
 
 # Unsigned Tx Wrapper
-UnsignedTxWrapper = DictWrapper(_params)
+UnsignedTxWrapper: Final = DictWrapper(_params)
 
 # Signed Tx Wrapper
-SignedTxWrapper = DictWrapper(_params + [("signature", BytesKind())])
+SignedTxWrapper: Final = DictWrapper({**_params, "signature": BytesKind()})
 
-CLAUSE = Schema(
+
+class ClauseT(TypedDict):
+    to: Optional[str]
+    value: Union[str, int]
+    data: str
+
+
+CLAUSE: Final = Schema(
     {
         # Destination contract address, or set to None to create contract.
         "to": voluptuous.Any(str, None),
@@ -70,10 +87,15 @@ CLAUSE = Schema(
 )
 
 
-RESERVED = Schema(
+class ReservedT(TypedDict, total=False):
+    features: int
+    unused: Sequence[_AnyBytes]
+
+
+RESERVED: Final = Schema(
     {
         voluptuous.Optional("features"): int,  # int.
-        voluptuous.Optional("unused"): [bytes]
+        voluptuous.Optional("unused"): [voluptuous.Any(bytes, bytearray)],
         # "unused" In TypeScript version is of type: Buffer[]
         # Buffer itself is "byte[]",
         # which is equivalent to "bytes"/"bytearray" in Python.
@@ -84,7 +106,19 @@ RESERVED = Schema(
 )
 
 
-BODY = Schema(
+class TransactionBodyT(TypedDict):
+    chainTag: int  # noqa: N815
+    blockRef: str  # noqa: N815
+    expiration: int
+    clauses: Sequence[ClauseT]
+    gasPriceCoef: int  # noqa: N815
+    gas: Union[int, str]
+    dependsOn: Optional[str]  # noqa: N815
+    nonce: Union[int, str]
+    reserved: NotRequired[ReservedT]
+
+
+BODY: Final = Schema(
     {
         "chainTag": int,
         "blockRef": str,
@@ -119,7 +153,7 @@ def data_gas(data: str) -> int:
     )
 
 
-def intrinsic_gas(clauses: List) -> int:
+def intrinsic_gas(clauses: List[ClauseT]) -> int:
     """
     Calculate roughly the gas from a list of clauses.
 
@@ -151,7 +185,7 @@ def intrinsic_gas(clauses: List) -> int:
     return sum_total
 
 
-def right_trim_empty_bytes(m_list: List[bytes]) -> List:
+def right_trim_empty_bytes(m_list: Sequence[_AnyBytes]) -> List[bytes]:
     """Given a list of bytes, remove the b'' from the tail of the list."""
     rightmost_none_empty = next(
         (idx for idx, item in enumerate(reversed(m_list)) if item), None
@@ -160,19 +194,19 @@ def right_trim_empty_bytes(m_list: List[bytes]) -> List:
     if rightmost_none_empty is None:
         return []
 
-    return m_list[: len(m_list) - rightmost_none_empty]
+    return list(m_list[: len(m_list) - rightmost_none_empty])
 
 
 class Transaction:
     # The reserved feature of delegated (vip-191) is 1.
-    DELEGATED_MASK = 1
+    DELEGATED_MASK: Final = 1
     _signature: Optional[bytes] = None
 
-    def __init__(self, body: dict) -> None:
+    def __init__(self, body: TransactionBodyT) -> None:
         """Construct a transaction from a given body."""
         self.body = BODY(body)
 
-    def get_body(self, as_copy: bool = True):
+    def get_body(self, as_copy: bool = True) -> TransactionBodyT:
         """
         Get a dict of the body represents the transaction.
         If as_copy, return a newly created dict.
@@ -188,24 +222,22 @@ class Transaction:
         else:
             return self.body
 
-    def _encode_reserved(self) -> List:
+    def _encode_reserved(self) -> List[bytes]:
         reserved = self.body.get("reserved", {})
         f = reserved.get("features") or 0
         unused: List[bytes] = reserved.get("unused", []) or []
         m_list = [FeaturesKind.serialize(f)] + unused
 
         return right_trim_empty_bytes(m_list)
+        # return m_list
 
     def get_signing_hash(self, delegate_for: Optional[str] = None) -> bytes:
-        reserved_list = self._encode_reserved()
-        _temp = deepcopy(self.body)
-        _temp.update({"reserved": reserved_list})
-        buff = ComplexCodec(UnsignedTxWrapper).encode(_temp)
+        buff = self.encode(force_unsigned=True)
         h, _ = blake2b256([buff])
 
         if delegate_for:
             if not address.is_address(delegate_for):
-                raise Exception("delegate_for should be an address type.")
+                raise ValueError("delegate_for should be an address type.")
             x, _ = blake2b256([h, bytes.fromhex(delegate_for[2:])])
             return x
 
@@ -220,7 +252,7 @@ class Transaction:
         return self._signature
 
     @signature.setter
-    def signature(self, sig: Optional[bytes]) -> None:
+    def signature(self, sig: Optional[_AnyBytes]) -> None:
         self._signature = sig
 
     @property
@@ -235,7 +267,7 @@ class Transaction:
             my_sign_hash = self.get_signing_hash()
             pub_key = secp256k1.recover(my_sign_hash, sig[:65])
             return "0x" + address.public_key_to_address(pub_key).hex()
-        except Exception:
+        except ValueError:
             return None
 
     @property
@@ -257,7 +289,7 @@ class Transaction:
             my_sign_hash = self.get_signing_hash(origin)
             pub_key = secp256k1.recover(my_sign_hash, sig[65:])
             return "0x" + address.public_key_to_address(pub_key).hex()
-        except Exception:
+        except ValueError:
             return None
 
     @property
@@ -284,7 +316,7 @@ class Transaction:
             pub_key = secp256k1.recover(my_sign_hash, sig[:65])
             origin = address.public_key_to_address(pub_key)
             return "0x" + blake2b256([my_sign_hash, origin])[0].hex()
-        except Exception:
+        except ValueError:
             return None
 
     def _signature_valid(self) -> bool:
@@ -294,56 +326,43 @@ class Transaction:
             expected_sig_len = 65 * 2 if self.is_delegated else 65
             return len(self.signature) == expected_sig_len
 
-    def encode(self):
+    def encode(self, force_unsigned: bool = False) -> bytes:
         """Encode the tx into bytes"""
         reserved_list = self._encode_reserved()
         temp = deepcopy(self.body)
-        temp.update({"reserved": reserved_list})
+        temp["reserved"] = reserved_list
 
-        if self.signature:
+        if not self.signature or force_unsigned:
+            return ComplexCodec(UnsignedTxWrapper).encode(temp)
+        else:
             temp.update({"signature": self.signature})
             return ComplexCodec(SignedTxWrapper).encode(temp)
-        else:
-            return ComplexCodec(UnsignedTxWrapper).encode(temp)
 
     @staticmethod
-    def decode(raw: bytes, unsigned: bool) -> "Transaction":
+    def decode(raw: _AnyBytes, unsigned: bool) -> "Transaction":
         """Return a Transaction type instance"""
         sig = None
 
         if unsigned:
             body = ComplexCodec(UnsignedTxWrapper).decode(raw)
         else:
-            decoded = ComplexCodec(SignedTxWrapper).decode(raw)
-            sig = decoded["signature"]  # bytes
-            del decoded["signature"]
-            body = decoded
+            body = ComplexCodec(SignedTxWrapper).decode(raw)
+            sig = body.pop("signature")  # bytes
 
-        r = body.get("reserved", [])  # list of bytes
+        r = body.pop("reserved", [])  # list of bytes
         if r:
             if not r[-1]:
-                raise Exception("invalid reserved fields: not trimmed.")
+                raise BadTransaction("invalid reserved fields: not trimmed.")
 
-            features = FeaturesKind.deserialize(r[0])
-            body["reserved"] = {"features": features}
+            reserved = {"features": FeaturesKind.deserialize(r[0])}
             if len(r) > 1:
-                body["reserved"]["unused"] = r[1:]
-        else:
-            del body["reserved"]
+                reserved["unused"] = r[1:]
+            body["reserved"] = RESERVED(reserved)
 
         # Now body is a "dict", we try to check if it is in good shape.
 
         # Check if clause is in good shape.
-        _clauses = []
-        for each in body["clauses"]:
-            _clauses.append(CLAUSE(each))
-        body["clauses"] = _clauses
-
-        # Check if reserved is in good shape.
-        _reserved = body.get("reserved")
-        if _reserved:
-            _reserved = RESERVED(_reserved)
-            body["reserved"] = _reserved
+        body["clauses"] = [CLAUSE(c) for c in body["clauses"]]
 
         tx = Transaction(body)
 
@@ -352,8 +371,7 @@ class Transaction:
 
         return tx
 
-    def __eq__(self, other):
-        """Compare two tx to be the same?"""
+    def __eq__(self, other: object) -> bool:
         if not isinstance(other, Transaction):
             return NotImplemented
 

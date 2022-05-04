@@ -4,25 +4,37 @@ Keccak
 Keccak hash function.
 """
 
-from typing import List, Tuple
+from typing import Iterable, Tuple
 
 import sha3  # pysha3
 
+from ..utils import _AnyBytes
 
-def keccak256(list_of_bytes: List[bytes]) -> Tuple[bytes, int]:
+
+def keccak256(list_of_bytes: Iterable[_AnyBytes]) -> Tuple[bytes, int]:
     """
     Compute the sha3_256 flavor hash, outputs 256 bits / 32 bytes.
 
     Parameters
     ----------
-    list_of_bytes : List[bytes]
+    list_of_bytes : Iterable[_AnyBytes]
         A list of bytes to be hashed.
 
     Returns
     -------
     Tuple[bytes, int]
         Hash value in bytes and length of bytes.
+
+    Raises
+    ------
+    TypeError
+        If bytes or bytearray is used instead of sequence as input.
     """
+    if isinstance(list_of_bytes, (bytes, bytearray)):  # type: ignore[unreachable]
+        raise TypeError(
+            f"Expected sequence of bytes or bytearray's, got: {type(list_of_bytes)}"
+        )
+
     m = sha3.keccak_256()
     for item in list_of_bytes:
         m.update(item)

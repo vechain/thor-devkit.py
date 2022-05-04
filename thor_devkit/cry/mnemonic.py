@@ -8,17 +8,27 @@ Derive the first private key from words.
 Derive the correct seed for BIP32.
 """
 
-from typing import List
+import sys
+from typing import Iterable, List, Tuple
 
 from bip_utils import Bip32
 from mnemonic import Mnemonic
+
+if sys.version_info < (3, 8):
+    from typing_extensions import Final, Literal, get_args
+else:
+    from typing import Final, Literal, get_args
+
+
+_ALLOWED_STRENGTHS = Literal[128, 160, 192, 224, 256]
+ALLOWED_STRENGTHS: Final[Tuple[_ALLOWED_STRENGTHS, ...]] = get_args(_ALLOWED_STRENGTHS)
 
 # BIP-44 specified path notation:
 # m / purpose' / coin_type' / account' / change / address_index
 
 # Derive path for the VET:
 # m / 44' / 818' / 0' / 0 /<address_index>
-VET_PATH = "m/44'/818'/0'/0"
+VET_PATH: Final = "m/44'/818'/0'/0"
 
 
 def _get_key_path(base_path: str, index: int = 0) -> str:
@@ -29,7 +39,7 @@ def _get_vet_key_path(index: int = 0) -> str:
     return _get_key_path(VET_PATH, index)
 
 
-def generate(strength: int = 128) -> List[str]:
+def generate(strength: _ALLOWED_STRENGTHS = 128) -> List[str]:
     """
     Generate BIP39 mnemonic words.
 
@@ -48,21 +58,21 @@ def generate(strength: int = 128) -> List[str]:
     ValueError
         If the strength is not of correct length.
     """
-    if strength not in [128, 160, 192, 224, 256]:
-        raise ValueError("strength should be one of [128, 160, 192, 224, 256].")
+    if strength not in ALLOWED_STRENGTHS:
+        raise ValueError(f"strength should be one of {ALLOWED_STRENGTHS}.")
 
     sentence = Mnemonic("english").generate(strength)
 
     return sentence.split(" ")
 
 
-def validate(words: List[str]) -> bool:
+def validate(words: Iterable[str]) -> bool:
     """
     Check if the words form a valid BIP39 mnemonic words.
 
     Parameters
     ----------
-    words : List[str]
+    words : Iterable[str]
         A list of english words.
 
     Returns
@@ -74,13 +84,13 @@ def validate(words: List[str]) -> bool:
     return Mnemonic("english").check(sentence)
 
 
-def derive_seed(words: List[str]) -> bytes:
+def derive_seed(words: Iterable[str]) -> bytes:
     """
     Derive a seed from a word list.
 
     Parameters
     ----------
-    words : List[str]
+    words : Iterable[str]
         A list of english words.
 
     Returns
@@ -95,7 +105,7 @@ def derive_seed(words: List[str]) -> bytes:
     return Mnemonic.to_seed(sentence)  # bytes.
 
 
-def derive_private_key(words: List[str], index: int = 0) -> bytes:
+def derive_private_key(words: Iterable[str], index: int = 0) -> bytes:
     """
     Get a private key from the mnemonic wallet,
     default to the 0 index of the deviration. (first key)

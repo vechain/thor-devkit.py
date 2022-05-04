@@ -1,4 +1,4 @@
-from thor_devkit import cry
+from thor_devkit import cry, utils
 from thor_devkit.cry import keystore, mnemonic, secp256k1
 
 
@@ -11,17 +11,17 @@ def test_utils():
     ]
 
     for addr in address:
-        assert not cry.utils.remove_0x(addr).startswith("0x")
+        assert not utils.remove_0x(addr).startswith("0x")
 
     # no 0x at all
     assert (
-        cry.utils.remove_0x("D1220A0cf47c7B9Be7A2E6BA89F429762e7b9aDb")
+        utils.remove_0x("D1220A0cf47c7B9Be7A2E6BA89F429762e7b9aDb")
         == "D1220A0cf47c7B9Be7A2E6BA89F429762e7b9aDb"
     )
 
     # 0x in the middle
     assert (
-        cry.utils.remove_0x("D1220x0A0cf47c7B9Be7A2E6BA89F429762e7b9aDb")
+        utils.remove_0x("D1220x0A0cf47c7B9Be7A2E6BA89F429762e7b9aDb")
         == "D1220x0A0cf47c7B9Be7A2E6BA89F429762e7b9aDb"
     )
 
@@ -138,7 +138,7 @@ def test_mnemonic():
 
 
 def test_keystore():
-    ks = {
+    ks: keystore.KeyStoreT = {
         "version": 3,
         "id": "f437ebb1-5b0d-4780-ae9e-8640178ffd77",
         "address": "dc6fa3ec1f3fde763f4d59230ed303f854968d26",
