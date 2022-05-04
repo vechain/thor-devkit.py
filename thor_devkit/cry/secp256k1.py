@@ -6,15 +6,25 @@ secp256k1 Elliptic Curve related functions.
 3) Sign a message hash using the private key, generate signature.
 4) Given the message hash and signature, recover the uncompressed public key.
 """
+import sys
 
 from ecdsa import SECP256k1, SigningKey
 from eth_keys import KeyAPI
 
-MAX = bytes.fromhex("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141")
-ZERO = bytes.fromhex("0" * 64)
+from ..utils import _AnyBytes
+
+if sys.version_info < (3, 8):
+    from typing_extensions import Final
+else:
+    from typing import Final
+
+MAX: Final = bytes.fromhex(
+    "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"
+)
+ZERO: Final = bytes(32)
 
 
-def _is_valid_private_key(priv_key: bytes) -> bool:
+def _is_valid_private_key(priv_key: _AnyBytes) -> bool:
     """
     Verify if a private key is good.
 
@@ -22,7 +32,14 @@ def _is_valid_private_key(priv_key: bytes) -> bool:
     -------
     bool
         True if the private key is valid.
+
+    Parameters
+    ----------
+    priv_key : _AnyBytes
+        Description
     """
+    priv_key = bytes(priv_key)
+
     if priv_key == ZERO:
         return False
 
@@ -32,14 +49,14 @@ def _is_valid_private_key(priv_key: bytes) -> bool:
     return len(priv_key) == 32
 
 
-def _is_valid_message_hash(msg_hash: bytes) -> bool:
+def _is_valid_message_hash(msg_hash: _AnyBytes) -> bool:
     """
     Verify if a message hash is in correct format.
     (as in terms of VeChain)
 
     Parameters
     ----------
-    msg_hash: bytes
+    msg_hash : _AnyBytes
         The msg hash to be processed.
 
     Returns
@@ -65,13 +82,13 @@ def generate_privateKey() -> bytes:
             return _a
 
 
-def derive_publicKey(priv_key: bytes) -> bytes:
+def derive_publicKey(priv_key: _AnyBytes) -> bytes:
     """
     Derive public key from a private key(uncompressed).
 
     Parameters
     ----------
-    priv_key: bytes
+    priv_key : _AnyBytes
         The private key in bytes.
 
     Returns
@@ -92,16 +109,16 @@ def derive_publicKey(priv_key: bytes) -> bytes:
     return _a.verifying_key.to_string("uncompressed")
 
 
-def sign(msg_hash: bytes, priv_key: bytes) -> bytes:
+def sign(msg_hash: _AnyBytes, priv_key: _AnyBytes) -> bytes:
     """
     Sign the message hash.
     (not the message itself)
 
     Parameters
     ----------
-    msg_hash: bytes
+    msg_hash : _AnyBytes
         The message hash.
-    priv_key: bytes
+    priv_key : _AnyBytes
         The private key in bytes.
 
     Returns
@@ -129,15 +146,15 @@ def sign(msg_hash: bytes, priv_key: bytes) -> bytes:
     return b"".join([r, s, v])  # 32 + 32 + 1 bytes
 
 
-def recover(msg_hash: bytes, sig: bytes) -> bytes:
+def recover(msg_hash: _AnyBytes, sig: _AnyBytes) -> bytes:
     """
     Recover the uncompressed public key from signature.
 
     Parameters
     ----------
-    msg_hash: bytes
+    msg_hash : _AnyBytes
         The message hash.
-    sig: bytes
+    sig : _AnyBytes
         The signature.
 
     Returns

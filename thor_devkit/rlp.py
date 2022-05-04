@@ -708,6 +708,6 @@ class ComplexCodec:
         packed = pack(data, self.wrapper)
         return rlp_encode(packed)
 
-    def decode(self, data: bytes) -> Any:
+    def decode(self, data: _AnyBytes) -> Any:
         to_be_unpacked = rlp_decode(data)
         return unpack(to_be_unpacked, self.wrapper)

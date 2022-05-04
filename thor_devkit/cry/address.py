@@ -5,14 +5,21 @@ VeChain "public key" and "address" related operations and verifications.
 """
 
 import re
+import sys
 
-from ..utils import remove_0x, validate_uncompressed_public_key
+from ..utils import _AnyBytes, remove_0x, validate_uncompressed_public_key
 from .keccak import keccak256
 
-ADDRESS_RE = re.compile("^0x[0-9a-f]{40}$", re.I)
+if sys.version_info < (3, 8):
+    from typing_extensions import Final
+else:
+    from typing import Final
 
 
-def public_key_to_address(key_bytes: bytes) -> bytes:
+ADDRESS_RE: Final = re.compile("^0x[0-9a-f]{40}$", re.I)
+
+
+def public_key_to_address(key_bytes: _AnyBytes) -> bytes:
     """
     Derive an address from a public key
     (uncompressed, starts with 0x04).
@@ -69,7 +76,7 @@ def to_checksum_address(address: str) -> str:
     Raises
     ------
     ValueError
-        If the address isn't a valid address itself.
+        If the address is not  valid.
     """
 
     if not is_address(address):

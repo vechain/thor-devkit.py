@@ -22,16 +22,16 @@ from ..utils import _AnyBytes
 from .address import is_address
 
 if sys.version_info < (3, 8):
-    from typing_extensions import Literal, TypedDict
+    from typing_extensions import Final, Literal, TypedDict
 else:
-    from typing import Literal, TypedDict
+    from typing import Final, Literal, TypedDict
 
 
-N = 131072  # aka. work_factor
-P = 1
-R = 8
-DK_LEN = 32
-SALT_LEN = 16
+SCRYPT_N: Final = 131072  # aka. work_factor
+SCRYPT_P: Final = 1
+SCRYPT_R: Final = 8
+DK_LEN: Final = 32
+SALT_LEN: Final = 16
 
 
 class CryptoParamsT(TypedDict):
@@ -50,24 +50,24 @@ class KeyStoreT(TypedDict):
     crypto: CryptoParamsT
 
 
-def encrypt(private_key: bytes, password: Union[str, _AnyBytes]) -> KeyStoreT:
+def encrypt(private_key: _AnyBytes, password: Union[str, _AnyBytes]) -> KeyStoreT:
     """
     Encrypt a private key to a keystore.
     The keystore is a json-style python dict.
 
     Parameters
     ----------
-    private_key : bytes
+    private_key : _AnyBytes
         A private key in bytes.
-    password : bytes
+    password : Union[str, _AnyBytes]
         A password.
 
     Returns
     -------
-    dict
+    KeyStoreT
         A keystore
     """
-    return eth_keyfile.create_keyfile_json(private_key, password, 3, "scrypt", N)
+    return eth_keyfile.create_keyfile_json(private_key, password, 3, "scrypt", SCRYPT_N)
 
 
 def decrypt(keystore: KeyStoreT, password: Union[str, _AnyBytes]) -> bytes:
@@ -76,9 +76,9 @@ def decrypt(keystore: KeyStoreT, password: Union[str, _AnyBytes]) -> bytes:
 
     Parameters
     ----------
-    keystore : dict
-        A keystore.
-    password : bytes
+    keystore : KeyStoreT
+        A keystore dict.
+    password : Union[str, _AnyBytes]
         A password.
 
     Returns
@@ -96,12 +96,12 @@ def _normalize(keystore: KeyStoreT) -> KeyStoreT:
 
     Parameters
     ----------
-    keystore : dict
-        A keystore.
+    keystore : KeyStoreT
+        A keystore dict.
 
     Returns
     -------
-    dict
+    KeyStoreT
         A keystore.
     """
     return keystore
@@ -113,12 +113,12 @@ def _validate(keystore: KeyStoreT) -> Literal[True]:
 
     Parameters
     ----------
-    keystore : dict
-        A keystore.
+    keystore : KeyStoreT
+        A keystore dict.
 
     Returns
     -------
-    bool
+    Literal[True]
         True
 
     Raises
@@ -151,12 +151,12 @@ def well_formed(keystore: KeyStoreT) -> Literal[True]:
 
     Parameters
     ----------
-    keystore : dict
-        A keystore.
+    keystore : KeyStoreT
+        A keystore dict.
 
     Returns
     -------
-    bool
+    Literal[True]
         True
     """
 

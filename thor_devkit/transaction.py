@@ -153,7 +153,7 @@ def data_gas(data: str) -> int:
     )
 
 
-def intrinsic_gas(clauses: List[ClauseT]) -> int:
+def intrinsic_gas(clauses: Sequence[ClauseT]) -> int:
     """
     Calculate roughly the gas from a list of clauses.
 
@@ -253,7 +253,7 @@ class Transaction:
 
     @signature.setter
     def signature(self, sig: Optional[_AnyBytes]) -> None:
-        self._signature = sig
+        self._signature = bytes(sig) if sig is not None else sig
 
     @property
     def origin(self) -> Optional[str]:
@@ -396,7 +396,7 @@ class Transaction:
         return self.signature
 
     @deprecated_to_property
-    def set_signature(self, sig: bytes) -> None:
+    def set_signature(self, sig: _AnyBytes) -> None:
         """Set the signature"""
         self.signature = sig
 
