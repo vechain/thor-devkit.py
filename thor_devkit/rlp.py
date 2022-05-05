@@ -453,7 +453,13 @@ class OptionalFixedBlobKind(FixedBlobKind):
         return super().deserialize(serial)
 
 
-NoneableFixedBlobKind = class_renamed(OptionalFixedBlobKind, "NoneableFixedBlobKind")
+@class_renamed("NoneableFixedBlobKind")
+class NoneableFixedBlobKind(OptionalFixedBlobKind):
+    """Deprecated alias for :class:`OptionalFixedBlobKind`.
+
+    .. deprecated:: 2.0.0
+        Use :class:`OptionalFixedBlobKind` instead.
+    """
 
 
 class CompactFixedBlobKind(FixedBlobKind):

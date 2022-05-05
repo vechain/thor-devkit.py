@@ -17,16 +17,20 @@ def deprecated_to_property(func: _C) -> _C:
     return cast(_C, inner)
 
 
-def class_renamed(cls: Type[_T], old_name: str) -> Type[_T]:
-    def __init__(self: _T, *args: Any, **kwargs: Any) -> None:  # noqa: N807
-        warnings.warn(
-            DeprecationWarning(
-                f"Class {old_name} was renamed, use {cls.__name__} instead"
+def class_renamed(new_name: str) -> Callable[[Type[_T]], Type[_T]]:
+    def decorator(cls: Type[_T]) -> Type[_T]:
+        def __init__(self: _T, *args: Any, **kwargs: Any) -> None:  # noqa: N807
+            warnings.warn(
+                DeprecationWarning(
+                    f"Class {cls.__name__} was renamed, use {new_name} instead"
+                )
             )
-        )
-        super(cast(Type[Any], cls), self).__init__(*args, **kwargs)
+            super(cls, self).__init__(*args, **kwargs)  # type: ignore
 
-    return cast(Type[_T], type(old_name, (cls,), {"__init__": __init__}))
+        cls.__init__ = __init__  # type: ignore
+        return cls
+
+    return decorator
 
 
 def _renamed_function(new_name: str, kind: str) -> Callable[[_C], _C]:
