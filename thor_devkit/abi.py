@@ -74,18 +74,13 @@ else:
 MUTABILITY: Final = Schema(voluptuous.Any("pure", "view", "payable", "nonpayable"))
 
 
-# Support recursion
-def _FUNC_PARAMETER(value: Any) -> Schema:  # noqa: N802
-    return FUNC_PARAMETER(value)
-
-
 FUNC_PARAMETER: Final = Schema(
     {
         "name": str,
         "type": str,
         voluptuous.Optional("internalType"): str,
         # if the "type" field is "tuple" or "type[]"
-        voluptuous.Optional("components"): [_FUNC_PARAMETER],
+        voluptuous.Optional("components"): [voluptuous.Self],
     },
     required=True,
 )
