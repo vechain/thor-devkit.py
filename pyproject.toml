@@ -31,7 +31,7 @@ dependencies = [
     "twine",
     "voluptuous>=0.12.0,<=0.13.0",
 ]
-requires-python = ">=3.6"
+requires-python = ">=3.6.2"
 
 [tool.setuptools.dynamic]
 version = {attr = "thor_devkit.VERSION"}
@@ -127,11 +127,10 @@ extend_ignore = [
     "D100", "D101", "D102", "D103", "D104", # FIXME: until all docstrings are added
     "D105",  # Magic methods may remain unannotated
 ]
-# FIXME: requires renaming
-per-file-ignores = """
-    thor_devkit/*:FNE,N802
-    tests/*:D,RST
-"""
+# Ignore
+per-file-ignores = [
+    "tests/*:D,RST",  # We don't care about docstrings in tests.
+]
 max-complexity = 12
 rst-roles = [
     "mod",

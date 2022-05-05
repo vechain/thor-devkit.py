@@ -78,11 +78,13 @@ def _is_hex_string(a: str, must_contain_data: bool) -> bool:
 
 
 def _is_pure_int(a: object) -> TypeGuard[int]:
-    return type(a) is int  # noqa: E721
+    # We do not want to allow bool here
+    return type(a) is int
 
 
 def _is_pure_str(a: object) -> TypeGuard[str]:
-    return type(a) is str  # noqa: E721
+    # I cannot think of useful str subclasses, thus don't allow them.
+    return type(a) is str
 
 
 _T = TypeVar("_T")
@@ -552,7 +554,7 @@ class DictWrapper(BaseWrapper):
             Possible values (codec is any BaseWrapper or ScalarKind):
             - Any mapping from str to codec, e.g. {'foo': NumericKind()}
             - Any sequence of tuples (name, codec), e.g. [('foo', NumericKind())]
-        """  # noqa: E501
+        """
         if isinstance(codecs, Mapping):
             self.keys, self.codecs = zip(*codecs.items())
         else:

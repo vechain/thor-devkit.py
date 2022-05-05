@@ -30,7 +30,7 @@ repos:
           'flake8-bugbear',
           'flake8-builtins',
           'flake8-debugger',
-          'flake8-functions-names',
+          'flake8-noqa',
           'flake8-pep3101',
           'flake8-pie',
           'flake8-pytest',

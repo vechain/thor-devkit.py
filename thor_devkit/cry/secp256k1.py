@@ -11,6 +11,7 @@ from ecdsa import SECP256k1, SigningKey
 from eth_keys import KeyAPI
 
 from thor_devkit.cry.utils import _AnyBytes
+from thor_devkit.deprecation import renamed_function
 
 if sys.version_info < (3, 8):
     from typing_extensions import Final
@@ -69,8 +70,10 @@ def _is_valid_message_hash(msg_hash: _AnyBytes) -> bool:
     return len(msg_hash) == 32
 
 
-def generate_privateKey() -> bytes:
+def generate_private_key() -> bytes:
     """Create a random number (32 bytes) as private key.
+
+    .. versionadded:: 2.0.0
 
     Returns
     -------
@@ -83,8 +86,20 @@ def generate_privateKey() -> bytes:
             return _a
 
 
-def derive_publicKey(priv_key: _AnyBytes) -> bytes:
+@renamed_function("generate_private_key")
+def generate_privateKey() -> bytes:  # noqa: N802
+    """Create a random number (32 bytes) as private key.
+
+    .. deprecated:: 2.0.0
+        Use :func:`generate_private_key` instead for naming consistency.
+    """
+    return generate_private_key()
+
+
+def derive_public_key(priv_key: _AnyBytes) -> bytes:
     """Derive public key from a private key(uncompressed).
+
+    .. versionadded:: 2.0.0
 
     Parameters
     ----------
@@ -107,6 +122,16 @@ def derive_publicKey(priv_key: _AnyBytes) -> bytes:
 
     _a = SigningKey.from_string(priv_key, curve=SECP256k1)
     return _a.verifying_key.to_string("uncompressed")
+
+
+@renamed_function("generate_public_key")
+def derive_publicKey(priv_key: _AnyBytes) -> bytes:  # noqa: N802
+    """Create a random number (32 bytes) as public key.
+
+    .. deprecated:: 2.0.0
+        Use :func:`derive_public_key` instead for naming consistency.
+    """
+    return derive_public_key(priv_key)
 
 
 def sign(msg_hash: _AnyBytes, priv_key: _AnyBytes) -> bytes:

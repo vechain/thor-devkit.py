@@ -75,7 +75,7 @@ MUTABILITY: Final = Schema(voluptuous.Any("pure", "view", "payable", "nonpayable
 
 
 # Support recursion
-def _FUNC_PARAMETER(value: Any) -> Schema:
+def _FUNC_PARAMETER(value: Any) -> Schema:  # noqa: N802
     return FUNC_PARAMETER(value)
 
 
@@ -194,7 +194,7 @@ class FunctionResult:
         difficult with small benefits. Now any attribute access is allowed,
         but all types are Any. If type-checking is very important, make sure to
         `assert` proper types to narrow them.
-        """  # noqa: DAR
+        """
         return super().__getattr__(name)  # type: ignore[misc]
 
 

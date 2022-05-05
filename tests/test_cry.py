@@ -56,7 +56,7 @@ def test_address():
 
 
 def test_private_key():
-    private_key = secp256k1.generate_privateKey()
+    private_key = secp256k1.generate_private_key()
     assert len(private_key) == 32
 
 
@@ -68,7 +68,7 @@ def test_derive_public_key():
         "04b90e9bb2617387eba4502c730de65a33878ef384a46f1096d86f2da19043304"
         "afa67d0ad09cf2bea0c6f2d1767a9e62a7a7ecc41facf18f2fa505d92243a658f"
     )
-    _pub = secp256k1.derive_publicKey(priv)
+    _pub = secp256k1.derive_public_key(priv)
     assert pub.hex() == _pub.hex()
 
 

@@ -152,7 +152,7 @@ def validate(keystore: KeyStoreT) -> Literal[True]:
     ------
     ValueError
         If data not in good shape.
-    """  # noqa: DAR402
+    """
     # Extra "raises", because it is primary interface to private method that raises.
     return _validate(keystore)
 

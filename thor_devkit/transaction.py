@@ -279,7 +279,7 @@ class Transaction:
 
         .. versionadded:: 2.0.0
         """
-        if not self._signature_valid():
+        if not self._signature_is_valid():
             return None
 
         sig = self.signature
@@ -301,7 +301,7 @@ class Transaction:
         if not self.is_delegated:
             return None
 
-        if not self._signature_valid():
+        if not self._signature_is_valid():
             return None
 
         sig = self.signature
@@ -340,7 +340,7 @@ class Transaction:
 
         .. versionadded:: 2.0.0
         """
-        if not self._signature_valid():
+        if not self._signature_is_valid():
             return None
 
         sig = self.signature
@@ -354,7 +354,7 @@ class Transaction:
         except ValueError:
             return None
 
-    def _signature_valid(self) -> bool:
+    def _signature_is_valid(self) -> bool:
         if not self.signature:
             return False
         else:

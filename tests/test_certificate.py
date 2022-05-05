@@ -16,7 +16,7 @@ def private_key():
 
 @pytest.fixture()
 def signer(private_key):
-    return "0x" + public_key_to_address(secp256k1.derive_publicKey(private_key)).hex()
+    return "0x" + public_key_to_address(secp256k1.derive_public_key(private_key)).hex()
 
 
 @pytest.fixture()

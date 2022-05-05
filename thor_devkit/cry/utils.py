@@ -68,6 +68,18 @@ def validate_uncompressed_public_key(key_bytes: _AnyBytes) -> Literal[True]:
 
 
 def is_valid_uncompressed_public_key(key_bytes: _AnyBytes) -> bool:
+    """Check if bytes is the uncompressed public key.
+
+    Parameters
+    ----------
+    key_bytes : bytes or bytearray
+        Address in bytes.
+
+    Returns
+    -------
+    bool
+        Whether input is uncompressed public key.
+    """
     try:
         return validate_uncompressed_public_key(key_bytes)
     except ValueError:
@@ -76,6 +88,12 @@ def is_valid_uncompressed_public_key(key_bytes: _AnyBytes) -> bool:
 
 @renamed_function("validate_uncompressed_public_key")
 def is_uncompressed_public_key(key_bytes: _AnyBytes) -> Literal[True]:
+    """Check if bytes is the uncompressed public key.
+
+    .. deprecated:: 2.0.0
+        Use :func:`is_valid_uncompressed_public_key` or
+        :func:`validate_uncompressed_public_key` instead.
+    """
     return validate_uncompressed_public_key(key_bytes)
 
 
@@ -83,6 +101,18 @@ _T = TypeVar("_T")
 
 
 def safe_tolowercase(s: _T) -> _T:
+    """Lowercase input if it is string, return unchanged otherwise.
+
+    Parameters
+    ----------
+    s : str or Any
+        Value to process.
+
+    Returns
+    -------
+    str or Any
+        Lowercase value if it is a string, value unchanged otherwise.
+    """
     if isinstance(s, str):
         # Cast, because mypy doesn't resolve TypeVar inside function body
         return cast(_T, s.lower())

@@ -79,7 +79,7 @@ def signed_non_delegated_tx(non_delegated_body, private_key):
 
 @pytest.fixture()
 def signer(private_key):
-    return cry.public_key_to_address(cry.secp256k1.derive_publicKey(private_key))
+    return cry.public_key_to_address(cry.secp256k1.derive_public_key(private_key))
 
 
 @pytest.fixture()
@@ -327,7 +327,7 @@ def test_incorrectly_signed_delegated(delegated_body, mocker):
     tx = Transaction(delegated_body)
     tx.signature = bytes(range(65 * 2))
     assert tx.is_delegated
-    assert tx._signature_valid()
+    assert tx._signature_is_valid()
     assert tx.origin is None
     assert tx.delegator is None
 
@@ -341,14 +341,14 @@ def test_features(unsigned_delegated_tx):
     priv_1 = bytes.fromhex(
         "58e444d4fe08b0f4d9d86ec42f26cf15072af3ddc29a78e33b0ceaaa292bcf6b"
     )
-    addr_1 = cry.public_key_to_address(cry.secp256k1.derive_publicKey(priv_1))
+    addr_1 = cry.public_key_to_address(cry.secp256k1.derive_public_key(priv_1))
 
     # Gas payer
     # priv_2 = cry.secp256k1.generate_privateKey()
     priv_2 = bytes.fromhex(
         "0bfd6a863f347f4ef2cf2d09c3db7b343d84bb3e6fc8c201afee62de6381dc65"
     )
-    addr_2 = cry.public_key_to_address(cry.secp256k1.derive_publicKey(priv_2))
+    addr_2 = cry.public_key_to_address(cry.secp256k1.derive_public_key(priv_2))
 
     h = unsigned_delegated_tx.get_signing_hash()
     dh = unsigned_delegated_tx.get_signing_hash("0x" + addr_1.hex())
