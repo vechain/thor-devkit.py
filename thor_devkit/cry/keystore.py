@@ -12,7 +12,7 @@ The "keystore" dict should contain following format::
     }
 """
 import sys
-from typing import Any, Dict, Union
+from typing import Union
 
 import eth_keyfile
 
@@ -25,6 +25,9 @@ else:
     from typing import Final, Literal, TypedDict
 
 __all__ = [
+    "AES128CTRCipherParamsT",
+    "PBKDF2ParamsT",
+    "ScryptParamsT",
     "CryptoParamsT",
     "KeyStoreT",
     "encrypt",
@@ -36,13 +39,57 @@ __all__ = [
 SCRYPT_N: Final = 131072
 """Work factor for scrypt."""
 SCRYPT_P: Final = 1
-"""``P`` constant for scrypt."""
+"""Parallelism factor for scrypt."""
 SCRYPT_R: Final = 8
-"""``R`` constant for scrypt."""
+"""Block size for scrypt."""
 DK_LEN: Final = 32
-"""``DK_LEN`` constant for scrypt."""
+"""Derived key length for scrypt."""
 SALT_LEN: Final = 16
 """Salt length for scrypt."""
+
+
+class AES128CTRCipherParamsT(TypedDict):
+    """Parameters for ``aes-128-ctr`` cipher.
+
+    .. versionadded:: 2.0.0
+    """
+
+    iv: str
+    """Internal parameter."""
+
+
+class PBKDF2ParamsT(TypedDict):
+    """Parameters for ``pbkdf2`` key derivation function.
+
+    .. versionadded:: 2.0.0
+    """
+
+    c: int
+    """Work factor."""
+    dklen: int
+    """Derived key length."""
+    prf: Literal["hmac-sha256"]
+    """Hash function to calculate HMAC"""
+    salt: str
+    """Salt to use."""
+
+
+class ScryptParamsT(TypedDict):
+    """Parameters for ``scrypt`` key derivation function.
+
+    .. versionadded:: 2.0.0
+    """
+
+    dklen: int
+    """Derived key length."""
+    n: int
+    """Work factor."""
+    r: int
+    """Block size."""
+    p: int
+    """Parallelism factor."""
+    salt: str
+    """Salt to use, 64 characters long (32 bytes)."""
 
 
 class CryptoParamsT(TypedDict):
@@ -51,12 +98,18 @@ class CryptoParamsT(TypedDict):
     .. versionadded:: 2.0.0
     """
 
-    cipher: str
-    cipherparams: Dict[str, Any]
+    cipher: Literal["aes-128-ctr"]
+    """Cipher used. ``aes-128-ctr`` is the only supported."""
+    cipherparams: AES128CTRCipherParamsT
+    """Parameters of used cipher."""
     ciphertext: str
+    """Encoded data, 64 characters long (32 bytes)."""
     kdf: Literal["pbkdf2", "scrypt"]
-    kdfparams: Dict[str, Any]
+    """Key derivation function (other are not supported)."""
+    kdfparams: Union[PBKDF2ParamsT, ScryptParamsT]
+    """Parameters of key derivation function."""
     mac: str
+    """MAC (checksum variant), 64 characters long (32 bytes)."""
 
 
 class KeyStoreT(TypedDict):
@@ -66,9 +119,13 @@ class KeyStoreT(TypedDict):
     """
 
     address: str
+    """Address used."""
     id: str  # noqa: A003
-    version: int
+    """36 chars, common format: ``x{8}-x{4}-x{4}-x{4}-x{12}``, ``x`` is any hex digit"""
+    version: Literal[3]
+    """Version used. Other are not supported."""
     crypto: CryptoParamsT
+    """Cryptography parameters."""
 
 
 def encrypt(private_key: bytes, password: Union[str, bytes]) -> KeyStoreT:

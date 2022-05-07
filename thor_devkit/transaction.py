@@ -97,8 +97,11 @@ class ClauseT(TypedDict):
     """
 
     to: Optional[str]
+    """Transaction target contract, or ``None`` to create new one."""
     value: Union[str, int]
+    """Amount to be paid (integer or its hex representation with ``0x``)."""
     data: str
+    """VET to pass to the call."""
 
 
 CLAUSE: Final = Schema(
@@ -131,7 +134,9 @@ class ReservedT(TypedDict, total=False):
     """
 
     features: int
+    """Integer (8 bit) with features bits set."""
     unused: Sequence[bytes]
+    """Unused reserved fields."""
 
 
 RESERVED: Final = Schema(
@@ -166,14 +171,26 @@ class TransactionBodyT(TypedDict):
     """
 
     chainTag: int  # noqa: N815
+    """Last byte of genesis block ID"""
     blockRef: str  # noqa: N815
+    """Block reference, ``0x...``-like hex string (8 bytes).
+
+    First 4 bytes are block height, the rest is part of referred block ID.
+    """
     expiration: int
+    """Expiration (relative to blockRef, in blocks)"""
     clauses: Sequence[ClauseT]
+    """Transaction clauses."""
     gasPriceCoef: int  # noqa: N815
+    """Coefficient to calculate gas price."""
     gas: Union[int, str]
+    """Maximum of gas to be consumed (int or its hex representation with ``0x``)."""
     dependsOn: Optional[str]  # noqa: N815
+    """Address of transaction on which current transaction depends."""
     nonce: Union[int, str]
+    """Transaction nonce (int or its hex representation with ``0x``)."""
     reserved: NotRequired[ReservedT]
+    """Reserved field."""
 
 
 BODY: Final = Schema(
@@ -248,7 +265,7 @@ def intrinsic_gas(clauses: Sequence[ClauseT]) -> int:
 
     sum_total = TX_GAS
     for clause in clauses:
-        if clause["to"]:  # contract create.
+        if clause["to"]:  # Existing contract.
             sum_total += CLAUSE_GAS
         else:
             sum_total += CLAUSE_CONTRACT_CREATION

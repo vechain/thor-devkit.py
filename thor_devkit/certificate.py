@@ -42,7 +42,9 @@ class PayloadT(TypedDict):
     """
 
     type: str  # noqa: A003
+    """Payload type."""
     content: str
+    """Payload content."""
 
 
 class CertificateT(TypedDict):
@@ -52,11 +54,17 @@ class CertificateT(TypedDict):
     """
 
     purpose: str
+    """Purpose of certificate, e.g. ``identification``."""
     payload: PayloadT
+    """Certificate payload."""
     domain: str
+    """Domain for which certificate was issued."""
     timestamp: Union[int, datetime]
+    """Issue time."""
     signer: str
+    """Signer address, in ``0x...`` format."""
     signature: NotRequired[str]
+    """Signature in ``0x...`` format, 65 bytes (as from :func:`cry.secp256k1.sign`)."""
 
 
 class Certificate:

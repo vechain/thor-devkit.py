@@ -85,7 +85,9 @@ Must be a string, one of: "pure", "view", "payable", "nonpayable".
 
 class _ParameterT(TypedDict):
     name: str
+    """Parameter name."""
     type: str  # noqa: A003
+    """Parameter type."""
 
 
 FUNC_PARAMETER: Final = Schema(
@@ -111,16 +113,18 @@ See also
 """
 
 
-class FuncParameterT(_ParameterT, total=False):
+class FuncParameterT(_ParameterT):
     """Type of ABI function parameter.
 
     .. versionadded:: 2.0.0
     """
 
-    internalType: str  # noqa: N815
+    internalType: NotRequired[str]  # noqa: N815
+    """InternalType is used for struct name aliases, may be ignored."""
     # Recursive types aren't really supported, but do partially work
     # This will be expanded a few times and then replaced with Any (deeply nested)
-    components: Sequence["FuncParameterT"]  # type: ignore[misc]
+    components: NotRequired[Sequence["FuncParameterT"]]  # type: ignore[misc]
+    """Sequence of components, each must be :class:`FuncParameterT`."""
 
 
 FUNCTION: Final = Schema(
@@ -158,10 +162,15 @@ class FunctionT(TypedDict):
     """
 
     type: Literal["function"]  # noqa: A003
+    """Always ``function``."""
     name: str
+    """Function name."""
     stateMutability: StateMutabilityT  # noqa: N815
+    """Mutability: pure, view, payable or nonpayable."""
     inputs: Sequence["FuncParameterT"]
+    """Function parameters."""
     outputs: Sequence["FuncParameterT"]
+    """Function returns."""
 
 
 EVENT_PARAMETER: Final = Schema(
@@ -186,17 +195,20 @@ See also
 """
 
 
-class EventParameterT(_ParameterT, total=False):
+class EventParameterT(_ParameterT):
     """Type of ABI event parameter.
 
     .. versionadded:: 2.0.0
     """
 
     indexed: bool
+    """Whether parameter is indexed."""
     internalType: NotRequired[str]  # noqa: N815
+    """InternalType is used for struct name aliases, may be ignored."""
     # Recursive types aren't really supported, but do partially work
     # This will be expanded a few times and then replaced with Any (deeply nested)
     components: NotRequired[Sequence["EventParameterT"]]  # type: ignore[misc]
+    """Sequence of components, each must be :class:`EventParameterT`."""
 
 
 EVENT: Final = Schema(
@@ -226,9 +238,13 @@ class EventT(TypedDict):
     """
 
     type: Literal["event"]  # noqa: A003
+    """Always ``event``."""
     name: str
+    """Event name."""
     inputs: list["EventParameterT"]
+    """Event inputs."""
     anonymous: NotRequired[bool]
+    """Whether event is anonymous (does not include signature in ``topic``)."""
 
 
 if TYPE_CHECKING:

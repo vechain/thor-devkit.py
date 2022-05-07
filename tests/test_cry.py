@@ -119,18 +119,18 @@ def test_mnemonic(seed_phrase):
     assert len(_words) == 12
 
     # Valid: True
-    words = seed_phrase.split(" ")
+    words = seed_phrase.split()
     assert mnemonic.is_valid(words)
 
     # Valid: True
     assert mnemonic.is_valid(mnemonic.generate())
 
     # Valid: False
-    words2 = "hello word".split(" ")
+    words2 = "hello word".split()
     assert not mnemonic.is_valid(words2)
 
     # Valid: False
-    words3 = sorted(seed_phrase.split(" "))
+    words3 = sorted(seed_phrase.split())
     assert not mnemonic.is_valid(words3)
 
     # Seed generated from words.

@@ -11,7 +11,7 @@ Useful models
 -------------------------------
 
 .. automodule:: thor_devkit.cry.keystore
-
+   :autosummary-private-members:
 
 :mod:`thor_devkit.certificate`
 ------------------------------
