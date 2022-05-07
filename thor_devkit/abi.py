@@ -1,48 +1,18 @@
-"""
-ABI Module.
-
-ABI structure the "Functions" and "Events".
-
-ABI also encode/decode params for functions.
-
-See:
-https://github.com/ethereum/wiki/wiki/Ethereum-Contract-ABI
-
-"Function Selector":
-sha3("funcName(uint256,address)") -> cut out first 4 bytes.
-
-"Argument Encoding":
-
-Basic:
-uint<M> M=8,16,...256
-int<M> M=8,16,...256
-address
-bool
-fixed<M>x<N> fixed256x18
-ufixed<M>x<N> ufixed256x18
-bytes<M> bytes32
-function 20bytes address + 4 bytes signature.
-
-Fixed length:
-<type>[M] Fix sized array. int[10], uint256[33],
-
-Dynamic length:
-bytes
-string
-<type>[]
-"""
+r"""ABI encoding module."""
 
 import sys
 import warnings
 from abc import ABC, abstractmethod
 from collections import namedtuple
 from typing import (
+    TYPE_CHECKING,
     Any,
     Dict,
     Generic,
     Iterable,
     List,
     Mapping,
+    NamedTuple,
     Optional,
     Sequence,
     Type,
@@ -58,20 +28,64 @@ import voluptuous
 from voluptuous import Schema
 
 from thor_devkit.cry import keccak256
-from thor_devkit.cry.utils import _AnyBytes
 from thor_devkit.deprecation import deprecated_to_property
 
 if sys.version_info < (3, 8):
     from typing_extensions import Final, Literal, TypedDict
 else:
     from typing import Final, Literal, TypedDict
+if sys.version_info < (3, 10):
+    from typing_extensions import TypeAlias
+else:
+    from typing import TypeAlias
 if sys.version_info < (3, 11):
     from typing_extensions import NotRequired
 else:
     from typing import NotRequired
 
+__all__ = [
+    "MUTABILITY",
+    "StateMutabilityT",
+    "FUNC_PARAMETER",
+    "FuncParameterT",
+    "FUNCTION",
+    "FunctionT",
+    "EVENT_PARAMETER",
+    "EventParameterT",
+    "EVENT",
+    "EventT",
+    "Coder",
+    "Function",
+    "Event",
+]
 
 MUTABILITY: Final = Schema(voluptuous.Any("pure", "view", "payable", "nonpayable"))
+"""Validation schema for ``stateMutability`` parameter.
+
+Validation :external:class:`~voluptuous.schema_builder.Schema`
+for ``stateMutability`` parameter.
+
+Must be a string, one of: "pure", "view", "payable", "nonpayable".
+
+:meta hide-value:
+
+.. versionchanged:: 2.0.0
+    Removed unsupported "constant" option.
+"""
+
+
+StateMutabilityT: TypeAlias = Literal["pure", "view", "payable", "nonpayable"]
+"""Literal type of ``stateMutability`` parameter.
+
+Must be a string, one of: "pure", "view", "payable", "nonpayable".
+
+.. versionadded:: 2.0.0
+"""
+
+
+class _ParameterT(TypedDict):
+    name: str
+    type: str  # noqa: A003
 
 
 FUNC_PARAMETER: Final = Schema(
@@ -84,14 +98,25 @@ FUNC_PARAMETER: Final = Schema(
     },
     required=True,
 )
+"""Validation schema for function parameter.
 
+Validation :external:class:`~voluptuous.schema_builder.Schema`
+for function parameter.
 
-class _ParameterT(TypedDict):
-    name: str
-    type: str  # noqa: A003
+:meta hide-value:
+
+See also
+--------
+:class:`FuncParameterT`: corresponding :class:`typing.TypedDict`.
+"""
 
 
 class FuncParameterT(_ParameterT, total=False):
+    """Type of ABI function parameter.
+
+    .. versionadded:: 2.0.0
+    """
+
     internalType: str  # noqa: N815
     # Recursive types aren't really supported, but do partially work
     # This will be expanded a few times and then replaced with Any (deeply nested)
@@ -107,13 +132,34 @@ FUNCTION: Final = Schema(
         "outputs": [FUNC_PARAMETER],
     },
     required=True,
+    extra=voluptuous.REMOVE_EXTRA,
 )
+"""Validation schema for ABI function.
+
+Validation :external:class:`~voluptuous.schema_builder.Schema` for ABI function.
+
+:meta hide-value:
+
+.. versionchanged:: 2.0.0
+    Removed not required members which are not produced by solidity compiler
+    by default, namely ``constant`` and ``payable``.
+    All non-standard parameters are silently discarded now.
+
+See also
+--------
+:class:`FunctionT`: corresponding :class:`typing.TypedDict`.
+"""
 
 
 class FunctionT(TypedDict):
+    """Type of ABI function dictionary representation.
+
+    .. versionadded:: 2.0.0
+    """
+
     type: Literal["function"]  # noqa: A003
     name: str
-    stateMutability: Literal["pure", "view", "payable", "nonpayable"]  # noqa: N815
+    stateMutability: StateMutabilityT  # noqa: N815
     inputs: Sequence["FuncParameterT"]
     outputs: Sequence["FuncParameterT"]
 
@@ -128,9 +174,24 @@ EVENT_PARAMETER: Final = Schema(
     },
     required=True,
 )
+"""Validation schema for event parameter.
+
+Validation :external:class:`~voluptuous.schema_builder.Schema` for event parameter.
+
+:meta hide-value:
+
+See also
+--------
+:class:`EventParameterT`: corresponding :class:`typing.TypedDict`.
+"""
 
 
 class EventParameterT(_ParameterT, total=False):
+    """Type of ABI event parameter.
+
+    .. versionadded:: 2.0.0
+    """
+
     indexed: bool
     internalType: NotRequired[str]  # noqa: N815
     # Recursive types aren't really supported, but do partially work
@@ -146,21 +207,56 @@ EVENT: Final = Schema(
         "inputs": [EVENT_PARAMETER],
     }
 )
+"""Validation schema for ABI event.
+
+Validation :external:class:`~voluptuous.schema_builder.Schema` for ABI event.
+
+:meta hide-value:
+
+See also
+--------
+:class:`EventT`: corresponding :class:`typing.TypedDict`.
+"""
 
 
 class EventT(TypedDict):
+    """Type of ABI event dictionary representation.
+
+    .. versionadded:: 2.0.0
+    """
+
     type: Literal["event"]  # noqa: A003
     name: str
     inputs: list["EventParameterT"]
     anonymous: NotRequired[bool]
 
 
-class FunctionResult:
-    """NamedTuple mixin with convenience methods.
+if TYPE_CHECKING:
+    base = NamedTuple("base", [])
+else:
+    base = object
+
+
+class FunctionResult(base):
+    """:class:`~typing.NamedTuple` mixin with convenience methods.
 
     It is returned from :meth:`Event.decode` and :meth:`Function.decode`.
 
+    When obtained from ``decode`` method of :class:`Function` or :class:`Event`,
+    this class will contain decoded parameters. They can be obtained either by name
+    (name will be taken from JSON input or ``ret_{index}`` if name was missing)
+    or by numeric index as from plain tuples.
+
     .. versionadded:: 2.0.0
+
+    Notes
+    -----
+    Type checker will consider all attributes ``Any``
+    due to implementation limitation.
+
+    See Also
+    --------
+    :meth:`Function.decode`: for examples of items access
     """
 
     def to_dict(self) -> Dict[str, Any]:
@@ -194,36 +290,38 @@ class FunctionResult:
 
 
 def calc_function_selector(abi_json: FunctionT) -> bytes:
-    """Calculate the function selector (4 bytes) from the abi json."""
+    """Calculate the function selector (4 bytes) from the ABI json."""
     f = FUNCTION(abi_json)
     return eth_utils.function_abi_to_4byte_selector(f)
 
 
 def calc_event_topic(abi_json: EventT) -> bytes:
-    """Calculate the event log topic (32 bytes) from the abi json."""
+    """Calculate the event log topic (32 bytes) from the ABI json."""
     e = EVENT(abi_json)
     return eth_utils.event_abi_to_log_topic(e)
 
 
 class Coder:
+    """Convenient wrapper to namespace encoding functions."""
+
     @staticmethod
     def encode_list(types: Sequence[str], values: Sequence[Any]) -> bytes:
         """Encode a sequence of values, into a single bytes."""
         return eth_abi.encode_abi(types, values)
 
     @staticmethod
-    def decode_list(types: Sequence[str], data: _AnyBytes) -> List[Any]:
-        """Decode the data, back to a ``(,,,)`` tuple."""
+    def decode_list(types: Sequence[str], data: bytes) -> List[Any]:
+        """Decode the data, back to a ``(...)`` tuple."""
         return list(eth_abi.decode_abi(types, data))
 
     @staticmethod
     def encode_single(t: str, value: Any) -> bytes:
-        """Encode value of type t into single bytes."""
+        """Encode value of type ``t`` into single bytes."""
         return Coder.encode_list([t], [value])
 
     @staticmethod
-    def decode_single(t: str, data: _AnyBytes) -> Any:
-        """Decode data of type t back to a single object."""
+    def decode_single(t: str, data: bytes) -> Any:
+        """Decode data of type ``t`` back to a single object."""
         return Coder.decode_list([t], data)[0]
 
 
@@ -244,25 +342,35 @@ class Encodable(Generic[_ParamT], ABC):
 
     @property
     def name(self) -> str:
+        """Get name of object."""
         return self._definition["name"]
 
     @deprecated_to_property
     def get_name(self) -> str:
+        """[Deprecated] Get name of object.
+
+        .. customtox-exclude::
+
+        .. deprecated:: 2.0.0
+            Use :attr:`name` property instead.
+        """
         return self.name
 
     @abstractmethod
     def encode(
         self, __parameters: Sequence[Any]
     ) -> Union[bytes, str, List[Optional[bytes]]]:
+        """Encode parameters into bytes."""
         raise NotImplementedError()
 
     @abstractmethod
-    def decode(self, __data: _AnyBytes) -> FunctionResult:
+    def decode(self, __data: bytes) -> FunctionResult:
+        """Decode data from bytes to namedtuple."""
         raise NotImplementedError()
 
     @classmethod
     def make_proper_type(cls, elem: _ParamT) -> str:
-        """Convert dictionary type repr to type string (inline tuples)."""
+        """Extract type string (inline tuples) from JSON."""
         return eth_utils.abi.collapse_if_tuple(dict(elem))
 
     @staticmethod
@@ -273,7 +381,7 @@ class Encodable(Generic[_ParamT], ABC):
         return type(name, (namedtuple(name, top_names), FunctionResult), {})
 
     @staticmethod
-    def get_array_dimensions_count(type_: str) -> int:
+    def _get_array_dimensions_count(type_: str) -> int:
         # We don't have to support nested stuff like (uint256, bool[4])[],
         # because type in JSON will be tuple[], uint256 and bool[4] in this case
         # without nesting in string
@@ -286,7 +394,10 @@ class Encodable(Generic[_ParamT], ABC):
         chain: Optional[Sequence[str]] = None,
         array_depth: int = 0,
     ) -> Union[FunctionResult, List[FunctionResult], Any]:
-        """Convert dictionary type repr to type string (inline tuples)."""
+        """Build namedtuple from values.
+
+        .. customtox-exclude::
+        """
         type_ = typeinfo["type"]
 
         if not type_.startswith("tuple"):
@@ -294,7 +405,7 @@ class Encodable(Generic[_ParamT], ABC):
 
         chain = [*(chain or []), typeinfo["name"].title() or "NoName"]
 
-        if self.get_array_dimensions_count(type_) > array_depth:
+        if self._get_array_dimensions_count(type_) > array_depth:
             return [
                 self.apply_recursive_names(v, typeinfo, chain[:-1], array_depth + 1)
                 for v in value
@@ -311,6 +422,8 @@ class Encodable(Generic[_ParamT], ABC):
 
 
 class Function(Encodable[FuncParameterT]):
+    """ABI Function."""
+
     _definition: FunctionT
 
     def __init__(self, f_definition: FunctionT) -> None:
@@ -357,8 +470,8 @@ class Function(Encodable[FuncParameterT]):
         ----------
         parameters : Sequence of Any
             A list of parameters waiting to be encoded.
-        to_hex : bool, optional, default: False
-            If the return should be '0x...' hex string
+        to_hex : bool, default: False
+            If the return should be ``0x...`` hex string
 
         Returns
         -------
@@ -380,7 +493,7 @@ class Function(Encodable[FuncParameterT]):
         else:
             return my_bytes
 
-    def decode(self, output_data: _AnyBytes) -> FunctionResult:
+    def decode(self, output_data: bytes) -> FunctionResult:
         """Decode function call output data back into human readable results.
 
         The result is dynamic subclass of
@@ -389,13 +502,59 @@ class Function(Encodable[FuncParameterT]):
 
         Parameters
         ----------
-        output_data : bytes or bytearray
+        output_data : bytes
             Data to decode.
 
         Returns
         -------
         FunctionResult
             Decoded data.
+
+        Examples
+        --------
+        >>> data = {
+        ...     "inputs": [],
+        ...     "name": "getStr",
+        ...     "outputs": [{"name": "memory", "type": "string"}],
+        ...     "stateMutability": "pure",
+        ...     "type": "function",
+        ... }
+        >>> func = Function(data)
+        >>> memory = b"Hello world!"  # encoded string
+        >>> binary = bytes.fromhex(
+        ...     "20".rjust(64, "0")  # address of first argument
+        ...     + hex(len(memory))[2:].rjust(64, "0")  # length of string
+        ...     + memory.hex().ljust(64, "0")  # content
+        ... )
+        >>> result = func.decode(binary)
+        >>> result.memory  # Access by name
+        'Hello world!'
+
+        >>> result[0]  # Access by index
+        'Hello world!'
+
+        >>> result.to_dict()  # Convert to dictionary
+        {'memory': 'Hello world!'}
+
+        With unnamed attributes:
+
+        >>> data = {
+        ...     "inputs": [],
+        ...     "name": "getBool",
+        ...     "outputs": [{"internalType": "bool", "name": "", "type": "bool"}],
+        ...     "stateMutability": "pure",
+        ...     "type": "function",
+        ... }
+        >>> func = Function(data)
+        >>> result = func.decode(bytes.fromhex("1".rjust(64, "0")))
+        >>> result.ret_0  # Access by name
+        True
+
+        >>> result[0]  # Access by index
+        True
+
+        >>> result.to_dict()  # Convert to dictionary
+        {'ret_0': True}
         """
         my_types = [self.make_proper_type(x) for x in self._definition["outputs"]]
         result_list = Coder.decode_list(my_types, output_data)
@@ -411,7 +570,9 @@ class Function(Encodable[FuncParameterT]):
 
     @deprecated_to_property
     def get_selector(self) -> bytes:
-        """First 4 bytes of function signature hash.
+        """[Deprecated] First 4 bytes of function signature hash.
+
+        .. customtox-exclude::
 
         .. deprecated:: 2.0.0
             Use :attr:`selector` property instead.
@@ -420,6 +581,8 @@ class Function(Encodable[FuncParameterT]):
 
 
 class Event(Encodable[EventParameterT]):
+    """ABI Event."""
+
     _definition: EventT
 
     def __init__(self, e_definition: EventT) -> None:
@@ -464,19 +627,17 @@ class Event(Encodable[EventParameterT]):
         """Check if the input type requires hashing in indexed parameter.
 
         All bytes, strings and dynamic arrays are dynamic, plus all structs and
-        fixed-size arrays are hashed (see spec)
-
-        .. [1] Specification: https://docs.soliditylang.org/en/latest/abi-spec.html
-        """
+        fixed-size arrays are hashed (see `Specification`_).
+        """  # noqa: RST306  # Reference is defined in `abi.rst`
         return t in {"bytes", "string"} or "[" in t or t.startswith("tuple")
 
     @staticmethod
-    def strip_dynamic_part(type_: str) -> str:
+    def _strip_dynamic_part(type_: str) -> str:
         return type_.split("[")[0]
 
     @staticmethod
-    def pad(
-        data: Union[Sequence[_AnyBytes], _AnyBytes],
+    def _pad(
+        data: Union[Sequence[bytes], bytes],
         mod: int,
         to: Literal["r", "l"] = "l",
     ) -> bytes:
@@ -494,16 +655,17 @@ class Event(Encodable[EventParameterT]):
     def dynamic_type_to_topic(
         cls, type_: EventParameterT, value: Any, array_depth: int = 0
     ) -> List[bytes]:
+        """Encode single value according to given ``type``."""
         t_type = type_["type"]
-        if cls.get_array_dimensions_count(t_type) > array_depth:
+        if cls._get_array_dimensions_count(t_type) > array_depth:
             return [
-                cls.pad(cls.dynamic_type_to_topic(type_, v, array_depth + 1), 32, "l")
+                cls._pad(cls.dynamic_type_to_topic(type_, v, array_depth + 1), 32, "l")
                 for v in value
             ]
 
         if t_type.startswith("tuple"):
             return [
-                cls.pad(cls.dynamic_type_to_topic(t, v, array_depth), 32, "l")
+                cls._pad(cls.dynamic_type_to_topic(t, v, array_depth), 32, "l")
                 for t, v in zip(type_["components"], value)
             ]
 
@@ -516,15 +678,13 @@ class Event(Encodable[EventParameterT]):
             ), 'Value of type "bytes" must be bytes'
             return [value]
         else:
-            return [Coder.encode_single(cls.strip_dynamic_part(t_type), value)]
+            return [Coder.encode_single(cls._strip_dynamic_part(t_type), value)]
 
     def encode(
         self, parameters: Union[Mapping[str, Any], Sequence[Any]]
     ) -> List[Optional[bytes]]:
         """Assemble indexed keys into topics.
 
-        Usage
-        -----
         Commonly used to filter out logs of concerned topics,
         e.g. To filter out VIP180 transfer logs of a certain wallet, certain amount.
 
@@ -532,31 +692,27 @@ class Event(Encodable[EventParameterT]):
         ----------
         parameters : Mapping[str, Any] or Sequence[Any]
             A dict/list of indexed param of the given event.
-            Fill in None to occupy the position, if you aren't sure about the value.
+            Fill in :class:`None` to occupy the position, if you aren't sure
+            about the value.
 
-            e.g. For event::
+            e.g. for event defined as::
 
                 EventName(address from indexed, address to indexed, uint256 value)
 
             the parameters can be::
 
                 ['0xa32f..ff', '0x1f...ac']
-
-            or::
-
+                # or
                 {'from': '0xa32f..ff', 'to': '0x1f...ac'}
-
-            or::
-
+                # or
                 [None, '0x1f...ac']
-
-            or::
+                # or
                 {'from': None, 'to': '0x1f...ac'}
 
         Returns
         -------
         List[bytes or None]
-            Encoded parameters with ``None`` preserved from input.
+            Encoded parameters with :class:`None` preserved from input.
 
         Raises
         ------
@@ -615,8 +771,8 @@ class Event(Encodable[EventParameterT]):
 
     def decode(
         self,
-        data: _AnyBytes,
-        topics: Optional[Sequence[Optional[_AnyBytes]]] = None,
+        data: bytes,
+        topics: Optional[Sequence[Optional[bytes]]] = None,
         strict: bool = True,
     ) -> FunctionResult:
         """Decode "data" according to the "topic"s.
@@ -625,15 +781,17 @@ class Event(Encodable[EventParameterT]):
 
         Parameters
         ----------
-        data : bytes or bytearray
+        data : bytes
             Data to decode.
-        topics : Sequence[bytes or bytearray or None], optional
+        topics : Sequence[bytes or None], optional
             Sequence of topics.
-            Fill unknown or not important positions with ``None``, it will be preserved.
-            None is interpreted like empty list.
+            Fill unknown or not important positions with :class:`None`,
+            it will be preserved.
+
+            :class:`None` is interpreted like empty list.
         strict : bool, default: True
             Raise an exception if topics count is less than expected.
-            If ``False``, topics will be padded with ``None`` (to the left).
+            If ``False``, topics will be padded with :class:`None` (to the left).
 
         Returns
         -------
@@ -648,6 +806,7 @@ class Event(Encodable[EventParameterT]):
         Note
         ----
         One log contains mainly 3 entries:
+
         - For a non-indexed parameters event::
 
             "address": The emitting contract address.
@@ -713,7 +872,9 @@ class Event(Encodable[EventParameterT]):
 
     @deprecated_to_property
     def get_signature(self) -> bytes:
-        """Get signature.
+        """[Deprecated] Get signature.
+
+        .. customtox-exclude::
 
         .. deprecated:: 2.0.0
             Use :attr:`signature` property instead

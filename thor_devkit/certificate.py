@@ -1,7 +1,6 @@
-"""
-User signed certificate.
+"""User signed certificate.
 
-https://github.com/vechain/VIPs/blob/master/vips/VIP-192.md
+`Documentation <https://github.com/vechain/VIPs/blob/master/vips/VIP-192.md>`__
 """
 import json
 import re
@@ -26,16 +25,32 @@ if sys.version_info < (3, 11):
 else:
     from typing import NotRequired
 
+__all__ = [
+    "PayloadT",
+    "CertificateT",
+    "Certificate",
+]
 
 SIGNATURE_PATTERN: Final = re.compile("^0x[0-9a-f]+$", re.I)
+"""Signature must be hex-string with ``0x`` prefix."""
 
 
 class PayloadT(TypedDict):
+    """Type of Certificate ``payload`` parameter.
+
+    .. versionadded:: 2.0.0
+    """
+
     type: str  # noqa: A003
     content: str
 
 
 class CertificateT(TypedDict):
+    """Type of Certificate body dictionary.
+
+    .. versionadded:: 2.0.0
+    """
+
     purpose: str
     payload: PayloadT
     domain: str
@@ -45,6 +60,8 @@ class CertificateT(TypedDict):
 
 
 class Certificate:
+    """User signed certificate."""
+
     def __init__(
         self,
         purpose: str,
@@ -54,8 +71,7 @@ class Certificate:
         signer: str,
         signature: Optional[str] = None,
     ):
-        """
-        Certficate itself.
+        """Instantiate certificate from parameters.
 
         .. versionchanged:: 2.0.0
             `datetime` object allowed for ``timestamp`` argument.
@@ -101,6 +117,7 @@ class Certificate:
             self._body["signature"] = signature
 
     def to_dict(self) -> CertificateT:
+        """Export certificate body as dictionary."""
         return self._body.copy()
 
     def encode(self) -> str:
@@ -166,7 +183,9 @@ class Certificate:
 
 @renamed_function("Certificate.encode")
 def encode(cert: Certificate) -> str:
-    """Encode a certificate into json.
+    """[Deprecated] Encode a certificate into json.
+
+    .. customtox-exclude::
 
     .. deprecated:: 2.0.0
         :func:`encode` module-level function is replaced by
@@ -177,7 +196,9 @@ def encode(cert: Certificate) -> str:
 
 @renamed_function("Certificate.verify")
 def verify(cert: Certificate) -> Literal[True]:
-    """Verify certificate signature.
+    """[Deprecated] Verify certificate signature.
+
+    .. customtox-exclude::
 
     .. deprecated:: 2.0.0
         :func:`verify` module-level function is replaced by

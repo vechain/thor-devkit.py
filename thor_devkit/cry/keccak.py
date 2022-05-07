@@ -3,21 +3,21 @@ from typing import Iterable, Tuple
 
 import sha3  # pysha3
 
-from thor_devkit.cry.utils import _AnyBytes
+__all__ = ["keccak256"]
 
 
-def keccak256(list_of_bytes: Iterable[_AnyBytes]) -> Tuple[bytes, int]:
+def keccak256(list_of_bytes: Iterable[bytes]) -> Tuple[bytes, int]:
     """Compute the sha3_256 flavor hash.
 
     Parameters
     ----------
-    list_of_bytes : Iterable of (bytes or bytearray)
+    list_of_bytes : Iterable of bytes
         A list of bytes to be hashed.
 
     Returns
     -------
     Tuple[bytes, int]
-        Hash value in bytes (32 bytes) and length of bytes.
+        Hash value in :class:`bytes` (32 bytes) and length of bytes.
 
     Raises
     ------

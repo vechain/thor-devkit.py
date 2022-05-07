@@ -1,7 +1,6 @@
-"""
-Keystore Module.
+"""Key store module.
 
-Encrypt, decrypt and verify a keystore.
+Encrypt, decrypt and verify a key store.
 
 The "keystore" dict should contain following format::
 
@@ -11,7 +10,6 @@ The "keystore" dict should contain following format::
         id: string
         version: number
     }
-
 """
 import sys
 from typing import Any, Dict, Union
@@ -19,7 +17,6 @@ from typing import Any, Dict, Union
 import eth_keyfile
 
 from thor_devkit.cry.address import is_address
-from thor_devkit.cry.utils import _AnyBytes
 from thor_devkit.deprecation import renamed_function
 
 if sys.version_info < (3, 8):
@@ -27,15 +24,33 @@ if sys.version_info < (3, 8):
 else:
     from typing import Final, Literal, TypedDict
 
+__all__ = [
+    "CryptoParamsT",
+    "KeyStoreT",
+    "encrypt",
+    "decrypt",
+    "validate",
+    "is_valid",
+]
 
-SCRYPT_N: Final = 131072  # aka. work_factor
+SCRYPT_N: Final = 131072
+"""Work factor for scrypt."""
 SCRYPT_P: Final = 1
+"""``P`` constant for scrypt."""
 SCRYPT_R: Final = 8
+"""``R`` constant for scrypt."""
 DK_LEN: Final = 32
+"""``DK_LEN`` constant for scrypt."""
 SALT_LEN: Final = 16
+"""Salt length for scrypt."""
 
 
 class CryptoParamsT(TypedDict):
+    """Type of ``crypto`` parameter of key store.
+
+    .. versionadded:: 2.0.0
+    """
+
     cipher: str
     cipherparams: Dict[str, Any]
     ciphertext: str
@@ -45,20 +60,25 @@ class CryptoParamsT(TypedDict):
 
 
 class KeyStoreT(TypedDict):
+    """Type of key store body dictionary.
+
+    .. versionadded:: 2.0.0
+    """
+
     address: str
     id: str  # noqa: A003
     version: int
     crypto: CryptoParamsT
 
 
-def encrypt(private_key: _AnyBytes, password: Union[str, _AnyBytes]) -> KeyStoreT:
+def encrypt(private_key: bytes, password: Union[str, bytes]) -> KeyStoreT:
     """Encrypt a private key to a key store.
 
     Parameters
     ----------
-    private_key : bytes or bytearray
+    private_key : bytes
         A private key in bytes.
-    password : bytes or bytearray or str
+    password : bytes or str
         A password.
 
     Returns
@@ -69,14 +89,14 @@ def encrypt(private_key: _AnyBytes, password: Union[str, _AnyBytes]) -> KeyStore
     return eth_keyfile.create_keyfile_json(private_key, password, 3, "scrypt", SCRYPT_N)
 
 
-def decrypt(keystore: KeyStoreT, password: Union[str, _AnyBytes]) -> bytes:
+def decrypt(keystore: KeyStoreT, password: Union[str, bytes]) -> bytes:
     """Decrypt a keystore into a private key (bytes).
 
     Parameters
     ----------
     keystore : KeyStoreT
         A keystore dict.
-    password : bytes or bytearray or str
+    password : bytes or str
         A password.
 
     Returns
@@ -126,7 +146,7 @@ def _validate(keystore: KeyStoreT) -> Literal[True]:
 
 @renamed_function("validate")
 def well_formed(keystore: KeyStoreT) -> Literal[True]:
-    """Validate if the key store is in good shape (roughly).
+    """[Deprecated] Validate if the key store is in good shape (roughly).
 
     .. deprecated:: 2.0.0
         Function :func:`well_formed` is deprecated for naming consistency.

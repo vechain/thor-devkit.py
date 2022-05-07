@@ -1,3 +1,4 @@
+"""Common utilities for VeChain development."""
 from .address import (  # noqa: F401
     is_address,
     public_key_to_address,

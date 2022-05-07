@@ -1,3 +1,4 @@
+"""Deprecation helpers."""
 import warnings
 from functools import partial, wraps
 from typing import Any, Callable, Type, TypeVar, cast
@@ -7,6 +8,8 @@ _T = TypeVar("_T")
 
 
 def deprecated_to_property(func: _C) -> _C:
+    """Mark function as deprecated in favor of property."""
+
     @wraps(func)
     def inner(*args: Any, **kwargs: Any) -> Any:
         warnings.warn(
@@ -18,6 +21,8 @@ def deprecated_to_property(func: _C) -> _C:
 
 
 def class_renamed(new_name: str) -> Callable[[Type[_T]], Type[_T]]:
+    """Mark class as renamed."""
+
     def decorator(cls: Type[_T]) -> Type[_T]:
         def __init__(self: _T, *args: Any, **kwargs: Any) -> None:  # noqa: N807
             warnings.warn(
@@ -34,6 +39,8 @@ def class_renamed(new_name: str) -> Callable[[Type[_T]], Type[_T]]:
 
 
 def _renamed_function(new_name: str, kind: str) -> Callable[[_C], _C]:
+    """Mark function or method as renamed."""
+
     def decorator(func: _C) -> _C:
         @wraps(func)
         def inner(*args: Any, **kwargs: Any) -> Any:

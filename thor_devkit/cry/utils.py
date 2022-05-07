@@ -1,6 +1,6 @@
-"""Utils helping with hex<->string conversion and stripping."""
+"""Utils helping with ``hex<->string`` conversion and stripping."""
 import sys
-from typing import TypeVar, Union, cast
+from typing import TypeVar, cast
 
 from thor_devkit.deprecation import renamed_function
 
@@ -10,11 +10,8 @@ else:
     from typing import Literal
 
 
-_AnyBytes = Union[bytes, bytearray]
-
-
-def strip_0x04(p: _AnyBytes) -> bytes:
-    """Strip the 0x04 off the starting of a byte sequence."""
+def strip_0x04(p: bytes) -> bytes:
+    """Strip the ``0x04`` off the starting of a byte sequence."""
     if len(p) == 65 and p[0] == 4:
         return p[1:]
     else:
@@ -22,17 +19,17 @@ def strip_0x04(p: _AnyBytes) -> bytes:
 
 
 def remove_0x(address: str) -> str:
-    """Remove the 0x prefix if any.
+    """Remove the ``0x`` prefix if any.
 
     Parameters
     ----------
     address : str
-        Address string, like 0xabc...
+        Address string, like ``0xabc``...
 
     Returns
     -------
     str
-        Address string without prefix "0x"
+        Address string without prefix ``0x``
     """
     if address.startswith("0x") or address.startswith("0X"):
         return address[2:]
@@ -40,12 +37,12 @@ def remove_0x(address: str) -> str:
         return address
 
 
-def validate_uncompressed_public_key(key_bytes: _AnyBytes) -> Literal[True]:
+def validate_uncompressed_public_key(key_bytes: bytes) -> Literal[True]:
     """Check if bytes is the uncompressed public key.
 
     Parameters
     ----------
-    key_bytes : bytes or bytearray
+    key_bytes : bytes
         Address in bytes.
 
     Returns
@@ -56,7 +53,7 @@ def validate_uncompressed_public_key(key_bytes: _AnyBytes) -> Literal[True]:
     Raises
     ------
     ValueError
-        If address doesn't begin with 04 as first byte.
+        If address doesn't begin with ``04`` as first byte.
     """
     if len(key_bytes) != 65:
         raise ValueError("Length should be 65 bytes.")
@@ -67,12 +64,12 @@ def validate_uncompressed_public_key(key_bytes: _AnyBytes) -> Literal[True]:
     return True
 
 
-def is_valid_uncompressed_public_key(key_bytes: _AnyBytes) -> bool:
+def is_valid_uncompressed_public_key(key_bytes: bytes) -> bool:
     """Check if bytes is the uncompressed public key.
 
     Parameters
     ----------
-    key_bytes : bytes or bytearray
+    key_bytes : bytes
         Address in bytes.
 
     Returns
@@ -87,8 +84,8 @@ def is_valid_uncompressed_public_key(key_bytes: _AnyBytes) -> bool:
 
 
 @renamed_function("validate_uncompressed_public_key")
-def is_uncompressed_public_key(key_bytes: _AnyBytes) -> Literal[True]:
-    """Check if bytes is the uncompressed public key.
+def is_uncompressed_public_key(key_bytes: bytes) -> Literal[True]:
+    """[Deprecated] Check if bytes is the uncompressed public key.
 
     .. deprecated:: 2.0.0
         Use :func:`is_valid_uncompressed_public_key` or

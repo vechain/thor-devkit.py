@@ -1,28 +1,35 @@
-"""
-HD nodes, HD wallets.
+"""Hierarchically deterministic wallets for VeChain.
 
-Hierarchically Deterministic Wallets for VeChain.
+Relevant information: BIP32_ and BIP44_.
 
-Relevant information: BIP32 and BIP44.
-BIP32: https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki
-BIP44: https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki
+`BIP-44 <BIP44_>`_ specified path notation:
 
-BIP-44 specified path notation:
-m / purpose' / coin_type' / account' / change / address_index
+.. code-block:: text
+
+    m / purpose' / coin_type' / account' / change / address_index
 
 Derive path for the VET:
-m / 44' / 818' / 0' / 0 /<address_index>
 
-So the following is the root of the "external" node chain for VET.
+.. code-block:: text
 
-m / 44' / 818' / 0' / 0
+    m / 44' / 818' / 0' / 0 / address_index
 
-m is the master key, which shall be generated from a seed.
+So the following is the root of the "external" node chain for VET:
 
-The following is the "first" key pair on the "external" node chain.
+.. code-block:: text
 
-m / 44' / 818' / 0' / 0 / 0
+    m / 44' / 818' / 0' / 0
 
+``m`` is the master key, which shall be generated from a seed.
+
+The following is the "first" key pair on the "external" node chain:
+
+.. code-block:: text
+
+    m / 44' / 818' / 0' / 0 / 0
+
+.. _BIP32: https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki
+.. _BIP44: https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki
 """
 import sys
 from typing import Iterable
@@ -32,7 +39,7 @@ from eth_keys import KeyAPI
 
 from thor_devkit.cry.address import public_key_to_address
 from thor_devkit.cry.mnemonic import derive_seed
-from thor_devkit.cry.utils import _AnyBytes, strip_0x04
+from thor_devkit.cry.utils import strip_0x04
 
 if sys.version_info < (3, 8):
     from typing_extensions import Final
@@ -40,19 +47,37 @@ else:
     from typing import Final
 
 
+__all__ = [
+    "VET_EXTERNAL_PATH",
+    "HDNode",
+]
+
+# BIP-44 specified path notation:
+# m / purpose' / coin_type' / account' / change / address_index
+
 VET_EXTERNAL_PATH: Final = "m/44'/818'/0'/0"
+"""Prefix of path for the VET.
+
+``address_index`` is appended to this string for derivation
+"""
 
 VERSION_MAINNET_PUBLIC: Final = bytes.fromhex("0488B21E")
+"""Version bytes for public main network."""
 VERSION_MAINNET_PRIVATE: Final = bytes.fromhex("0488ADE4")
+"""Version bytes for private main network."""
 DEPTH_MASTER_NODE: Final = bytes.fromhex("00")
+"""Depth for master node."""
 FINGER_PRINT_MASTER_KEY: Final = bytes.fromhex("00000000")
+"""Fingerprint of a master key."""
 CHILD_NUMBER_MASTER_KEY: Final = bytes.fromhex("00000000")
+"""Child number of a master key."""
 
 
 class HDNode:
-    """
-    HD Node that is able to derive child HD Node.
+    """Hierarchically deterministic (HD) node that is able to derive child HD Node.
 
+    Note
+    ----
     Please use static methods provided in this class to construct
     new instances rather than instantiate one by hand.
     """
@@ -70,17 +95,15 @@ class HDNode:
         self.bip32_ctx = bip32_ctx
 
     @staticmethod
-    def from_seed(seed: _AnyBytes, init_path: str = VET_EXTERNAL_PATH) -> "HDNode":
+    def from_seed(seed: bytes, init_path: str = VET_EXTERNAL_PATH) -> "HDNode":
         """Construct an HD Node from a seed (64 bytes).
 
-        Note
-        ----
-            The seed will be further developed into
-            a "m" secret key and "chain code".
+        The seed will be further developed into
+        an "m" secret key and "chain code".
 
         Parameters
         ----------
-        seed : bytes or bytearray
+        seed : bytes
             Seed itself.
         init_path : str, default: :const:`VET_EXTERNAL_PATH`
             The initial derivation path
@@ -99,11 +122,8 @@ class HDNode:
     ) -> "HDNode":
         """Construct an HD Node from a mnemonic (set of words).
 
-        Note
-        ----
-            The words will generate a seed,
-            which will be further developed into
-            a "m" secret key and "chain code".
+        The words will generate a seed, which will be further developed into
+        an "m" secret key and "chain code".
 
         Parameters
         ----------
@@ -122,14 +142,14 @@ class HDNode:
         return HDNode(bip32_ctx)
 
     @staticmethod
-    def from_public_key(pub: _AnyBytes, chain_code: _AnyBytes) -> "HDNode":
+    def from_public_key(pub: bytes, chain_code: bytes) -> "HDNode":
         """Construct an HD Node from an uncompressed public key.
 
         Parameters
         ----------
-        pub : bytes or bytearray
+        pub : bytes
             An uncompressed public key in bytes (starts with ``0x04`` as first byte).
-        chain_code : bytes or bytearray
+        chain_code : bytes
             32 bytes
 
         Returns
@@ -154,15 +174,14 @@ class HDNode:
         return HDNode(bip32_ctx)
 
     @staticmethod
-    def from_private_key(priv: _AnyBytes, chain_code: _AnyBytes) -> "HDNode":
-        """
-        Construct an HD Node from a private key.
+    def from_private_key(priv: bytes, chain_code: bytes) -> "HDNode":
+        """Construct an HD Node from a private key.
 
         Parameters
         ----------
-        priv : bytes or bytearray
+        priv : bytes
             The private key in bytes.
-        chain_code : bytes or bytearray
+        chain_code : bytes
             32 bytes of random number you choose.
 
         Returns
@@ -188,8 +207,7 @@ class HDNode:
         return HDNode(bip32_ctx)
 
     def derive(self, index: int) -> "HDNode":
-        """
-        Derive the child HD Node from current HD Node.
+        """Derive the child HD Node from current HD Node.
 
         Possible derivation paths:
             * private key -> private key
@@ -200,7 +218,7 @@ class HDNode:
         Parameters
         ----------
         index : int
-            Which key index (0,1,2... 2^32-1) to derive.
+            Which key index (``0 <= index < 2**32``) to derive.
 
         Returns
         -------
@@ -224,15 +242,15 @@ class HDNode:
     def private_key(self) -> bytes:
         """Get current node's private key in bytes format.
 
-        Note
-        ----
-        If this node was publicly derived,
-        then calling this function may cause a Bip32KeyError exception.
-
         Returns
         -------
         bytes
             The private key in bytes.
+
+        Raises
+        ------
+        :external:exc:`~bip_utils.bip.bip32.bip32_ex.Bip32KeyError`
+            If node was publicly derived
         """
         return self.bip32_ctx.PrivateKey().Raw().ToBytes()
 
@@ -252,7 +270,7 @@ class HDNode:
         Returns
         -------
         bytes
-            The address in bytes. (without prefix 0x)
+            The address in bytes. (without ``0x`` prefix)
         """
         return public_key_to_address(self.public_key())
 

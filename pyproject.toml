@@ -43,6 +43,11 @@ test = [
     "pytest-cov",
     "pytest-mock",
 ]
+docs = [
+    "sphinx",
+    "sphinx-rtd-theme",
+    "autodocsumm",
+]
 
 [project.urls]
 Home = "https://github.com/laalaguer/thor-devkit.py"
@@ -68,20 +73,22 @@ omit = [
 
 [tool.coverage.report]
 exclude_lines = [
+    # Explicitly ignored
     "pragma: no cover",
-    "def __repr__",
-    'if self\.debug',
-
-    "raise AssertionError",
+    # Often used in abstract classes
     "raise NotImplementedError",
-
-    "if 0:",
+    # Debug code
+    'if self\.debug',
+    "def __repr__",
+    # Scripts entrypoints
     "if __name__ == .__main__.:",
-
+    # Should never run
     '@(abc.)?abstractmethod',
+    # Deprecated stuff
     "@deprecated_to_property",
     "@renamed_function",
     "@renamed_method",
+    # Typing artifact, that has no implementation
     "@overload",
 ]
 
@@ -98,7 +105,11 @@ warn_unused_ignores = true
 warn_redundant_casts = true
 warn_unused_configs = true
 warn_unreachable = true
+exclude = [
+    "docs/*",  # No plans to typecheck sphinx plugins
+]
 
+# Enforce stricter validation for library code
 [[tool.mypy.overrides]]
 module = "thor_devkit.*"
 disallow_untyped_defs = true
@@ -121,17 +132,19 @@ exclude = """
 """
 max_line_length = 88
 extend_ignore = [
-    "SIM905",
-    "N806",
-    "PIE798",
-    "D100", "D101", "D102", "D103", "D104", # FIXME: until all docstrings are added
+    "SIM905",  # Allow statement "hello world".split() instead of list literal
+    "N806",  # Allow non-"lower_underscore" variables (it's too stupid rule)
+    "PIE798",  # Allow class with only static methods for namespacing
     "D105",  # Magic methods may remain unannotated
+    "D401",  # Imperative mood of first docstring line is not always encouraged
 ]
 # Ignore
 per-file-ignores = [
     "tests/*:D,RST",  # We don't care about docstrings in tests.
 ]
 max-complexity = 12
+
+# Docstring validation
 rst-roles = [
     "mod",
     "func",
@@ -141,11 +154,27 @@ rst-roles = [
     "meth",
     "attr",
     "exc",
+
+    "external:mod",
+    "external:func",
+    "external:data",
+    "external:const",
+    "external:class",
+    "external:meth",
+    "external:attr",
+    "external:exc",
 ]
 rst-directives = [
     "versionadded",
     "versionchanged",
     "deprecated",
+    # autodocsumm plugin
+    "autoclasssumm",
+    # From custom plugin
+    "customtox-exclude",
+    "customtox-exclude-children",
+    "customtox-include",
+    "customtox-include-children",
 ]
 docstring-convention = "numpy"
 

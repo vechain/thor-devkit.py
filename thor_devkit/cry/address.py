@@ -1,14 +1,10 @@
-"""
-Address Module.
-
-VeChain "public key" and "address" related operations and verifications.
-"""
+"""VeChain "public key" and "address" related operations and verifications."""
 
 import re
 import sys
 
 from thor_devkit.cry.keccak import keccak256
-from thor_devkit.cry.utils import _AnyBytes, remove_0x, validate_uncompressed_public_key
+from thor_devkit.cry.utils import remove_0x, validate_uncompressed_public_key
 
 if sys.version_info < (3, 8):
     from typing_extensions import Final
@@ -16,16 +12,23 @@ else:
     from typing import Final
 
 
+__all__ = [
+    "public_key_to_address",
+    "is_address",
+    "to_checksum_address",
+]
+
 ADDRESS_RE: Final = re.compile("^0x[0-9a-f]{40}$", re.I)
+"""Regex the address should match."""
 
 
-def public_key_to_address(key_bytes: _AnyBytes) -> bytes:
+def public_key_to_address(key_bytes: bytes) -> bytes:
     """Derive an address from a public key.
 
     Parameters
     ----------
-    key_bytes : bytes or bytearray
-        public key (uncompressed, starts with 0x04).
+    key_bytes : bytes
+        public key (uncompressed, starts with ``0x04``).
 
     Returns
     -------
@@ -45,12 +48,12 @@ def is_address(address: str) -> bool:
     Parameters
     ----------
     address : str
-        The address string to be checked. Should begin with '0x'.
+        The address string to be checked. Should begin with ``0x``.
 
     Returns
     -------
     bool
-        If it is valid address.
+       Whether given address is valid.
     """
     return bool(ADDRESS_RE.match(address))
 
@@ -61,7 +64,7 @@ def to_checksum_address(address: str) -> str:
     Parameters
     ----------
     address : str
-        The address string. Should begin with '0x'.
+        The address string. Should begin with ``0x``.
 
     Returns
     -------
@@ -76,7 +79,7 @@ def to_checksum_address(address: str) -> str:
     if not is_address(address):
         raise ValueError("The address is not valid.")
 
-    body = remove_0x(address)  # remove '0x'.
+    body = remove_0x(address)  # remove ``0x``.
     body = body.lower()
 
     h, _ = keccak256([body.encode("ascii")])

@@ -1,7 +1,7 @@
-"""
-Transaction class defines VeChain's multi-clause transaction (tx).
+"""Transaction class defines VeChain's multi-clause transaction (tx).
 
-This module defines data structure of a tx, and the encoding/decoding of tx data.
+This module defines data structure of a transaction,
+and the encoding/decoding of transaction data.
 """
 import sys
 from copy import deepcopy
@@ -11,7 +11,6 @@ import voluptuous
 from voluptuous import REMOVE_EXTRA, Schema
 
 from thor_devkit.cry import address, blake2b256, secp256k1
-from thor_devkit.cry.utils import _AnyBytes
 from thor_devkit.deprecation import deprecated_to_property
 from thor_devkit.exceptions import BadTransaction
 from thor_devkit.rlp import (
@@ -37,11 +36,27 @@ else:
     from typing import NotRequired
 
 
-# Kind Definitions
-# Used for VeChain's "reserved features" kind.
-FeaturesKind: Final = NumericKind(4)
+__all__ = [
+    "UnsignedTxWrapper",
+    "SignedTxWrapper",
+    "ClauseT",
+    "CLAUSE",
+    "ReservedT",
+    "RESERVED",
+    "TransactionBodyT",
+    "BODY",
+    "data_gas",
+    "intrinsic_gas",
+    "Transaction",
+]
 
-# Unsigned/Signed RLP Wrapper.
+FeaturesKind: Final = NumericKind(4)
+"""Kind Definitions.
+
+Used for VeChain's "reserved features" kind.
+"""
+
+# Unsigned/signed RLP wrapper parameters.
 _params: Final[Dict[str, Union[BaseWrapper, ScalarKind[Any]]]] = {
     "chainTag": NumericKind(1),
     "blockRef": CompactFixedBlobKind(8),
@@ -62,14 +77,25 @@ _params: Final[Dict[str, Union[BaseWrapper, ScalarKind[Any]]]] = {
     "reserved": HomoListWrapper(codec=BytesKind()),
 }
 
-# Unsigned Tx Wrapper
 UnsignedTxWrapper: Final = DictWrapper(_params)
+"""Unsigned transaction wrapper.
 
-# Signed Tx Wrapper
+:meta hide-value:
+"""
+
 SignedTxWrapper: Final = DictWrapper({**_params, "signature": BytesKind()})
+"""Signed transaction wrapper.
+
+:meta hide-value:
+"""
 
 
 class ClauseT(TypedDict):
+    """Type of transaction clause.
+
+    .. versionadded:: 2.0.0
+    """
+
     to: Optional[str]
     value: Union[str, int]
     data: str
@@ -85,11 +111,27 @@ CLAUSE: Final = Schema(
     required=True,
     extra=REMOVE_EXTRA,
 )
+"""Validation schema for transaction clause.
+
+Validation :external:class:`~voluptuous.schema_builder.Schema`
+for transaction clause.
+
+:meta hide-value:
+
+See Also
+--------
+:class:`ClauseT`: corresponding :class:`typing.TypedDict`.
+"""
 
 
 class ReservedT(TypedDict, total=False):
+    """Type of ``reserved`` transaction field.
+
+    .. versionadded:: 2.0.0
+    """
+
     features: int
-    unused: Sequence[_AnyBytes]
+    unused: Sequence[bytes]
 
 
 RESERVED: Final = Schema(
@@ -104,9 +146,25 @@ RESERVED: Final = Schema(
     required=True,
     extra=REMOVE_EXTRA,
 )
+"""Validation schema for ``reserved`` transaction field.
+
+Validation :external:class:`~voluptuous.schema_builder.Schema`
+for ``reserved`` transaction field.
+
+:meta hide-value:
+
+See Also
+--------
+:class:`ReservedT`: corresponding :class:`typing.TypedDict`.
+"""
 
 
 class TransactionBodyT(TypedDict):
+    """Type of transaction body.
+
+    .. versionadded:: 2.0.0
+    """
+
     chainTag: int  # noqa: N815
     blockRef: str  # noqa: N815
     expiration: int
@@ -133,6 +191,17 @@ BODY: Final = Schema(
     required=True,
     extra=REMOVE_EXTRA,
 )
+"""Validation schema for transaction body.
+
+Validation :external:class:`~voluptuous.schema_builder.Schema`
+for transaction body.
+
+:meta hide-value:
+
+See Also
+--------
+:class:`TransactionBodyT`: corresponding :class:`typing.TypedDict`.
+"""
 
 
 def data_gas(data: str) -> int:
@@ -188,7 +257,7 @@ def intrinsic_gas(clauses: Sequence[ClauseT]) -> int:
     return sum_total
 
 
-def right_trim_empty_bytes(m_list: Sequence[_AnyBytes]) -> List[bytes]:
+def right_trim_empty_bytes(m_list: Sequence[bytes]) -> List[bytes]:
     """Given a list of bytes, remove the b'' from the tail of the list."""
     rightmost_none_empty = next(
         (idx for idx, item in enumerate(reversed(m_list)) if item), None
@@ -201,8 +270,17 @@ def right_trim_empty_bytes(m_list: Sequence[_AnyBytes]) -> List[bytes]:
 
 
 class Transaction:
-    # The reserved feature of delegated (vip-191) is 1.
+    """Multi-clause transaction.
+
+    .. autoclasssumm:: Transaction
+    """
+
     DELEGATED_MASK: Final = 1
+    """Mask for delegation bit.
+
+    The reserved feature of delegated (vip-191) is 1.
+    """
+
     _signature: Optional[bytes] = None
 
     def __init__(self, body: TransactionBodyT) -> None:
@@ -238,6 +316,7 @@ class Transaction:
         # return m_list
 
     def get_signing_hash(self, delegate_for: Optional[str] = None) -> bytes:
+        """Get signing hash (with delegate address if given)."""
         buff = self.encode(force_unsigned=True)
         h, _ = blake2b256([buff])
 
@@ -259,14 +338,14 @@ class Transaction:
 
     @property
     def signature(self) -> Optional[bytes]:
-        """Get signature of transaction.
+        """Signature of transaction.
 
         .. versionadded:: 2.0.0
         """
         return self._signature
 
     @signature.setter
-    def signature(self, sig: Optional[_AnyBytes]) -> None:
+    def signature(self, sig: Optional[bytes]) -> None:
         """Set signature of transaction.
 
         .. versionadded:: 2.0.0
@@ -275,7 +354,7 @@ class Transaction:
 
     @property
     def origin(self) -> Optional[str]:
-        """Get transaction origin.
+        """Transaction origin.
 
         .. versionadded:: 2.0.0
         """
@@ -294,7 +373,7 @@ class Transaction:
 
     @property
     def delegator(self) -> Optional[str]:
-        """Get delegator.
+        """Transaction delegator.
 
         .. versionadded:: 2.0.0
         """
@@ -336,7 +415,7 @@ class Transaction:
 
     @property
     def id(self) -> Optional[str]:  # noqa: A003
-        """Get transaction id.
+        """Transaction id.
 
         .. versionadded:: 2.0.0
         """
@@ -374,7 +453,7 @@ class Transaction:
             return ComplexCodec(SignedTxWrapper).encode(temp)
 
     @staticmethod
-    def decode(raw: _AnyBytes, unsigned: bool) -> "Transaction":
+    def decode(raw: bytes, unsigned: bool) -> "Transaction":
         """Create a Transaction type instance from encoded bytes."""
         sig = None
 
@@ -418,7 +497,7 @@ class Transaction:
 
     @deprecated_to_property
     def get_delegator(self) -> Optional[str]:
-        """Get delegator.
+        """[Deprecated] Get delegator.
 
         .. deprecated:: 2.0.0
             Use :attr:`delegator` property instead.
@@ -427,7 +506,7 @@ class Transaction:
 
     @deprecated_to_property
     def get_intrinsic_gas(self) -> int:
-        """Get intrinsic gas estimate.
+        """[Deprecated] Get intrinsic gas estimate.
 
         .. deprecated:: 2.0.0
             Use :attr:`intrinsic_gas` property instead.
@@ -436,7 +515,7 @@ class Transaction:
 
     @deprecated_to_property
     def get_signature(self) -> Optional[bytes]:
-        """Get signature.
+        """[Deprecated] Get signature.
 
         .. deprecated:: 2.0.0
             Use :attr:`signature` property instead.
@@ -444,8 +523,8 @@ class Transaction:
         return self.signature
 
     @deprecated_to_property
-    def set_signature(self, sig: _AnyBytes) -> None:
-        """Set signature.
+    def set_signature(self, sig: bytes) -> None:
+        """[Deprecated] Set signature.
 
         .. deprecated:: 2.0.0
             Use :attr:`signature` property setter instead.
@@ -454,7 +533,7 @@ class Transaction:
 
     @deprecated_to_property
     def get_origin(self) -> Optional[str]:
-        """Get origin.
+        """[Deprecated] Get origin.
 
         .. deprecated:: 2.0.0
             Use :attr:`origin` property instead.
@@ -463,7 +542,7 @@ class Transaction:
 
     @deprecated_to_property
     def get_id(self) -> Optional[str]:
-        """Get transaction ID.
+        """[Deprecated] Get transaction ID.
 
         .. deprecated:: 2.0.0
             Use :attr:`.id` property instead.

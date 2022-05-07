@@ -1,34 +1,47 @@
-"""
-Bloom Filter.
+"""Bloom filter implementation.
 
-A data structure tells us either the element definitely is not in,
-or may be in the set.
+Bloom filter is a probabilistic data structure that is used to check
+whether the element definitely is not in set or may be in the set.
 
-Instead of a traditional hash-based set takes up too much memory,
+Instead of a traditional hash-based set, that takes up too much memory,
 this structure permits less memory with a tolerable false positive rate.
 
-m = total bits of the filter.
-k = how many different hash functions to use.
-n = number of elements to be added to the filter.
+Used variables:
 
-2048 bits / 256 bytes
+:``m``: Total bits of the filter.
+
+:``k``: How many different hash functions to use.
+
+:``n``: Number of elements to be added to the filter.
+
+This implementation uses 2048 bits / 256 bytes of storage.
+You can override it in a subclass.
 """
 import math
 import sys
 from typing import Callable, Optional
 
 from thor_devkit.cry import blake2b256
-from thor_devkit.cry.utils import _AnyBytes
 
 if sys.version_info < (3, 8):
     from typing_extensions import Literal
 else:
     from typing import Literal
 
+__all__ = ["Bloom"]
+
 
 class Bloom:
+    """Bloom filter.
+
+    .. autoclasssumm:: Bloom
+    """
+
     MAX_K = 16
+    """Maximal amount of hash functions to use."""
+
     BITS_LENGTH = 2048
+    """Filter size in bits."""
 
     @classmethod
     def estimate_k(cls, count: int) -> int:
@@ -47,16 +60,16 @@ class Bloom:
         k = round(cls.BITS_LENGTH / count * math.log(2))
         return max(min(k, cls.MAX_K), 1)
 
-    def __init__(self, k: int, bits: Optional[_AnyBytes] = None):
+    def __init__(self, k: int, bits: Optional[bytes] = None):
         """Construct a bloom filter.
 
         Parameters
         ----------
         k : int
             The number of different hash functions to use.
-        bits : Optional[bytes or bytearray], optional
+        bits : Optional[bytes], optional
             Bits of previous bloom filter to inherit.
-            Leave it ``None`` to create an empty bloom filter.
+            Leave it :class:`None` to create an empty bloom filter.
         """
         self.k = k
         if bits is None:
@@ -64,14 +77,12 @@ class Bloom:
         else:
             self.bits = bits
 
-    def _distribute(
-        self, element: _AnyBytes, tester: Callable[[int, int], bool]
-    ) -> bool:
+    def _distribute(self, element: bytes, tester: Callable[[int, int], bool]) -> bool:
         """Distribute the element into the bloom filter.
 
         Parameters
         ----------
-        element : bytes or bytearray
+        element : bytes
             the element to be fit into the bloom filter.
         tester : Callable[[int, int], bool]
             a function to test the bit, return False to stop the operation.
@@ -90,12 +101,12 @@ class Bloom:
                 return False
         return True
 
-    def add(self, element: _AnyBytes) -> Literal[True]:
+    def add(self, element: bytes) -> Literal[True]:
         """Add an element to the bloom filter.
 
         Parameters
         ----------
-        element : bytes or bytearray
+        element : bytes
             The element in bytes.
 
         Returns
@@ -113,18 +124,25 @@ class Bloom:
         assert self._distribute(element, t)
         return True
 
-    def test(self, element: _AnyBytes) -> bool:
+    def test(self, element: bytes) -> bool:
         """Test if element is inside the bloom filter.
 
         Parameters
         ----------
-        element : bytes or bytearray
+        element : bytes
             The element in bytes.
 
         Returns
         -------
         bool
             ``True`` if inside, ``False`` if not inside.
+
+        Warning
+        -------
+        If ``False`` is returned, then element is **sure** not in filter.
+
+        If ``True`` is returned, then element **may be** in filter, there is no way
+        to determine it surely.
         """
 
         def t(index: int, bit: int) -> bool:
@@ -132,5 +150,24 @@ class Bloom:
 
         return self._distribute(element, t)
 
-    def __contains__(self, element: _AnyBytes) -> bool:
+    def __contains__(self, element: bytes) -> bool:
+        """Test if element is inside the bloom filter.
+
+        Parameters
+        ----------
+        element : bytes
+            The element in bytes.
+
+        Returns
+        -------
+        bool
+            ``True`` if inside, ``False`` if not inside.
+
+        Warning
+        -------
+        If ``False`` is returned, then element is **sure** not in filter.
+
+        If ``True`` is returned, then element **may be** in filter, there is no way
+        to determine it surely.
+        """
         return self.test(element)

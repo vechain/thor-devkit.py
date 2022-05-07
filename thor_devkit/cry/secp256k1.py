@@ -1,16 +1,15 @@
 """Elliptic curve secp256k1 related functions.
 
-#. Generate a private Key.
-#. Derive uncompressed public key from private key.
-#. Sign a message hash using the private key, generate signature.
-#. Given the message hash and signature, recover the uncompressed public key.
+- Generate a private key.
+- Derive uncompressed public key from private key.
+- Sign a message hash using the private key, generate signature.
+- Given the message hash and signature, recover the uncompressed public key.
 """
 import sys
 
 from ecdsa import SECP256k1, SigningKey
 from eth_keys import KeyAPI
 
-from thor_devkit.cry.utils import _AnyBytes
 from thor_devkit.deprecation import renamed_function
 
 if sys.version_info < (3, 8):
@@ -18,13 +17,24 @@ if sys.version_info < (3, 8):
 else:
     from typing import Final
 
+__all__ = [
+    "is_valid_private_key",
+    "generate_private_key",
+    "derive_public_key",
+    "sign",
+    "recover",
+]
+
 MAX: Final = bytes.fromhex(
     "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"
 )
+"""Maximal allowed private key."""
+
 ZERO: Final = bytes(32)
+"""32-bit zero in bytes form."""
 
 
-def _is_valid_private_key(priv_key: _AnyBytes) -> bool:
+def _is_valid_private_key(priv_key: bytes) -> bool:
     priv_key = bytes(priv_key)
 
     if priv_key == ZERO:
@@ -36,14 +46,14 @@ def _is_valid_private_key(priv_key: _AnyBytes) -> bool:
     return len(priv_key) == 32
 
 
-def is_valid_private_key(priv_key: _AnyBytes) -> bool:
+def is_valid_private_key(priv_key: bytes) -> bool:
     """Verify if a private key is well-formed.
 
     .. versionadded:: 2.0.0
 
     Parameters
     ----------
-    priv_key : bytes or bytearray
+    priv_key : bytes
         Private key to check.
 
     Returns
@@ -54,12 +64,12 @@ def is_valid_private_key(priv_key: _AnyBytes) -> bool:
     return _is_valid_private_key(priv_key)
 
 
-def _is_valid_message_hash(msg_hash: _AnyBytes) -> bool:
+def _is_valid_message_hash(msg_hash: bytes) -> bool:
     """Verify if a message hash is in correct format (as in terms of VeChain).
 
     Parameters
     ----------
-    msg_hash : bytes or bytearray
+    msg_hash : bytes
         The message hash to be processed.
 
     Returns
@@ -88,7 +98,7 @@ def generate_private_key() -> bytes:
 
 @renamed_function("generate_private_key")
 def generate_privateKey() -> bytes:  # noqa: N802
-    """Create a random number (32 bytes) as private key.
+    """[Deprecated] Create a random number (32 bytes) as private key.
 
     .. deprecated:: 2.0.0
         Use :func:`generate_private_key` instead for naming consistency.
@@ -96,14 +106,14 @@ def generate_privateKey() -> bytes:  # noqa: N802
     return generate_private_key()
 
 
-def derive_public_key(priv_key: _AnyBytes) -> bytes:
+def derive_public_key(priv_key: bytes) -> bytes:
     """Derive public key from a private key(uncompressed).
 
     .. versionadded:: 2.0.0
 
     Parameters
     ----------
-    priv_key : bytes or bytearray
+    priv_key : bytes
         The private key in bytes.
 
     Returns
@@ -125,8 +135,8 @@ def derive_public_key(priv_key: _AnyBytes) -> bytes:
 
 
 @renamed_function("generate_public_key")
-def derive_publicKey(priv_key: _AnyBytes) -> bytes:  # noqa: N802
-    """Create a random number (32 bytes) as public key.
+def derive_publicKey(priv_key: bytes) -> bytes:  # noqa: N802
+    """[Deprecated] Create a random number (32 bytes) as public key.
 
     .. deprecated:: 2.0.0
         Use :func:`derive_public_key` instead for naming consistency.
@@ -134,7 +144,7 @@ def derive_publicKey(priv_key: _AnyBytes) -> bytes:  # noqa: N802
     return derive_public_key(priv_key)
 
 
-def sign(msg_hash: _AnyBytes, priv_key: _AnyBytes) -> bytes:
+def sign(msg_hash: bytes, priv_key: bytes) -> bytes:
     """Sign the message hash.
 
     Note
@@ -143,9 +153,9 @@ def sign(msg_hash: _AnyBytes, priv_key: _AnyBytes) -> bytes:
 
     Parameters
     ----------
-    msg_hash : bytes or bytearray
+    msg_hash : bytes
         The message hash.
-    priv_key : bytes or bytearray
+    priv_key : bytes
         The private key in bytes.
 
     Returns
@@ -173,14 +183,14 @@ def sign(msg_hash: _AnyBytes, priv_key: _AnyBytes) -> bytes:
     return b"".join([r, s, v])  # 32 + 32 + 1 bytes
 
 
-def recover(msg_hash: _AnyBytes, sig: _AnyBytes) -> bytes:
+def recover(msg_hash: bytes, sig: bytes) -> bytes:
     """Recover the uncompressed public key from signature.
 
     Parameters
     ----------
-    msg_hash : bytes or bytearray
+    msg_hash : bytes
         The message hash.
-    sig : bytes or bytearray
+    sig : bytes
         The signature.
 
     Returns

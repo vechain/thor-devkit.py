@@ -1,37 +1,4 @@
-r"""
-RLP Encoding/Decoding.
-
-RLP encodes before storing on disk or transmitting on network.
-
-Primary RLP can only deal with "item" type, which is defined as:
-
-#. byte string (bytes in Python) or
-#. list of items.
-
-Some examples are:
-
-* b'\x00\xff'
-* empty list []
-* list of bytes [ b'\x00', b'\x01\x03']
-* list of combinations [ [], b'\x00', [b'\x00']]
-
-The encoded result is bytes. The encoded methods is called RLP.::
-
-         RLP    +-----------+
- item +-------> |RPL encoded|
-                +-----------+
-
-But in the real world, the inputs are not pure bytes nor lists.
-Some are of complex key-value pairs like dict.
-Some are of "0x123" form of number.
-
-This module exists for some pre-defined
-``real world object => "item"`` conversion.::
-
-                            serialize
-    "real world object" +--------------> item
-
-"""
+r"""RLP Encoding/Decoding layer for "real-world" objects."""
 import re
 import sys
 from abc import ABC, abstractmethod
@@ -54,7 +21,6 @@ from rlp import decode as rlp_decode
 from rlp import encode as rlp_encode
 from rlp.sedes import BigEndianInt
 
-from thor_devkit.cry.utils import _AnyBytes
 from thor_devkit.deprecation import class_renamed
 from thor_devkit.exceptions import DeserializationError, SerializationError
 
@@ -67,9 +33,24 @@ if sys.version_info < (3, 10):
 else:
     from typing import TypeGuard
 
+
+__all__ = [
+    "BytesKind",
+    "NumericKind",
+    "BlobKind",
+    "FixedBlobKind",
+    "OptionalFixedBlobKind",
+    "CompactFixedBlobKind",
+    "DictWrapper",
+    "ListWrapper",
+    "HomoListWrapper",
+    "pack",
+    "unpack",
+    "ComplexCodec",
+]
+
 HEX_STRING_PATTERN: Final = re.compile("^0x[0-9a-f]*$", re.I)
 NONEMPTY_HEX_STRING_PATTERN: Final = re.compile("^0x[0-9a-f]+$", re.I)
-NONEMPTY_DECIMAL_STRING_PATTERN: Final = re.compile("^[0-9]+$", re.I)
 
 
 def _is_hex_string(a: str, must_contain_data: bool) -> bool:
@@ -77,26 +58,20 @@ def _is_hex_string(a: str, must_contain_data: bool) -> bool:
     return bool(c.match(a))
 
 
-def _is_pure_int(a: object) -> TypeGuard[int]:
-    # We do not want to allow bool here
-    return type(a) is int
-
-
-def _is_pure_str(a: object) -> TypeGuard[str]:
-    # I cannot think of useful str subclasses, thus don't allow them.
-    return type(a) is str
-
-
 _T = TypeVar("_T")
 
 
 class ScalarKind(Generic[_T], ABC):
+    """Abstract class for all serializers."""
+
     @abstractmethod
     def serialize(self, __obj: _T) -> bytes:
+        """Serialize the object into a RLP encode-able "item"."""
         raise NotImplementedError
 
     @abstractmethod
-    def deserialize(self, __serial: _AnyBytes) -> _T:
+    def deserialize(self, __serial: bytes) -> _T:
+        """Deserialize given bytes into higher-level object."""
         raise NotImplementedError
 
 
@@ -104,15 +79,16 @@ class BytesKind(ScalarKind[bytes]):
     """Convert bytes type of Python object to RLP "item"."""
 
     @classmethod
-    def is_valid_type(cls, obj: object) -> TypeGuard[_AnyBytes]:
+    def is_valid_type(cls, obj: object) -> TypeGuard[bytes]:
+        """Confirm that ``obj`` is :class:`bytes` or :class:`bytearray`."""
         return isinstance(obj, (bytes, bytearray))
 
-    def serialize(self, obj: _AnyBytes) -> bytes:
+    def serialize(self, obj: bytes) -> bytes:
         """Serialize the object into a RLP encode-able "item".
 
         Parameters
         ----------
-        obj : bytes or bytearray
+        obj : bytes
             The input.
 
         Returns
@@ -132,12 +108,12 @@ class BytesKind(ScalarKind[bytes]):
 
         return obj
 
-    def deserialize(self, serial: _AnyBytes) -> bytes:
+    def deserialize(self, serial: bytes) -> bytes:
         """De-serialize a RLP "item" back to bytes.
 
         Parameters
         ----------
-        serial : bytes or bytearray
+        serial : bytes
             The input.
 
         Returns
@@ -159,13 +135,18 @@ class BytesKind(ScalarKind[bytes]):
 
 
 class NumericKind(BigEndianInt, ScalarKind[int]):
-    """Pre-defined type for Number-like objects.
+    """Serializer for number-like objects.
 
-    Good examples are:
-    '0x0', '0x123', '0', '100', 0, 0x123
+    Good examples are::
 
-    Bad examples are:
-    '0x123z', {}, '0x', -1, '0x12345678123456780', 2 ** 64
+        '0x0', '0x123', '0', '100', 0, 0x123
+
+    Bad examples are::
+
+        '0x123z', {}, '0x', -1, '0x12345678123456780', True
+
+    .. versionchanged:: 2.0.0
+        Allowed :class:`bool` values :class:`True` and :class:`False`.
     """
 
     def __init__(self, max_bytes: Optional[int] = None) -> None:
@@ -199,15 +180,15 @@ class NumericKind(BigEndianInt, ScalarKind[int]):
         TypeError
             Input is neither int nor string representation of int
         """
-        if _is_pure_str(obj):
+        if isinstance(obj, str):
             try:
                 number = int(obj, 0)
             except ValueError:
                 raise SerializationError(
                     "The input string does not represent a number.", obj
                 )
-        elif _is_pure_int(obj):
-            number = obj
+        elif isinstance(obj, int):
+            number = int(obj)
         else:
             raise TypeError(f"expected str or int, got: {type(obj)}")
 
@@ -219,12 +200,12 @@ class NumericKind(BigEndianInt, ScalarKind[int]):
         )
         return result_bytes[first_nonzero:]
 
-    def deserialize(self, serial: _AnyBytes) -> int:
+    def deserialize(self, serial: bytes) -> int:
         """Deserialize bytes to int.
 
         Parameters
         ----------
-        serial : bytes or bytearray
+        serial : bytes
             bytes
 
         Returns
@@ -255,7 +236,7 @@ class NumericKind(BigEndianInt, ScalarKind[int]):
 
 
 class BlobKind(ScalarKind[str]):
-    """Pre-defined type for '0x....' like hex strings.
+    """Serializer for ``0x....`` hex strings.
 
     Used for strings that shouldn't be interpreted as a number, usually an identifier.
 
@@ -263,12 +244,12 @@ class BlobKind(ScalarKind[str]):
     """
 
     def serialize(self, obj: str) -> bytes:
-        """Serialize a '0x...' string to bytes.
+        """Serialize a ``0x...`` string to bytes.
 
         Parameters
         ----------
         obj : str
-            '0x...' style string.
+            ``0x...`` style string.
 
         Returns
         -------
@@ -297,18 +278,18 @@ class BlobKind(ScalarKind[str]):
 
         return bytes.fromhex(obj2)
 
-    def deserialize(self, serial: _AnyBytes) -> str:
-        """Deserialize bytes to '0x...' string.
+    def deserialize(self, serial: bytes) -> str:
+        """Deserialize bytes to ``0x...`` string.
 
         Parameters
         ----------
-        serial : bytes or bytearray
+        serial : bytes
             Encoded string.
 
         Returns
         -------
         str
-            string of style '0x...'
+            string of style ``0x...``
 
         Raises
         ------
@@ -322,7 +303,7 @@ class BlobKind(ScalarKind[str]):
 
 
 class FixedBlobKind(BlobKind):
-    """Pre-defined type for '0x....' like hex strings of fixed length.
+    """Serializer for ``0x....`` **fixed-length** hex strings.
 
     Used for strings that shouldn't be interpreted as a number, usually an identifier.
     Examples: address, block_ref, data to smart contract.
@@ -337,12 +318,12 @@ class FixedBlobKind(BlobKind):
         self.byte_length = byte_length
 
     def serialize(self, obj: str) -> bytes:
-        """Serialize a '0x...' string to bytes.
+        """Serialize a ``0x...`` string to bytes.
 
         Parameters
         ----------
         obj : str
-            '0x...' style string.
+            ``0x...`` style string.
 
         Returns
         -------
@@ -371,18 +352,18 @@ class FixedBlobKind(BlobKind):
 
         return super().serialize(obj)
 
-    def deserialize(self, serial: _AnyBytes) -> str:
-        """Deserialize bytes to '0x...' string.
+    def deserialize(self, serial: bytes) -> str:
+        """Deserialize bytes to ``0x...`` string.
 
         Parameters
         ----------
-        serial : bytes or bytearray
+        serial : bytes
             Encoded string.
 
         Returns
         -------
         str
-            String of style '0x...'.
+            String of style ``0x...'``
 
         Raises
         ------
@@ -398,7 +379,7 @@ class FixedBlobKind(BlobKind):
 
 
 class OptionalFixedBlobKind(FixedBlobKind):
-    """Pre-defined type for '0x....' hex strings of known length that may be omitted.
+    """Serializer for ``0x....`` fixed-length hex strings that may be :class:`None`.
 
     Used for strings that shouldn't be interpreted as a number, usually an identifier.
     Examples: address, block_ref, data to smart contract.
@@ -416,12 +397,12 @@ class OptionalFixedBlobKind(FixedBlobKind):
         super().__init__(byte_length)
 
     def serialize(self, obj: Optional[str] = None) -> bytes:
-        """Serialize a '0x...' string or ``None`` to bytes.
+        """Serialize a ``0x...`` string or :class:`None` to bytes.
 
         Parameters
         ----------
         obj : Optional[str], default: None
-            '0x...' style string.
+            ``0x...`` style string.
 
         Returns
         -------
@@ -434,18 +415,18 @@ class OptionalFixedBlobKind(FixedBlobKind):
         return super().serialize(obj)
 
     # Unsafe override
-    def deserialize(self, serial: _AnyBytes) -> Optional[str]:  # type: ignore[override]
-        """Deserialize bytes to '0x...' string or ``None``.
+    def deserialize(self, serial: bytes) -> Optional[str]:  # type: ignore[override]
+        """Deserialize bytes to ``0x...`` string or :class:`None`.
 
         Parameters
         ----------
-        serial : bytes or bytearray
+        serial : bytes
             Serialized data.
 
         Returns
         -------
         Optional[str]
-            String of style '0x...' or ``None``
+            String of style ``0x...`` or :class:`None`
         """
         if not serial:
             return None
@@ -463,7 +444,7 @@ class NoneableFixedBlobKind(OptionalFixedBlobKind):
 
 
 class CompactFixedBlobKind(FixedBlobKind):
-    """Pre-defined type for '0x....' strings of known length that may start with zeros.
+    """Serializer for ``0x....`` fixed-length hex strings that may start with zeros.
 
     Used for strings that shouldn't be interpreted as a number, usually an identifier.
     Examples: address, block_ref, data to smart contract.
@@ -471,22 +452,22 @@ class CompactFixedBlobKind(FixedBlobKind):
     Note
     ----
         When encode, the result fixed length bytes will be
-        removed of leading zeros. i.e. 000123 -> 123
+        removed of leading zeros. i.e. ``000123 -> 123``
 
         When decode, it expects the input bytes length <= fixed_length.
-        and it pads the leading zeros back. Output '0x{0}paddingxxx...'
+        and it pads the leading zeros back. Output ``'0x{"0" * n}xxx...'``
     """
 
     def __init__(self, byte_length: int) -> None:
         super().__init__(byte_length)
 
     def serialize(self, obj: str) -> bytes:
-        """Serialize a '0x...' string to bytes, stripping leading zeroes.
+        """Serialize a ``0x...`` string to bytes, stripping leading zeroes.
 
         Parameters
         ----------
         obj : str
-            '0x...' style string.
+            ``0x...`` style string.
 
         Returns
         -------
@@ -504,18 +485,18 @@ class CompactFixedBlobKind(FixedBlobKind):
 
         return bytes(0)
 
-    def deserialize(self, serial: _AnyBytes) -> str:
-        """Deserialize bytes to '0x...' string.
+    def deserialize(self, serial: bytes) -> str:
+        """Deserialize bytes to ``0x...`` string.
 
         Parameters
         ----------
-        serial : bytes or bytearray
+        serial : bytes
             Encoded data.
 
         Returns
         -------
         str
-            String of style '0x...' of fixed length
+            String of style ``0x...`` of fixed length
 
         Raises
         ------
@@ -613,9 +594,7 @@ class HomoListWrapper(BaseWrapper):
 
 # We lack recursive types with mypy
 _PackedSequenceT = Sequence[
-    Union[
-        _AnyBytes, Sequence[Union[_AnyBytes, Sequence[Union[_AnyBytes, Sequence[Any]]]]]
-    ]
+    Union[bytes, Sequence[Union[bytes, Sequence[Union[bytes, Sequence[Any]]]]]]
 ]
 _PackedListT = List[Union[bytes, List[Union[bytes, List[Union[bytes, List[Any]]]]]]]
 
@@ -690,7 +669,7 @@ def pack(
 
 
 @overload
-def unpack(packed: _AnyBytes, wrapper: ScalarKind[_T]) -> _T:
+def unpack(packed: bytes, wrapper: ScalarKind[_T]) -> _T:
     ...
 
 
@@ -716,21 +695,21 @@ def unpack(
 
 @overload
 def unpack(
-    packed: Union[_AnyBytes, _PackedSequenceT],
+    packed: Union[bytes, _PackedSequenceT],
     wrapper: Union[BaseWrapper, ScalarKind[Any]],
 ) -> Union[Dict[str, Any], List[Any], Any]:
     ...
 
 
 def unpack(
-    packed: Union[_AnyBytes, _PackedSequenceT],
+    packed: Union[bytes, _PackedSequenceT],
     wrapper: Union[BaseWrapper, ScalarKind[Any]],
 ) -> Union[Dict[str, Any], List[Any], Any]:
     """Unpack a serialized thing back into a dict/list or a Python basic type.
 
     Parameters
     ----------
-    packed : bytes or bytearray or sequence of them
+    packed : bytes or sequence of them
         A list of RLP encoded or pure bytes (may be nested).
     wrapper : Union[BaseWrapper, ScalarKind[Any]]
         The Wrapper.
@@ -787,13 +766,13 @@ def unpack(
 
 
 def pretty_print(
-    packed: Union[_AnyBytes, _PackedSequenceT], indent: int = 0
+    packed: Union[bytes, _PackedSequenceT], indent: int = 0
 ) -> None:  # pragma: no cover
     """Pretty print the bytes into hex, indenting nested structures.
 
     Parameters
     ----------
-    packed : bytes or bytearray or sequence of them
+    packed : bytes or sequence of them
         Data to print (may be nested).
     indent : int, default: 0
         Indent of topmost object, in spaces.
@@ -822,7 +801,7 @@ def pretty_print(
 
 
 class ComplexCodec:
-    """Wrapper around :class:`BaseWrapper`.
+    """Wrapper around :class:`BaseWrapper` that implements RLP encoding.
 
     Provides access to module-level :func:`encode` and :func:`decode` functions
     as :meth:`encode` and :meth:`decode` methods
@@ -832,9 +811,11 @@ class ComplexCodec:
         self.wrapper = wrapper
 
     def encode(self, data: Any) -> bytes:
+        """RLP-encode given high-level data to bytes."""
         packed = pack(data, self.wrapper)
         return rlp_encode(packed)
 
-    def decode(self, data: _AnyBytes) -> Any:
+    def decode(self, data: bytes) -> Any:
+        """RLP-decode given bytes into higher-level structure."""
         to_be_unpacked = rlp_decode(data)
         return unpack(to_be_unpacked, self.wrapper)

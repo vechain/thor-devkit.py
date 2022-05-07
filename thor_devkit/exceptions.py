@@ -1,10 +1,18 @@
+"""Custom exceptions."""
 from typing import Any, Optional
 
-from rlp.exceptions import DeserializationError as DeserializationError  # noqa: F401
-from rlp.exceptions import SerializationError as SerializationError  # noqa: F401
+from rlp.exceptions import DeserializationError as DeserializationError
+from rlp.exceptions import SerializationError as SerializationError
+
+__all__ = [
+    "DeserializationError",
+    "SerializationError",
+    "BadSignature",
+    "BadTransaction",
+]
 
 
-class DefaultTextExceptionMixin(BaseException):
+class _DefaultTextExceptionMixin(BaseException):
     @property
     def _message(self) -> str:
         if self.__doc__:
@@ -19,9 +27,9 @@ class DefaultTextExceptionMixin(BaseException):
         super().__init__(message, *args, **kwargs)
 
 
-class BadSignature(DefaultTextExceptionMixin, Exception):
+class BadSignature(_DefaultTextExceptionMixin, Exception):
     """The signature of certificate does not match with the signer."""
 
 
-class BadTransaction(DefaultTextExceptionMixin, ValueError):
+class BadTransaction(_DefaultTextExceptionMixin, ValueError):
     """The decoded transaction is invalid."""

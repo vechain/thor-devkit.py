@@ -1,5 +1,4 @@
-"""
-Mnemonic Module.
+"""Mnemonic-related utilities.
 
 Generate/Validate a words used for mnemonic wallet.
 
@@ -20,17 +19,29 @@ if sys.version_info < (3, 8):
     from typing_extensions import Final, Literal, get_args
 else:
     from typing import Final, Literal, get_args
+if sys.version_info < (3, 10):
+    from typing_extensions import TypeAlias
+else:
+    from typing import TypeAlias
+
+__all__ = [
+    "AllowedStrengthsT",
+    "ALLOWED_STRENGTHS",
+    "generate",
+    "is_valid",
+    "derive_seed",
+    "derive_private_key",
+]
 
 
-_ALLOWED_STRENGTHS = Literal[128, 160, 192, 224, 256]
-ALLOWED_STRENGTHS: Final[Tuple[_ALLOWED_STRENGTHS, ...]] = get_args(_ALLOWED_STRENGTHS)
+AllowedStrengthsT: TypeAlias = Literal[128, 160, 192, 224, 256]
+"""Allowed mnemonic strength literal type."""
 
-# BIP-44 specified path notation:
-# m / purpose' / coin_type' / account' / change / address_index
+ALLOWED_STRENGTHS: Final[Tuple[AllowedStrengthsT, ...]] = get_args(AllowedStrengthsT)
+"""Allowed mnemonic strength options.
 
-# Derive path for the VET:
-# m / 44' / 818' / 0' / 0 /<address_index>
-VET_PATH: Final = "m/44'/818'/0'/0"
+:meta hide-value:
+"""
 
 
 def _get_key_path(base_path: str, index: int = 0) -> str:
@@ -38,10 +49,13 @@ def _get_key_path(base_path: str, index: int = 0) -> str:
 
 
 def _get_vet_key_path(index: int = 0) -> str:
-    return _get_key_path(VET_PATH, index)
+    # Prevent circular import
+    from thor_devkit.cry.hdnode import VET_EXTERNAL_PATH
+
+    return _get_key_path(VET_EXTERNAL_PATH, index)
 
 
-def generate(strength: _ALLOWED_STRENGTHS = 128) -> List[str]:
+def generate(strength: AllowedStrengthsT = 128) -> List[str]:
     """Generate BIP39 mnemonic words.
 
     Parameters
@@ -70,6 +84,8 @@ def generate(strength: _ALLOWED_STRENGTHS = 128) -> List[str]:
 def is_valid(words: Iterable[str]) -> bool:
     """Check if the words form a valid BIP39 mnemonic words.
 
+    .. versionadded:: 2.0.0
+
     Parameters
     ----------
     words : Iterable of str
@@ -86,7 +102,7 @@ def is_valid(words: Iterable[str]) -> bool:
 
 @renamed_function("is_valid")
 def validate(words: Iterable[str]) -> bool:
-    """Check if the words form a valid BIP39 mnemonic phrase.
+    """[Deprecated] Check if the words form a valid BIP39 mnemonic phrase.
 
     .. deprecated:: 2.0.0
         Function :func:`validate` is deprecated for naming consistency.

@@ -2,21 +2,21 @@
 import hashlib  # python3 lib/hashlib
 from typing import Iterable, Tuple
 
-from thor_devkit.cry.utils import _AnyBytes
+__all__ = ["blake2b256"]
 
 
-def blake2b256(list_of_bytes: Iterable[_AnyBytes]) -> Tuple[bytes, int]:
+def blake2b256(list_of_bytes: Iterable[bytes]) -> Tuple[bytes, int]:
     """Compute a hash in black2b flavor.
 
     Parameters
     ----------
-    list_of_bytes : Iterable of (bytes or bytearray)
-        The iterable of `bytes` or `bytearray`'s to be hashed.
+    list_of_bytes : Iterable of bytes
+        The iterable of :class:`bytes` or :class:`bytearray`'s to be hashed.
 
     Returns
     -------
     Tuple[bytes, int]
-        Hash result in bytes (32 bytes) and the length of bytes (32).
+        Hash result in :class:`bytes` (32 bytes) and the length of bytes (32).
 
     Raises
     ------
