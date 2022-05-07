@@ -203,7 +203,7 @@ def _validate(keystore: KeyStoreT) -> Literal[True]:
 
 @renamed_function("validate")
 def well_formed(keystore: KeyStoreT) -> Literal[True]:
-    """[Deprecated] Validate if the key store is in good shape (roughly).
+    """Validate if the key store is in good shape (roughly).
 
     .. deprecated:: 2.0.0
         Function :func:`well_formed` is deprecated for naming consistency.

@@ -191,7 +191,7 @@ class Certificate:
 
 @renamed_function("Certificate.encode")
 def encode(cert: Certificate) -> str:
-    """[Deprecated] Encode a certificate into json.
+    """Encode a certificate into json.
 
     .. customtox-exclude::
 
@@ -204,7 +204,7 @@ def encode(cert: Certificate) -> str:
 
 @renamed_function("Certificate.verify")
 def verify(cert: Certificate) -> Literal[True]:
-    """[Deprecated] Verify certificate signature.
+    """Verify certificate signature.
 
     .. customtox-exclude::
 

@@ -363,7 +363,7 @@ class Encodable(Generic[_ParamT], ABC):
 
     @deprecated_to_property
     def get_name(self) -> str:
-        """[Deprecated] Get name of object.
+        """Get name of object.
 
         .. customtox-exclude::
 
@@ -586,7 +586,7 @@ class Function(Encodable[FuncParameterT]):
 
     @deprecated_to_property
     def get_selector(self) -> bytes:
-        """[Deprecated] First 4 bytes of function signature hash.
+        """First 4 bytes of function signature hash.
 
         .. customtox-exclude::
 
@@ -888,7 +888,7 @@ class Event(Encodable[EventParameterT]):
 
     @deprecated_to_property
     def get_signature(self) -> bytes:
-        """[Deprecated] Get signature.
+        """Get signature.
 
         .. customtox-exclude::
 

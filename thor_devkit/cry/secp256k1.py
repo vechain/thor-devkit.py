@@ -98,7 +98,7 @@ def generate_private_key() -> bytes:
 
 @renamed_function("generate_private_key")
 def generate_privateKey() -> bytes:  # noqa: N802
-    """[Deprecated] Create a random number (32 bytes) as private key.
+    """Create a random number (32 bytes) as private key.
 
     .. deprecated:: 2.0.0
         Use :func:`generate_private_key` instead for naming consistency.
@@ -136,7 +136,7 @@ def derive_public_key(priv_key: bytes) -> bytes:
 
 @renamed_function("generate_public_key")
 def derive_publicKey(priv_key: bytes) -> bytes:  # noqa: N802
-    """[Deprecated] Create a random number (32 bytes) as public key.
+    """Create a random number (32 bytes) as public key.
 
     .. deprecated:: 2.0.0
         Use :func:`derive_public_key` instead for naming consistency.

@@ -109,7 +109,7 @@ class BytesKind(ScalarKind[bytes]):
         return obj
 
     def deserialize(self, serial: bytes) -> bytes:
-        """De-serialize a RLP "item" back to bytes.
+        """Deserialize a RLP "item" back to bytes.
 
         Parameters
         ----------

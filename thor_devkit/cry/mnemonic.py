@@ -102,7 +102,7 @@ def is_valid(words: Iterable[str]) -> bool:
 
 @renamed_function("is_valid")
 def validate(words: Iterable[str]) -> bool:
-    """[Deprecated] Check if the words form a valid BIP39 mnemonic phrase.
+    """Check if the words form a valid BIP39 mnemonic phrase.
 
     .. deprecated:: 2.0.0
         Function :func:`validate` is deprecated for naming consistency.

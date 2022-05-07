@@ -22,6 +22,9 @@ def guess_group(app, what, name, obj, section, parent):
     ):
         return "Type or structure checkers"
 
+    if "deprecated::" in (obj.__doc__ or ""):
+        return "Deprecated"
+
 
 def skip_member(app, what, name, obj, skip, options):
     """Keep documenting deprecated methods (they are not in __all__).

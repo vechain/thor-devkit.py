@@ -85,7 +85,7 @@ def is_valid_uncompressed_public_key(key_bytes: bytes) -> bool:
 
 @renamed_function("validate_uncompressed_public_key")
 def is_uncompressed_public_key(key_bytes: bytes) -> Literal[True]:
-    """[Deprecated] Check if bytes is the uncompressed public key.
+    """Check if bytes is the uncompressed public key.
 
     .. deprecated:: 2.0.0
         Use :func:`is_valid_uncompressed_public_key` or

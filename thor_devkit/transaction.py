@@ -514,7 +514,7 @@ class Transaction:
 
     @deprecated_to_property
     def get_delegator(self) -> Optional[str]:
-        """[Deprecated] Get delegator.
+        """Get delegator.
 
         .. deprecated:: 2.0.0
             Use :attr:`delegator` property instead.
@@ -523,7 +523,7 @@ class Transaction:
 
     @deprecated_to_property
     def get_intrinsic_gas(self) -> int:
-        """[Deprecated] Get intrinsic gas estimate.
+        """Get intrinsic gas estimate.
 
         .. deprecated:: 2.0.0
             Use :attr:`intrinsic_gas` property instead.
@@ -532,7 +532,7 @@ class Transaction:
 
     @deprecated_to_property
     def get_signature(self) -> Optional[bytes]:
-        """[Deprecated] Get signature.
+        """Get signature.
 
         .. deprecated:: 2.0.0
             Use :attr:`signature` property instead.
@@ -541,7 +541,7 @@ class Transaction:
 
     @deprecated_to_property
     def set_signature(self, sig: bytes) -> None:
-        """[Deprecated] Set signature.
+        """Set signature.
 
         .. deprecated:: 2.0.0
             Use :attr:`signature` property setter instead.
@@ -550,7 +550,7 @@ class Transaction:
 
     @deprecated_to_property
     def get_origin(self) -> Optional[str]:
-        """[Deprecated] Get origin.
+        """Get origin.
 
         .. deprecated:: 2.0.0
             Use :attr:`origin` property instead.
@@ -559,7 +559,7 @@ class Transaction:
 
     @deprecated_to_property
     def get_id(self) -> Optional[str]:
-        """[Deprecated] Get transaction ID.
+        """Get transaction ID.
 
         .. deprecated:: 2.0.0
             Use :attr:`.id` property instead.
