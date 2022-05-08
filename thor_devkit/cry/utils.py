@@ -1,6 +1,6 @@
 """Utils helping with ``hex<->string`` conversion and stripping."""
 import sys
-from typing import TypeVar, cast
+from typing import Any, Callable, Type, TypeVar, cast
 
 from thor_devkit.deprecation import renamed_function
 
@@ -115,3 +115,45 @@ def safe_tolowercase(s: _T) -> _T:
         return cast(_T, s.lower())
     else:
         return s
+
+
+_Class = TypeVar("_Class", bound=Type[Any])
+
+
+def _with_doc_mro(*bases: Type[Any]) -> Callable[[_Class], _Class]:
+    r"""Internal function for documentation enhancement.
+
+    Designed use case: ``sphinx.ext.autosummary`` doesn't play well
+    with inheritance of :class:`~typing.TypedDict`. It throws errors
+    for every parent-defined key. This helper (and monkey-patching module,
+    of course) allows to overcome this.
+
+    Parameters
+    ----------
+    \*bases : Type[Any]
+        Classes you inherit from (and their parents, optionally).
+
+        Attributes of these (and only these) classes will be documented.
+
+    Returns
+    -------
+    Callable[[_Class], _Class]
+        Class decorator.
+
+    Note
+    ----
+    The reason behind that is the implementation of :class:`~typing.TypedDict`.
+    It does not include parents into __mro__, for every typed dict::
+
+        __mro__ = (<This class>, dict, object)
+
+    This behaviour does not allow ``autodoc`` and ``autosummary`` process
+    members properly. We set special ``__doc_mro__`` attribute and read it
+    when building MRO for documentation.
+    """
+
+    def wrapper(cls: _Class) -> _Class:
+        cls.__doc_mro__ = (cls, *bases)
+        return cls
+
+    return wrapper

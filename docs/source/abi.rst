@@ -74,5 +74,4 @@ API documentation
 -----------------
 
 .. automodule:: thor_devkit.abi
-   :autosummary-no-nesting:
    :ignore-module-all:

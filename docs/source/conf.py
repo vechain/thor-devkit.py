@@ -15,6 +15,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.resolve()))
 
+from ext.monkey_patch_sphinx import monkey_patch  # noqa: E402  # We need new PATH here.
+
+monkey_patch()
+
 
 # -- Project information -----------------------------------------------------
 
@@ -39,6 +43,7 @@ extensions = [
     # Custom
     "ext.toc_plugin",  # Add items to left floating table of contents
     "ext.types_group",  # Separate group for type definitions and validation schemas
+    "ext.monkey_patch_sphinx",  # Fix up ``dict`` as ``TypedDict`` base after all.
 ]
 
 templates_path = ["_templates"]
@@ -64,7 +69,7 @@ autodoc_default_options = {
 }
 
 intersphinx_mapping = {
-    "python": ("https://python.readthedocs.io/en/latest", None),
+    "python": ("https://docs.python.org/3/", None),
     "voluptuous": ("http://alecthomas.github.io/voluptuous/docs/_build/html/", None),
     "bip_utils": ("https://bip-utils.readthedocs.io/en/latest/", None),
 }

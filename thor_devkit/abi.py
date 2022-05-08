@@ -28,6 +28,7 @@ import voluptuous
 from voluptuous import Schema
 
 from thor_devkit.cry import keccak256
+from thor_devkit.cry.utils import _with_doc_mro
 from thor_devkit.deprecation import deprecated_to_property
 
 if sys.version_info < (3, 8):
@@ -44,6 +45,7 @@ else:
     from typing import NotRequired
 
 __all__ = [
+    "_ParameterT",
     "MUTABILITY",
     "StateMutabilityT",
     "FUNC_PARAMETER",
@@ -84,6 +86,8 @@ Must be a string, one of: "pure", "view", "payable", "nonpayable".
 
 
 class _ParameterT(TypedDict):
+    """Base for parameter of function or event."""
+
     name: str
     """Parameter name."""
     type: str  # noqa: A003
@@ -113,6 +117,7 @@ See also
 """
 
 
+@_with_doc_mro(_ParameterT)
 class FuncParameterT(_ParameterT):
     """Type of ABI function parameter.
 
@@ -166,7 +171,7 @@ class FunctionT(TypedDict):
     name: str
     """Function name."""
     stateMutability: StateMutabilityT  # noqa: N815
-    """Mutability: pure, view, payable or nonpayable."""
+    r"""Mutability (pure, view, payable or nonpayable)."""
     inputs: Sequence["FuncParameterT"]
     """Function parameters."""
     outputs: Sequence["FuncParameterT"]
@@ -191,10 +196,11 @@ Validation :external:class:`~voluptuous.schema_builder.Schema` for event paramet
 
 See also
 --------
-:class:`EventParameterT`: corresponding :class:`typing.TypedDict`.
+:class:`EventParameterT`: corresponding :class:`~typing.TypedDict`.
 """
 
 
+@_with_doc_mro(_ParameterT)
 class EventParameterT(_ParameterT):
     """Type of ABI event parameter.
 
@@ -227,7 +233,7 @@ Validation :external:class:`~voluptuous.schema_builder.Schema` for ABI event.
 
 See also
 --------
-:class:`EventT`: corresponding :class:`typing.TypedDict`.
+:class:`EventT`: corresponding :class:`~typing.TypedDict`.
 """
 
 
