@@ -40,11 +40,11 @@ def new_import_ivar_by_name(
         qualname = real_name.replace(modname + ".", "")
         analyzer = asum.ModuleAnalyzer.for_module(getattr(obj, "__module__", modname))
         analyzer.analyze()
-        # check for presence in `annotations` to include dataclass attributes
-        if (qualname, attr) in analyzer.attr_docs or (
-            qualname,
-            attr,
-        ) in analyzer.annotations:
+        if (
+            (qualname, attr) in analyzer.attr_docs
+            # check for presence in `annotations` to include dataclass attributes
+            or (qualname, attr) in analyzer.annotations
+        ):
             return real_name + "." + attr, asum.INSTANCEATTR, obj, modname
     except (ImportError, ValueError, asum.PycodeError) as exc:
         raise ImportError from exc
