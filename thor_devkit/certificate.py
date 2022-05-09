@@ -1,6 +1,7 @@
 """User signed certificate.
 
-`Documentation <https://github.com/vechain/VIPs/blob/master/vips/VIP-192.md>`__
+Implemented according to
+`VIP192 <https://github.com/vechain/VIPs/blob/master/vips/VIP-192.md>`_
 """
 import json
 import re
@@ -70,7 +71,7 @@ class PayloadT(TypedDict):
 
 CERTIFICATE: Final = Schema(
     {
-        "purpose": str,
+        "purpose": voluptuous.Any("identification", "agreement"),
         "payload": PAYLOAD,
         "domain": str,
         "timestamp": int,
@@ -94,8 +95,23 @@ class CertificateT(TypedDict):
     .. versionadded:: 2.0.0
     """
 
-    purpose: str
-    """Purpose of certificate, e.g. ``identification``."""
+    purpose: Literal["identification", "agreement"]
+    """Purpose of certificate, can be ``identification`` or ``agreement``.
+
+    Usage scenarios:
+
+    Identification
+        Request user to proof that he/she is the private key holder.
+
+        In this scenario payload is not essential to the user.
+    Agreement
+        Request user to agree with an agreement by using user's private key to sign.
+
+        In this scenario payload should contain the content such as Privacy policy
+        and it is essential to the user.
+
+    Use cases may be extended in future, see VIP192_ for details.
+    """
     payload: PayloadT
     """Certificate payload."""
     domain: str
@@ -113,7 +129,7 @@ class Certificate:
 
     def __init__(
         self,
-        purpose: str,
+        purpose: Literal["identification", "agreement"],
         payload: PayloadT,
         domain: str,
         timestamp: int,

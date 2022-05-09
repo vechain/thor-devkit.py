@@ -1,4 +1,11 @@
-"""Custom exceptions."""
+"""Custom exceptions.
+
+:exc:`DeserializationError` and :exc:`SerializationError` are aliases for
+:exc:`rlp.exception.DeserializationError` and
+:exc:`rlp.exception.SerializationError`
+(they aren't listed on their
+`documentation page <https://pyrlp.readthedocs.io/en/latest/>`_).
+"""
 from typing import Any, Optional
 
 from rlp.exceptions import DeserializationError as DeserializationError

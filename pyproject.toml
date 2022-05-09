@@ -137,6 +137,7 @@ extend_ignore = [
     "PIE798",  # Allow class with only static methods for namespacing
     "D105",  # Magic methods may remain unannotated
     "D401",  # Imperative mood of first docstring line is not always encouraged
+    "RST306",  # Plugin can't resolve links defined in other docstrings.
 ]
 # Ignore
 per-file-ignores = [

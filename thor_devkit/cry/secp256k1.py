@@ -1,4 +1,4 @@
-"""Elliptic curve secp256k1 related functions.
+"""Elliptic curve ``secp256k1`` related functions.
 
 - Generate a private key.
 - Derive uncompressed public key from private key.

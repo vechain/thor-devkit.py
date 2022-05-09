@@ -1,4 +1,4 @@
-"""Utils helping with ``hex<->string`` conversion and stripping."""
+"""Utils helping with ``hex <-> string`` conversion and stripping."""
 import sys
 from typing import Any, Callable, Type, TypeVar, cast
 

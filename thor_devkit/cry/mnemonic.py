@@ -1,10 +1,15 @@
 """Mnemonic-related utilities.
 
-Generate/Validate a words used for mnemonic wallet.
+- Generate/validate a words used for mnemonic wallet.
+- Derive the first private key from words.
+- Derive the correct seed for BIP32_.
 
-Derive the first private key from words.
+Documentation:
 
-Derive the correct seed for BIP32.
+- HD wallets:
+  `BIP32 <https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki>`_
+- Mnemonic code:
+  `BIP39 <https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki>`_
 """
 
 import sys
@@ -56,7 +61,7 @@ def _get_vet_key_path(index: int = 0) -> str:
 
 
 def generate(strength: AllowedStrengthsT = 128) -> List[str]:
-    """Generate BIP39 mnemonic words.
+    """Generate BIP39_ mnemonic words.
 
     Parameters
     ----------
@@ -82,7 +87,7 @@ def generate(strength: AllowedStrengthsT = 128) -> List[str]:
 
 
 def is_valid(words: Iterable[str]) -> bool:
-    """Check if the words form a valid BIP39 mnemonic words.
+    """Check if the words form a valid BIP39_ mnemonic words.
 
     .. versionadded:: 2.0.0
 
@@ -102,7 +107,7 @@ def is_valid(words: Iterable[str]) -> bool:
 
 @renamed_function("is_valid")
 def validate(words: Iterable[str]) -> bool:
-    """Check if the words form a valid BIP39 mnemonic phrase.
+    """Check if the words form a valid BIP39_ mnemonic phrase.
 
     .. deprecated:: 2.0.0
         Function :func:`validate` is deprecated for naming consistency.

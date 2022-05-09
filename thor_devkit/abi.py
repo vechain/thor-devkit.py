@@ -625,7 +625,7 @@ class Event(Encodable[EventParameterT]):
 
         All bytes, strings and dynamic arrays are dynamic, plus all structs and
         fixed-size arrays are hashed (see `Specification`_).
-        """  # noqa: RST306  # Reference is defined in `abi.rst`
+        """  # Reference is defined in `abi.rst`
         return t in {"bytes", "string"} or "[" in t or t.startswith("tuple")
 
     @staticmethod
