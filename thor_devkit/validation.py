@@ -149,10 +149,7 @@ def hex_string(
         try:
             bytes.fromhex(value)
         except ValueError as e:
-            if not allow_empty and not value:
-                raise Invalid(
-                    "Expected hex string, that is convertible to bytes"
-                ) from e
+            raise Invalid("Expected hex string, that is convertible to bytes") from e
 
         return value.upper()
 
