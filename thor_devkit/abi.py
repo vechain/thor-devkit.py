@@ -682,17 +682,20 @@ class Event(Encodable[EventParameterT]):
     ) -> List[Optional[bytes]]:
         """Assemble indexed keys into topics.
 
-        Commonly used to filter out logs of concerned topics,
-        e.g. To filter out VIP180 transfer logs of a certain wallet, certain amount.
+        Commonly used to filter out logs of concerned topics, e.g. to filter out
+        `VIP180 <https://github.com/vechain/VIPs/blob/master/vips/VIP-180.md>`_
+        transfer logs of a certain wallet, certain amount.
 
         Parameters
         ----------
         parameters : Mapping[str, Any] or Sequence[Any]
-            A dict/list of indexed param of the given event.
+            A dict/list of indexed parameters of the given event.
             Fill in :class:`None` to occupy the position, if you aren't sure
             about the value.
 
-            e.g. for event defined as::
+            e.g. for event defined as
+
+            .. code-block:: text
 
                 EventName(address from indexed, address to indexed, uint256 value)
 
@@ -806,23 +809,23 @@ class Event(Encodable[EventParameterT]):
 
         - For a non-indexed parameters event::
 
-            "address": The emitting contract address.
+            "address": "The emitting contract address",
             "topics": [
                 "signature of event"
-            ]
-            "data": "0x..." (contains parameters value)
+            ],
+            "data": "0x..."  # contains parameters values
 
         - For an indexed parameters event::
 
-            "address": The emitting contract address.
+            "address": "The emitting contract address",
             "topics": [
                 "signature of event",
                 "indexed param 1",
                 "indexed param 2",
-                ...
-                --> max 3 entries of indexed params.
-            ]
-            "data": "0x..." (remain un-indexed parameters value)
+                # ...
+                # --> max 3 entries of indexed params.
+            ],
+            "data": "0x..."  # remaining unindexed parameters values
 
         If the event is "anonymous" then the signature is not inserted into
         the "topics" list, hence ``topics[0]`` is not the signature.

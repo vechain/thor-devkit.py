@@ -52,10 +52,7 @@ __all__ = [
 ]
 
 FeaturesKind: Final = NumericKind(4)
-"""Kind Definitions.
-
-Used for VeChain's "reserved features" kind.
-"""
+"""Kind Definitions. Used for VeChain's "reserved features" kind."""
 
 # Unsigned/signed RLP wrapper parameters.
 _params: Final[Dict[str, Union[BaseWrapper, ScalarKind[Any]]]] = {
@@ -507,6 +504,8 @@ class Transaction:
     def get_delegator(self) -> Optional[str]:
         """Get delegator.
 
+        .. customtox-exclude::
+
         .. deprecated:: 2.0.0
             Use :attr:`delegator` property instead.
         """
@@ -515,6 +514,8 @@ class Transaction:
     @deprecated_to_property
     def get_intrinsic_gas(self) -> int:
         """Get intrinsic gas estimate.
+
+        .. customtox-exclude::
 
         .. deprecated:: 2.0.0
             Use :attr:`intrinsic_gas` property instead.
@@ -525,6 +526,8 @@ class Transaction:
     def get_signature(self) -> Optional[bytes]:
         """Get signature.
 
+        .. customtox-exclude::
+
         .. deprecated:: 2.0.0
             Use :attr:`signature` property instead.
         """
@@ -533,6 +536,8 @@ class Transaction:
     @deprecated_to_property
     def set_signature(self, sig: bytes) -> None:
         """Set signature.
+
+        .. customtox-exclude::
 
         .. deprecated:: 2.0.0
             Use :attr:`signature` property setter instead.
@@ -543,6 +548,8 @@ class Transaction:
     def get_origin(self) -> Optional[str]:
         """Get origin.
 
+        .. customtox-exclude::
+
         .. deprecated:: 2.0.0
             Use :attr:`origin` property instead.
         """
@@ -551,6 +558,8 @@ class Transaction:
     @deprecated_to_property
     def get_id(self) -> Optional[str]:
         """Get transaction ID.
+
+        .. customtox-exclude::
 
         .. deprecated:: 2.0.0
             Use :attr:`.id` property instead.

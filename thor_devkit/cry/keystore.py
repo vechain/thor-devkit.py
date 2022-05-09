@@ -294,6 +294,8 @@ def _validate(keystore: KeyStoreT) -> Literal[True]:
 def well_formed(keystore: KeyStoreT) -> Literal[True]:
     """Validate if the key store is in good shape (roughly).
 
+        .. customtox-exclude::
+
     .. deprecated:: 2.0.0
         Function :func:`well_formed` is deprecated for naming consistency.
         Use :func:`validate` or :func:`is_valid` instead.

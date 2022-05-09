@@ -109,6 +109,8 @@ def is_valid(words: Iterable[str]) -> bool:
 def validate(words: Iterable[str]) -> bool:
     """Check if the words form a valid BIP39_ mnemonic phrase.
 
+        .. customtox-exclude::
+
     .. deprecated:: 2.0.0
         Function :func:`validate` is deprecated for naming consistency.
         Use :func:`is_valid` instead. There is no raising equivalent.

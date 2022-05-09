@@ -87,6 +87,8 @@ def is_valid_uncompressed_public_key(key_bytes: bytes) -> bool:
 def is_uncompressed_public_key(key_bytes: bytes) -> Literal[True]:
     """Check if bytes is the uncompressed public key.
 
+    .. customtox-exclude::
+
     .. deprecated:: 2.0.0
         Use :func:`is_valid_uncompressed_public_key` or
         :func:`validate_uncompressed_public_key` instead.
