@@ -25,6 +25,7 @@ from thor_devkit.rlp import (
     OptionalFixedBlobKind,
     ScalarKind,
 )
+from thor_devkit.validation import address_type, hex_integer
 
 if sys.version_info < (3, 8):
     from typing_extensions import Final, TypedDict
@@ -107,23 +108,20 @@ class ClauseT(TypedDict):
 CLAUSE: Final = Schema(
     {
         # Destination contract address, or set to None to create contract.
-        "to": voluptuous.Any(str, None),
-        "value": voluptuous.Any(str, int),  # VET to pass to the call.
-        "data": str,
+        "to": voluptuous.Any(address_type(), None),
+        "value": voluptuous.Any(hex_integer(to_int=True), int),  # VET to pass to call.
+        "data": hex_integer(allow_empty=True),
     },
     required=True,
     extra=REMOVE_EXTRA,
 )
-"""Validation schema for transaction clause.
-
-Validation :external:class:`~voluptuous.schema_builder.Schema`
-for transaction clause.
+"""
+Validation :external:class:`~voluptuous.schema_builder.Schema` for transaction clause.
 
 :meta hide-value:
 
-See Also
---------
-:class:`ClauseT`: corresponding :class:`typing.TypedDict`.
+.. versionchanged:: 2.0.0
+    Added validation of ``to``, ``value`` and ``data`` as hex string.
 """
 
 
@@ -151,16 +149,11 @@ RESERVED: Final = Schema(
     required=True,
     extra=REMOVE_EXTRA,
 )
-"""Validation schema for ``reserved`` transaction field.
-
+"""
 Validation :external:class:`~voluptuous.schema_builder.Schema`
 for ``reserved`` transaction field.
 
 :meta hide-value:
-
-See Also
---------
-:class:`ReservedT`: corresponding :class:`typing.TypedDict`.
 """
 
 
@@ -196,28 +189,26 @@ class TransactionBodyT(TypedDict):
 BODY: Final = Schema(
     {
         "chainTag": int,
-        "blockRef": str,
+        "blockRef": hex_integer(16),
         "expiration": int,
         "clauses": [CLAUSE],
         "gasPriceCoef": int,
-        "gas": voluptuous.Any(str, int),
-        "dependsOn": voluptuous.Any(str, None),
-        "nonce": voluptuous.Any(str, int),
+        "gas": voluptuous.Any(hex_integer(to_int=True), int),
+        "dependsOn": voluptuous.Any(address_type(), None),
+        "nonce": voluptuous.Any(hex_integer(to_int=True), int),
         voluptuous.Optional("reserved"): RESERVED,
     },
     required=True,
     extra=REMOVE_EXTRA,
 )
-"""Validation schema for transaction body.
-
+"""
 Validation :external:class:`~voluptuous.schema_builder.Schema`
 for transaction body.
 
 :meta hide-value:
 
-See Also
---------
-:class:`TransactionBodyT`: corresponding :class:`typing.TypedDict`.
+.. versionchanged:: 2.0.0
+    Added validation of ``gas``, ``dependsOn`` and ``nonce`` fields as hex string.
 """
 
 
@@ -227,7 +218,7 @@ def data_gas(data: str) -> int:
     Parameters
     ----------
     data : str
-        '0x...' style hex string.
+        ``0x...`` style hex string.
 
     Returns
     -------

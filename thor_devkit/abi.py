@@ -62,8 +62,7 @@ __all__ = [
 ]
 
 MUTABILITY: Final = Schema(voluptuous.Any("pure", "view", "payable", "nonpayable"))
-"""Validation schema for ``stateMutability`` parameter.
-
+"""
 Validation :external:class:`~voluptuous.schema_builder.Schema`
 for ``stateMutability`` parameter.
 
@@ -104,16 +103,10 @@ FUNC_PARAMETER: Final = Schema(
     },
     required=True,
 )
-"""Validation schema for function parameter.
-
-Validation :external:class:`~voluptuous.schema_builder.Schema`
-for function parameter.
+"""
+Validation :external:class:`~voluptuous.schema_builder.Schema` for function parameter.
 
 :meta hide-value:
-
-See also
---------
-:class:`FuncParameterT`: corresponding :class:`typing.TypedDict`.
 """
 
 
@@ -143,9 +136,7 @@ FUNCTION: Final = Schema(
     required=True,
     extra=voluptuous.REMOVE_EXTRA,
 )
-"""Validation schema for ABI function.
-
-Validation :external:class:`~voluptuous.schema_builder.Schema` for ABI function.
+"""Validation :external:class:`~voluptuous.schema_builder.Schema` for ABI function.
 
 :meta hide-value:
 
@@ -153,10 +144,6 @@ Validation :external:class:`~voluptuous.schema_builder.Schema` for ABI function.
     Removed not required members which are not produced by solidity compiler
     by default, namely ``constant`` and ``payable``.
     All non-standard parameters are silently discarded now.
-
-See also
---------
-:class:`FunctionT`: corresponding :class:`typing.TypedDict`.
 """
 
 
@@ -188,15 +175,9 @@ EVENT_PARAMETER: Final = Schema(
     },
     required=True,
 )
-"""Validation schema for event parameter.
-
-Validation :external:class:`~voluptuous.schema_builder.Schema` for event parameter.
+"""Validation :external:class:`~voluptuous.schema_builder.Schema` for event parameter.
 
 :meta hide-value:
-
-See also
---------
-:class:`EventParameterT`: corresponding :class:`~typing.TypedDict`.
 """
 
 
@@ -225,15 +206,9 @@ EVENT: Final = Schema(
         "inputs": [EVENT_PARAMETER],
     }
 )
-"""Validation schema for ABI event.
-
-Validation :external:class:`~voluptuous.schema_builder.Schema` for ABI event.
+"""Validation :external:class:`~voluptuous.schema_builder.Schema` for ABI event.
 
 :meta hide-value:
-
-See also
---------
-:class:`EventT`: corresponding :class:`~typing.TypedDict`.
 """
 
 

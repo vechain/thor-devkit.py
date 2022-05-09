@@ -178,14 +178,14 @@ def test_invalid_body_3(non_delegated_body: TransactionBodyT):
 
 def test_invalid_body_4(non_delegated_body: TransactionBodyT):
     non_delegated_body["blockRef"] = "0x"
-    with pytest.raises(SerializationError, match=r"Expected string of length 18"):
-        Transaction(non_delegated_body).encode()
+    with pytest.raises(Invalid):
+        Transaction(non_delegated_body)
 
 
 def test_invalid_body_5(non_delegated_body: TransactionBodyT):
     non_delegated_body["blockRef"] = "0x" + "0" * 18
-    with pytest.raises(SerializationError, match=r"Expected string of length 18"):
-        Transaction(non_delegated_body).encode()
+    with pytest.raises(Invalid):
+        Transaction(non_delegated_body)
 
 
 def test_invalid_body_6(non_delegated_body: TransactionBodyT):

@@ -1,6 +1,5 @@
-from datetime import datetime
-
 import pytest
+from voluptuous.error import Invalid
 
 from thor_devkit.certificate import Certificate, CertificateT
 from thor_devkit.cry import blake2b256, public_key_to_address, secp256k1
@@ -35,7 +34,7 @@ def cert_1(signer):
 def cert_2(signer):
     data: CertificateT = {
         "domain": "localhost",
-        "timestamp": datetime.fromtimestamp(1545035330),
+        "timestamp": 1545035330,
         "purpose": "identification",
         "signer": signer,
         "payload": {"content": "fyi", "type": "text"},
@@ -50,7 +49,7 @@ def test_encode_basic(cert_1, cert_2):
 
 def test_signer_is_case_insensitive(cert_1):
     data = cert_1.to_dict()
-    data["signer"] = data["signer"].upper()
+    data["signer"] = data["signer"].lower()
     assert cert_1.encode() == Certificate(**data).encode()
 
 
@@ -72,8 +71,14 @@ def test_verify(cert_1, private_key):
     Certificate(**cert_1.to_dict(), signature=sig).verify()
     Certificate(**cert_1.to_dict(), signature=sig.upper()).verify()
 
-    # Signature doesn't match.
+    # Invalid signer
     temp = cert_1.to_dict()
     temp["signer"] = "0x"
+    with pytest.raises(Invalid):
+        Certificate(**temp, signature=sig).verify()
+
+    # Signature doesn't match.
+    temp = cert_1.to_dict()
+    temp["signer"] = "0x" + "0" * 40
     with pytest.raises(BadSignature):
         Certificate(**temp, signature=sig).verify()

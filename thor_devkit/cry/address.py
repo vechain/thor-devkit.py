@@ -18,7 +18,7 @@ __all__ = [
     "to_checksum_address",
 ]
 
-ADDRESS_RE: Final = re.compile("^0x[0-9a-f]{40}$", re.I)
+ADDRESS_RE: Final = re.compile(r"^0x[0-9a-f]{40}$", re.I)
 """Regex the address should match."""
 
 

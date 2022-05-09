@@ -76,3 +76,9 @@ Implementation details
 -----------------------------
 
 .. automodule:: thor_devkit.cry.utils
+
+
+:mod:`thor_devkit.validation`
+-----------------------------
+
+.. automodule:: thor_devkit.validation

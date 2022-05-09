@@ -49,8 +49,8 @@ __all__ = [
     "ComplexCodec",
 ]
 
-HEX_STRING_PATTERN: Final = re.compile("^0x[0-9a-f]*$", re.I)
-NONEMPTY_HEX_STRING_PATTERN: Final = re.compile("^0x[0-9a-f]+$", re.I)
+HEX_STRING_PATTERN: Final = re.compile(r"^0x[0-9a-f]*$", re.I)
+NONEMPTY_HEX_STRING_PATTERN: Final = re.compile(r"^0x[0-9a-f]+$", re.I)
 
 
 def _is_hex_string(a: str, must_contain_data: bool) -> bool:

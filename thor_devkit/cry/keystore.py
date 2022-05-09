@@ -15,9 +15,11 @@ import sys
 from typing import Union
 
 import eth_keyfile
+import voluptuous
+from voluptuous import Invalid, Schema
 
-from thor_devkit.cry.address import is_address
 from thor_devkit.deprecation import renamed_function
+from thor_devkit.validation import address_type, hex_string
 
 if sys.version_info < (3, 8):
     from typing_extensions import Final, Literal, TypedDict
@@ -25,10 +27,15 @@ else:
     from typing import Final, Literal, TypedDict
 
 __all__ = [
+    "AES128CTR_CIPHER_PARAMS",
     "AES128CTRCipherParamsT",
+    "PBKDF2_PARAMS",
     "PBKDF2ParamsT",
+    "SCRYPT_PARAMS",
     "ScryptParamsT",
+    "CRYPTO_PARAMS",
     "CryptoParamsT",
+    "KEYSTORE",
     "KeyStoreT",
     "encrypt",
     "decrypt",
@@ -48,8 +55,19 @@ SALT_LEN: Final = 16
 """Salt length for scrypt."""
 
 
+AES128CTR_CIPHER_PARAMS: Final = Schema({"iv": str}, required=True)
+"""
+Validation :external:class:`~voluptuous.schema_builder.Schema`
+for ``AES-128-CTR`` cipher parameters.
+
+:meta hide-value:
+
+.. versionadded:: 2.0.0
+"""
+
+
 class AES128CTRCipherParamsT(TypedDict):
-    """Parameters for ``aes-128-ctr`` cipher.
+    """Parameters for ``AES-128-CTR`` cipher.
 
     .. versionadded:: 2.0.0
     """
@@ -58,8 +76,27 @@ class AES128CTRCipherParamsT(TypedDict):
     """Internal parameter."""
 
 
+PBKDF2_PARAMS: Final = Schema(
+    {
+        "c": int,
+        "dklen": int,
+        "prf": "hmac-sha256",
+        "salt": hex_string(64),
+    },
+    required=True,
+)
+"""
+Validation :external:class:`~voluptuous.schema_builder.Schema`
+for ``PBKDF2`` key derivation function parameters.
+
+:meta hide-value:
+
+.. versionadded:: 2.0.0
+"""
+
+
 class PBKDF2ParamsT(TypedDict):
-    """Parameters for ``pbkdf2`` key derivation function.
+    """Parameters for ``PBKDF2`` key derivation function.
 
     .. versionadded:: 2.0.0
     """
@@ -69,9 +106,29 @@ class PBKDF2ParamsT(TypedDict):
     dklen: int
     """Derived key length."""
     prf: Literal["hmac-sha256"]
-    """Hash function to calculate HMAC"""
+    """Hash function to calculate HMAC."""
     salt: str
-    """Salt to use."""
+    """Salt to use, hex string."""
+
+
+SCRYPT_PARAMS: Final = Schema(
+    {
+        "dklen": int,
+        "n": int,
+        "r": int,
+        "p": int,
+        "salt": hex_string(),
+    },
+    required=True,
+)
+"""
+Validation :external:class:`~voluptuous.schema_builder.Schema`
+for ``scrypt`` key derivation function parameters.
+
+:meta hide-value:
+
+.. versionadded:: 2.0.0
+"""
 
 
 class ScryptParamsT(TypedDict):
@@ -89,7 +146,28 @@ class ScryptParamsT(TypedDict):
     p: int
     """Parallelism factor."""
     salt: str
-    """Salt to use, 64 characters long (32 bytes)."""
+    """Salt to use, hex string."""
+
+
+CRYPTO_PARAMS: Final = Schema(
+    {
+        "cipher": "aes-128-ctr",
+        "cipherparams": AES128CTR_CIPHER_PARAMS,
+        "ciphertext": hex_string(64),
+        "kdf": voluptuous.Any("scrypt", "pbkdf2"),
+        "kdfparams": voluptuous.Any(SCRYPT_PARAMS, PBKDF2_PARAMS),
+        "mac": hex_string(64),
+    },
+    required=True,
+)
+"""
+Validation :external:class:`~voluptuous.schema_builder.Schema`
+for ``crypto`` certificate parameter.
+
+:meta hide-value:
+
+.. versionadded:: 2.0.0
+"""
 
 
 class CryptoParamsT(TypedDict):
@@ -112,6 +190,24 @@ class CryptoParamsT(TypedDict):
     """MAC (checksum variant), 64 characters long (32 bytes)."""
 
 
+KEYSTORE: Final = Schema(
+    {
+        "address": address_type(),
+        "id": str,
+        "version": 3,
+        "crypto": CRYPTO_PARAMS,
+    },
+    required=True,
+)
+"""
+Validation :external:class:`~voluptuous.schema_builder.Schema` for key store body.
+
+:meta hide-value:
+
+.. versionadded:: 2.0.0
+"""
+
+
 class KeyStoreT(TypedDict):
     """Type of key store body dictionary.
 
@@ -121,7 +217,7 @@ class KeyStoreT(TypedDict):
     address: str
     """Address used."""
     id: str  # noqa: A003
-    """36 chars, common format: ``x{8}-x{4}-x{4}-x{4}-x{12}``, ``x`` is any hex digit"""
+    """36 chars, format: ``x{8}-x{4}-x{4}-x{4}-x{12}``, ``x`` is any hex digit."""
     version: Literal[3]
     """Version used. Other are not supported."""
     crypto: CryptoParamsT
@@ -143,7 +239,9 @@ def encrypt(private_key: bytes, password: Union[str, bytes]) -> KeyStoreT:
     KeyStoreT
         A key store json-style dictionary.
     """
-    return eth_keyfile.create_keyfile_json(private_key, password, 3, "scrypt", SCRYPT_N)
+    return KEYSTORE(
+        eth_keyfile.create_keyfile_json(private_key, password, 3, "scrypt", SCRYPT_N)
+    )
 
 
 def decrypt(keystore: KeyStoreT, password: Union[str, bytes]) -> bytes:
@@ -161,7 +259,7 @@ def decrypt(keystore: KeyStoreT, password: Union[str, bytes]) -> bytes:
     bytes
         A private key in bytes.
     """
-    return eth_keyfile.decode_keyfile_json(keystore, password)
+    return eth_keyfile.decode_keyfile_json(KEYSTORE(keystore), password)
 
 
 def _normalize(keystore: KeyStoreT) -> KeyStoreT:
@@ -177,27 +275,18 @@ def _normalize(keystore: KeyStoreT) -> KeyStoreT:
     KeyStoreT
         A key store dict (normalized).
     """
-    return keystore
+    return KEYSTORE(keystore)
 
 
 def _validate(keystore: KeyStoreT) -> Literal[True]:
-    """Validate the format of a key store."""
-    if keystore.get("version") != 3:
-        raise ValueError("Unsupported version: {}".format(keystore.get("version")))
+    """Validate the format of a key store.
 
-    if not is_address(keystore.get("address", "")):
-        raise ValueError(
-            "invalid address {}, should be 40 characters and alphanumeric.".format(
-                keystore.get("address")
-            )
-        )
-
-    if not keystore.get("id"):
-        raise ValueError('Need "id" field.')
-
-    if not keystore.get("crypto"):
-        raise ValueError('Need "crypto" field.')
-
+    Raises
+    ------
+    :exc:`voluptuous.error.Invalid`
+        If data not in good shape.
+    """
+    KEYSTORE(keystore)
     return True
 
 
@@ -227,7 +316,7 @@ def validate(keystore: KeyStoreT) -> Literal[True]:
 
     Raises
     ------
-    ValueError
+    :exc:`voluptuous.error.Invalid`
         If data not in good shape.
     """
     # Extra "raises", because it is primary interface to private method that raises.
@@ -249,5 +338,5 @@ def is_valid(keystore: KeyStoreT) -> bool:
     """
     try:
         return _validate(keystore)
-    except ValueError:
+    except Invalid:
         return False

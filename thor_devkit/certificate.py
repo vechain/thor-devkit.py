@@ -5,8 +5,10 @@
 import json
 import re
 import sys
-from datetime import datetime
-from typing import Optional, Union
+from typing import Optional
+
+import voluptuous
+from voluptuous import Schema
 
 from thor_devkit.cry import blake2b256, secp256k1
 from thor_devkit.cry.address import public_key_to_address
@@ -15,6 +17,7 @@ from thor_devkit.cry.address import public_key_to_address
 from thor_devkit.cry.utils import safe_tolowercase as safe_tolowercase
 from thor_devkit.deprecation import renamed_function
 from thor_devkit.exceptions import BadSignature
+from thor_devkit.validation import address_type, hex_integer
 
 if sys.version_info < (3, 8):
     from typing_extensions import Final, Literal, TypedDict
@@ -26,13 +29,31 @@ else:
     from typing import NotRequired
 
 __all__ = [
+    "PAYLOAD",
     "PayloadT",
+    "CERTIFICATE",
     "CertificateT",
     "Certificate",
 ]
 
-SIGNATURE_PATTERN: Final = re.compile("^0x[0-9a-f]+$", re.I)
+SIGNATURE_PATTERN: Final = re.compile(r"^0x[0-9a-f]{130}$", re.I)
 """Signature must be hex-string with ``0x`` prefix."""
+
+
+PAYLOAD: Final = Schema(
+    {
+        "type": str,
+        "content": str,
+    },
+    required=True,
+)
+"""
+Validation :external:class:`~voluptuous.schema_builder.Schema` for certificate payload.
+
+:meta hide-value:
+
+.. versionadded:: 2.0.0
+"""
 
 
 class PayloadT(TypedDict):
@@ -47,6 +68,26 @@ class PayloadT(TypedDict):
     """Payload content."""
 
 
+CERTIFICATE: Final = Schema(
+    {
+        "purpose": str,
+        "payload": PAYLOAD,
+        "domain": str,
+        "timestamp": int,
+        "signer": address_type(),
+        voluptuous.Optional("signature"): hex_integer(130),
+    },
+    required=True,
+)
+"""
+Validation :external:class:`~voluptuous.schema_builder.Schema` for certificate payload.
+
+:meta hide-value:
+
+.. versionadded:: 2.0.0
+"""
+
+
 class CertificateT(TypedDict):
     """Type of Certificate body dictionary.
 
@@ -59,7 +100,7 @@ class CertificateT(TypedDict):
     """Certificate payload."""
     domain: str
     """Domain for which certificate was issued."""
-    timestamp: Union[int, datetime]
+    timestamp: int
     """Issue time."""
     signer: str
     """Signer address, in ``0x...`` format."""
@@ -75,14 +116,15 @@ class Certificate:
         purpose: str,
         payload: PayloadT,
         domain: str,
-        timestamp: Union[int, datetime],
+        timestamp: int,
         signer: str,
         signature: Optional[str] = None,
     ):
         """Instantiate certificate from parameters.
 
         .. versionchanged:: 2.0.0
-            `datetime` object allowed for ``timestamp`` argument.
+            :exc:`ValueError` not raised anymore, :exc:`~voluptuous.error.Invalid`
+            is used instead.
 
         Parameters
         ----------
@@ -92,37 +134,35 @@ class Certificate:
             Dictionary of style { "type": str, "content": str}
         domain : str
             Certificate domain.
-        timestamp : Union[int, datetime]
-            Integer Unix timestamp or datetime.datetime object.
+        timestamp : int
+            Integer Unix timestamp.
         signer : str
-            0x... the signer address.
+            The signer address with ``0x`` prefix.
         signature : Optional[str], optional, default: None
-            A secp256k1 signed bytes, but turned into a '0x' + bytes.hex() format
+            A ``secp256k1`` signed bytes, but turned into a
+            ``'0x' + bytes.hex()`` format.
 
         Raises
         ------
-        ValueError
-            When ``payload`` dictionary is malformed.
+        :exc:`~voluptuous.error.Invalid`
+            When ``payload`` dictionary is malformed or parameters given are invalid.
         """
-        if not payload.get("type"):
-            raise ValueError('payload needs a string field "type"')
-        if not payload.get("content"):
-            raise ValueError('payload needs a string field "content"')
+        # Validate
+        payload = PAYLOAD(payload)
 
-        self._body: CertificateT = {
+        body: CertificateT = {
             "purpose": purpose,
             "payload": payload,
             "domain": domain,
-            "timestamp": (
-                round(timestamp.timestamp())
-                if isinstance(timestamp, datetime)
-                else timestamp
-            ),
+            "timestamp": timestamp,
             "signer": signer,
         }
 
         if signature:
-            self._body["signature"] = signature
+            body["signature"] = signature
+
+        # Validate and normalize
+        self._body = CERTIFICATE(body)
 
     def to_dict(self) -> CertificateT:
         """Export certificate body as dictionary."""
