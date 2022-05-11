@@ -258,7 +258,7 @@ class FunctionResult(base):
     Names of result items can slightly differ from names in definition.
     See details below.
 
-    See also
+    See Also
     --------
     :meth:`FunctionResult.name_to_identifier`: Details of names changing.
 
@@ -1260,8 +1260,8 @@ class Event(Encodable[EventParameterT]):
         ValueError
             If topics count does not match the number of indexed parameters.
 
-        Note
-        ----
+        Notes
+        -----
         One log contains mainly 3 entries:
 
         - For a non-indexed parameters event::
@@ -1349,7 +1349,7 @@ class Event(Encodable[EventParameterT]):
         Note that we don't get a string as output due to the nature of
         indexed parameters.
 
-        See also
+        See Also
         --------
         :meth:`Function.decode`: for examples of result usage.
         """

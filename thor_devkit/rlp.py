@@ -66,7 +66,7 @@ class ScalarKind(Generic[_T], ABC):
 
     @abstractmethod
     def serialize(self, __obj: _T) -> bytes:
-        """Serialize the object into a RLP encode-able "item"."""
+        """Serialize the object into a RLP encodable "item"."""
         raise NotImplementedError
 
     @abstractmethod
@@ -84,7 +84,7 @@ class BytesKind(ScalarKind[bytes]):
         return isinstance(obj, (bytes, bytearray))
 
     def serialize(self, obj: bytes) -> bytes:
-        """Serialize the object into a RLP encode-able "item".
+        """Serialize the object into a RLP encodable "item".
 
         Parameters
         ----------
@@ -99,7 +99,7 @@ class BytesKind(ScalarKind[bytes]):
         Raises
         ------
         TypeError
-            raise if input is not bytes.
+            If input is not bytes.
         """
         if not self.is_valid_type(obj):
             raise TypeError(
@@ -124,7 +124,7 @@ class BytesKind(ScalarKind[bytes]):
         Raises
         ------
         TypeError
-            raise if input is not bytes.
+            If input is not bytes.
         """
         if not self.is_valid_type(serial):
             raise TypeError(
@@ -139,11 +139,11 @@ class NumericKind(BigEndianInt, ScalarKind[int]):
 
     Good examples are::
 
-        '0x0', '0x123', '0', '100', 0, 0x123
+        '0x0', '0x123', '0', '100', 0, 0x123, True
 
     Bad examples are::
 
-        '0x123z', {}, '0x', -1, '0x12345678123456780', True
+        '0x123z', {}, '0x', -1, '0x12345678123456780'
 
     .. versionchanged:: 2.0.0
         Allowed :class:`bool` values :class:`True` and :class:`False`.
@@ -161,7 +161,7 @@ class NumericKind(BigEndianInt, ScalarKind[int]):
         super().__init__(l=max_bytes)
 
     def serialize(self, obj: Union[str, int]) -> bytes:
-        """Serialize the object into a RLP encode-able "item".
+        """Serialize the object into a RLP encodable "item".
 
         Parameters
         ----------
@@ -176,9 +176,9 @@ class NumericKind(BigEndianInt, ScalarKind[int]):
         Raises
         ------
         SerializationError
-            Input data is malformed
+            If input data is malformed
         TypeError
-            Input is neither int nor string representation of int
+            If input is neither int nor string representation of int
         """
         if isinstance(obj, str):
             try:
@@ -259,9 +259,9 @@ class BlobKind(ScalarKind[str]):
         Raises
         ------
         SerializationError
-            Input data is malformed
+            If input data is malformed.
         TypeError
-            Input is not a string
+            If input is not a string.
         """
         if not isinstance(obj, str):
             raise TypeError(
@@ -294,7 +294,7 @@ class BlobKind(ScalarKind[str]):
         Raises
         ------
         TypeError
-            Input is not ``bytes`` nor ``bytearray``
+            If input is not ``bytes`` nor ``bytearray``
         """
         if not isinstance(serial, (bytes, bytearray)):
             raise TypeError(f"expected bytes, got: {type(serial)}")
@@ -333,9 +333,9 @@ class FixedBlobKind(BlobKind):
         Raises
         ------
         SerializationError
-            Input data is malformed (e.g. wrong length)
+            If input data is malformed (e.g. wrong length)
         TypeError
-            Input is not a string
+            If input is not a string
         """
         # 0x counts for 2 chars. 1 bytes = 2 hex char.
         allowed_hex_length = self.byte_length * 2 + 2
@@ -368,7 +368,7 @@ class FixedBlobKind(BlobKind):
         Raises
         ------
         DeserializationError
-            Input is malformed (e.g. wrong length)
+            If input is malformed (e.g. wrong length)
         """
         if len(serial) != self.byte_length:
             raise DeserializationError(
@@ -501,7 +501,7 @@ class CompactFixedBlobKind(FixedBlobKind):
         Raises
         ------
         DeserializationError
-            Description
+            If input is malformed.
         """
         if len(serial) > self.byte_length:
             raise DeserializationError(
@@ -609,6 +609,13 @@ def pack(obj: Any, wrapper: BaseWrapper) -> _PackedListT:
     ...
 
 
+@overload
+def pack(
+    obj: Any, wrapper: Union[BaseWrapper, ScalarKind[Any]]
+) -> Union[bytes, _PackedListT]:
+    ...
+
+
 def pack(
     obj: Any, wrapper: Union[BaseWrapper, ScalarKind[Any]]
 ) -> Union[bytes, _PackedListT]:
@@ -631,9 +638,9 @@ def pack(
     Raises
     ------
     SerializationError
-        Data cannot be serialized using specified codec.
+        If data cannot be serialized using specified codec.
     TypeError
-        Unknown wrapper type.
+        If wrapper type is unknown.
     """
     # Simple wrapper: ScalarKind
     if isinstance(wrapper, ScalarKind):
@@ -723,9 +730,9 @@ def unpack(
     Raises
     ------
     DeserializationError
-        Data cannot be deserialized using specified codec.
+        If data cannot be deserialized using specified codec.
     TypeError
-        Unknown wrapper type.
+        If wrapper type is unknown.
     """
     # Simple wrapper: ScalarKind
     if isinstance(wrapper, ScalarKind):
@@ -803,19 +810,19 @@ def pretty_print(
 class ComplexCodec:
     """Wrapper around :class:`BaseWrapper` that implements RLP encoding.
 
-    Provides access to module-level :func:`encode` and :func:`decode` functions
-    as :meth:`encode` and :meth:`decode` methods
+    Abstract layer to join serialization and encoding
+    (and reverse operations) together.
     """
 
     def __init__(self, wrapper: BaseWrapper) -> None:
         self.wrapper = wrapper
 
     def encode(self, data: Any) -> bytes:
-        """RLP-encode given high-level data to bytes."""
+        """Serialize and RLP-encode given high-level data to bytes."""
         packed = pack(data, self.wrapper)
         return rlp_encode(packed)
 
     def decode(self, data: bytes) -> Any:
-        """RLP-decode given bytes into higher-level structure."""
+        """RLP-decode and deserialize given bytes into higher-level structure."""
         to_be_unpacked = rlp_decode(data)
         return unpack(to_be_unpacked, self.wrapper)
