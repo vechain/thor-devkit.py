@@ -239,7 +239,7 @@ def encrypt(private_key: bytes, password: Union[str, bytes]) -> KeyStoreT:
     KeyStoreT
         A key store json-style dictionary.
     """
-    return KEYSTORE(
+    return _normalize(
         eth_keyfile.create_keyfile_json(private_key, password, 3, "scrypt", SCRYPT_N)
     )
 
@@ -259,7 +259,7 @@ def decrypt(keystore: KeyStoreT, password: Union[str, bytes]) -> bytes:
     bytes
         A private key in bytes.
     """
-    return eth_keyfile.decode_keyfile_json(KEYSTORE(keystore), password)
+    return eth_keyfile.decode_keyfile_json(_normalize(keystore), password)
 
 
 def _normalize(keystore: KeyStoreT) -> KeyStoreT:

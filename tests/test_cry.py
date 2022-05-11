@@ -1,6 +1,7 @@
 import re
 
 import pytest
+from voluptuous.error import Invalid
 
 from thor_devkit import cry
 from thor_devkit.cry import keystore, mnemonic, secp256k1, utils
@@ -63,6 +64,9 @@ def test_blake2b():
     h, _ = cry.blake2b256([b"hello", b" world"])
     assert h.hex() == expected
 
+    with pytest.raises(TypeError):
+        cry.blake2b256(b"hello")  # type: ignore[arg-type]
+
 
 def test_keccak256():
     expected = "47173285a8d7341e5e972fc677286384f802f8ef42a5ec5f03bbfa254cb01fad"
@@ -73,10 +77,21 @@ def test_keccak256():
     h, _ = cry.keccak256([b"hello", b" world"])
     assert h.hex() == expected
 
+    with pytest.raises(TypeError):
+        cry.keccak256(b"hello")  # type: ignore[arg-type]
+
 
 def test_address(address: str):
     assert cry.is_address(address)
     assert cry.to_checksum_address(address) == re.sub(r"^(0X)", r"0x", address)
+
+
+def test_bad_address():
+    with pytest.raises(ValueError, match=r".+not valid"):
+        cry.to_checksum_address("0x00")
+
+    with pytest.raises(ValueError, match=r".+not valid"):
+        cry.to_checksum_address(f"0x{'f' * 39}g")
 
 
 def test_private_key_length(private_key: bytes):
@@ -132,6 +147,8 @@ def test_mnemonic(seed_phrase):
     # Valid: False
     words3 = sorted(seed_phrase.split())
     assert not mnemonic.is_valid(words3)
+    with pytest.raises(ValueError, match=r".+ check.+"):
+        mnemonic.derive_seed(words3)
 
     # Seed generated from words.
     assert mnemonic.derive_seed(words) == bytes.fromhex(SEED)
@@ -170,6 +187,21 @@ def test_keystore():
     _priv = keystore.decrypt(ks, password)
     assert _priv.hex() == private_key_hex
 
+    norm_ks = keystore.KEYSTORE(ks)
+    new_ks = keystore.encrypt(bytes.fromhex(private_key_hex), password)
+    assert new_ks["version"] == norm_ks["version"]
+    assert new_ks["address"] == norm_ks["address"]
+
+    assert keystore.decrypt(new_ks, password.decode()).hex() == private_key_hex
+
+    keystore.validate(ks)
+    assert keystore.is_valid(ks)
+
+    ks["address"] = "00"
+    with pytest.raises(Invalid):
+        keystore.validate(ks)
+    assert not keystore.is_valid(ks)
+
 
 def test_hdnode(seed_phrase):
     words = seed_phrase.split(" ")
@@ -192,6 +224,8 @@ def test_hdnode(seed_phrase):
     pub = hd_node.public_key()
     cc = hd_node.chain_code()
 
+    hd_node.finger_print()
+
     n = cry.HDNode.from_private_key(priv, cc)
 
     for idx, address in enumerate(addresses):
@@ -203,3 +237,5 @@ def test_hdnode(seed_phrase):
     for idx, address in enumerate(addresses):
         child_node = n2.derive(idx)
         assert child_node.address().hex() == address
+
+    cry.HDNode.from_seed(mnemonic.derive_seed(words))

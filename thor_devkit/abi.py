@@ -1,20 +1,24 @@
 r"""ABI encoding module."""
 
+import re
 import sys
 import warnings
 from abc import ABC, abstractmethod
 from collections import namedtuple
+from keyword import iskeyword
 from typing import (
     TYPE_CHECKING,
     Any,
     Dict,
     Generic,
     Iterable,
+    Iterator,
     List,
     Mapping,
     NamedTuple,
     Optional,
     Sequence,
+    Tuple,
     Type,
     TypeVar,
     Union,
@@ -28,7 +32,7 @@ import voluptuous
 from voluptuous import Schema
 
 from thor_devkit.cry import keccak256
-from thor_devkit.cry.utils import _with_doc_mro
+from thor_devkit.cry.utils import _with_doc_mro, izip
 from thor_devkit.deprecation import deprecated_to_property
 
 if sys.version_info < (3, 8):
@@ -235,21 +239,24 @@ else:
 
 
 class FunctionResult(base):
-    """:class:`~typing.NamedTuple` mixin with convenience methods.
+    """Mixin for :class:`~typing.NamedTuple` with convenience methods.
 
     It is returned from :meth:`Event.decode` and :meth:`Function.decode`.
 
     When obtained from ``decode`` method of :class:`Function` or :class:`Event`,
     this class will contain decoded parameters. They can be obtained either by name
-    (name will be taken from JSON input or ``ret_{index}`` if name was missing)
     or by numeric index as from plain tuples.
 
-    .. versionadded:: 2.0.0
+    Warning
+    -------
+    Names of result items can slightly differ from names in definition.
+    See details below.
 
-    Notes
-    -----
-    Type checker will consider all attributes ``Any``
-    due to implementation limitation.
+    See also
+    --------
+    :meth:`FunctionResult.name_to_identifier`: Details of names changing.
+
+    .. versionadded:: 2.0.0
 
     See Also
     --------
@@ -264,9 +271,15 @@ class FunctionResult(base):
         Dict[str, Any]
             Dictionary of form ``{name: value}``
             (all inner namedtuples are converted too)
+
+        Note
+        ----
+        This method reverts name changing, except empty strings.
+        Unnamed parameters will be still represented as ``ret_{i}``,
+        while python keywords are restored (so ``from_`` is again ``from`` key).
         """
         return {
-            k: (
+            self.name_from_identifier(k): (
                 v.to_dict()
                 if isinstance(v, FunctionResult)
                 else ([v_.to_dict() for v_ in v] if isinstance(v, list) else v)
@@ -284,6 +297,104 @@ class FunctionResult(base):
         `assert` proper types to narrow them.
         """
         return super().__getattr__(name)  # type: ignore[misc]
+
+    @staticmethod
+    def name_to_identifier(word: str, position: int = 0) -> str:
+        """Convert given word to valid python identifier.
+
+        It assumes that ``word`` is a valid ``solidity`` identifier or empty string.
+
+        The following rules apply:
+
+        - Empty string are converted to f"ret_{position}"
+        - Python keyword (maybe already with underscores at the end)
+          gets underscore (``_``) appended
+        - All other words are returned unchanged.
+
+        Parameters
+        ----------
+        word: str
+            Solidity identifier to make compatible.
+        position: int
+            Arbitrary integer, unique for your collection
+            (different for different calls).
+
+        Returns
+        -------
+        str
+            Valid python identifier.
+
+        Raises
+        ------
+        ValueError
+            If given string is not a valid solidity identifier.
+
+        Examples
+        --------
+        >>> FunctionResult.name_to_identifier('foo')
+        'foo'
+
+        >>> FunctionResult.name_to_identifier('')
+        'ret_0'
+
+        >>> FunctionResult.name_to_identifier('', 1)
+        'ret_1'
+
+        >>> FunctionResult.name_to_identifier('for')
+        'for_'
+        """
+        if not word:
+            return f"ret_{position}"
+
+        if not word.isidentifier():
+            raise ValueError(f"Invalid identifier given: {word}")
+
+        if iskeyword(word.rstrip("_")):
+            return f"{word}_"
+        return word
+
+    @staticmethod
+    def name_from_identifier(word: str) -> str:
+        r"""Reverse conversion to valid python identifier.
+
+        It assumes that ``word`` was a result of
+        :meth:`FunctionResult.name_to_identifier`.
+
+        The following rules apply:
+
+        - Word that are of form ``keyword(_)+`` (with at least one
+          underscore ``_`` at the end) lose one underscore
+        - All other words are returned unchanged.
+
+        Parameters
+        ----------
+        word: str
+            Identifier to reverse.
+
+        Returns
+        -------
+        str
+            Valid solidity identifier.
+
+        Raises
+        ------
+        ValueError
+            If given string is not a valid solidity identifier.
+
+        Examples
+        --------
+        >>> FunctionResult.name_from_identifier('foo')
+        'foo'
+
+        >>> FunctionResult.name_from_identifier('ret_0')
+        'ret_0'
+
+        >>> FunctionResult.name_from_identifier('for_')
+        'for'
+        """
+        if word.endswith("_") and iskeyword(word.rstrip("_")):
+            return word[:-1]
+        return word
 
 
 def calc_function_selector(abi_json: FunctionT) -> bytes:
@@ -327,6 +438,7 @@ class Coder:
 # _ParamT = TypeVar("_ParamT", EventParameterT, FuncParameterT)
 _ParamT = TypeVar("_ParamT", bound=_ParameterT)
 _BaseT = TypeVar("_BaseT")
+_T = TypeVar("_T")
 
 
 class Encodable(Generic[_ParamT], ABC):
@@ -374,48 +486,149 @@ class Encodable(Generic[_ParamT], ABC):
     def _make_output_namedtuple_type(
         name: str, types: Iterable[_ParamT]
     ) -> Type[FunctionResult]:
-        top_names = [(t["name"] or f"ret_{i}") for i, t in enumerate(types)]
+        top_names = [
+            FunctionResult.name_to_identifier(t["name"], i) for i, t in enumerate(types)
+        ]
         return type(name, (namedtuple(name, top_names), FunctionResult), {})
 
-    @staticmethod
-    def _get_array_dimensions_count(type_: str) -> int:
+    @classmethod
+    def _demote_type(cls, typeinfo: _ParamT) -> Tuple[_ParamT, bool]:
         # We don't have to support nested stuff like (uint256, bool[4])[],
         # because type in JSON will be tuple[], uint256 and bool[4] in this case
         # without nesting in string
-        return type_.count("[")
+        type_ = typeinfo["type"]
+        new_type_ = re.sub(r"(\[\d*\])$", r"", type_)
+        if new_type_ == type_:
+            return typeinfo.copy(), False
 
+        new_type = typeinfo.copy()
+        new_type["type"] = new_type_
+        return new_type, True
+
+    @classmethod
     def apply_recursive_names(
-        self,
+        cls,
         value: Any,
         typeinfo: _ParamT,
         chain: Optional[Sequence[str]] = None,
-        array_depth: int = 0,
     ) -> Union[FunctionResult, List[FunctionResult], Any]:
         """Build namedtuple from values.
 
         .. customtox-exclude::
         """
-        type_ = typeinfo["type"]
-
-        if not type_.startswith("tuple"):
+        if not typeinfo["type"].startswith("tuple"):
             return value
 
         chain = [*(chain or []), typeinfo["name"].title() or "NoName"]
 
-        if self._get_array_dimensions_count(type_) > array_depth:
-            return [
-                self.apply_recursive_names(v, typeinfo, chain[:-1], array_depth + 1)
-                for v in value
-            ]
+        new_type, demoted = cls._demote_type(typeinfo)
+        if demoted:
+            return [cls.apply_recursive_names(v, new_type, chain[:-1]) for v in value]
 
         components = cast(list[_ParamT], typeinfo.get("components", []))
-        NewType = self._make_output_namedtuple_type("_".join(chain), components)
+        NewType = cls._make_output_namedtuple_type("_".join(chain), components)
         return NewType(
             *(
-                self.apply_recursive_names(v, t, chain)
-                for t, v in zip(components, value)
+                cls.apply_recursive_names(v, t, chain)
+                for t, v in izip(components, value)
             )
         )
+
+    @classmethod
+    def _normalize_values_dict(
+        cls,
+        values: Mapping[str, Any],
+        expected: Union[_ParamT, Sequence[_ParamT]],
+    ) -> Iterator[Any]:
+        assert isinstance(values, Mapping)
+
+        if isinstance(expected, Mapping):
+            components = expected.get("components", [])
+        else:
+            components = expected
+        if len(values) != len(components):
+            raise ValueError(
+                f"Invalid keys count, expected {len(components)}, got {len(values)}"
+            )
+
+        for typeinfo in components:
+            name = typeinfo.get("name")
+            if not name:
+                raise ValueError(
+                    "Cannot serialize mapping when some types are unnamed."
+                )
+
+            try:
+                val = values[name]
+            except KeyError:
+                raise ValueError(f"Missing key for output: {name}.")
+
+            yield cls._normalize_values(val, typeinfo)
+
+    @overload
+    @classmethod
+    def _normalize_values(
+        cls,
+        values: Mapping[str, Any],
+        expected: Union[_ParamT, Sequence[_ParamT]],
+    ) -> Tuple[Any, ...]:
+        ...
+
+    @overload
+    @classmethod
+    def _normalize_values(
+        cls,
+        values: Sequence[Any],
+        expected: Union[_ParamT, Sequence[_ParamT]],
+    ) -> Sequence[Any]:
+        ...
+
+    @classmethod
+    def _normalize_values(
+        cls,
+        values: object,
+        expected: Union[_ParamT, Sequence[_ParamT]],
+    ) -> object:
+        if isinstance(values, Mapping):
+            values = tuple(cls._normalize_values_dict(values, expected))
+
+        if not (
+            isinstance(values, Sequence)
+            # Primary types
+            and not isinstance(values, (str, bytes, bytearray))
+        ):
+            return values
+
+        if isinstance(expected, Sequence):
+            return tuple(cls._normalize_values(v, t) for v, t in izip(values, expected))
+        type_ = expected["type"]
+        new_type, demoted = cls._demote_type(expected)
+        if demoted:
+            return tuple(cls._normalize_values(v, new_type) for v in values)
+        elif "tuple" in type_:
+            components = cast(List[_ParamT], expected.get("components", []))
+            assert components, "Missing components for tuple."
+            return tuple(
+                cls._normalize_values(v, t) for v, t in izip(values, components)
+            )
+        else:
+            # Give up, maybe it is inline type like {'type': '(str,int)'}
+            return tuple(values)
+
+    @classmethod
+    def _to_final_type(
+        cls, name: str, values: Iterable[Any], types: Iterable[_ParamT]
+    ) -> FunctionResult:
+        NewType = cls._make_output_namedtuple_type(name, types)
+        return NewType(
+            *(
+                cls.apply_recursive_names(value, typeinfo)
+                for typeinfo, value in izip(types, values)
+            )
+        )
+
+
+_dummy = object()
 
 
 class Function(Encodable[FuncParameterT]):
@@ -443,21 +656,25 @@ class Function(Encodable[FuncParameterT]):
         return self._selector
 
     @overload
-    def encode(self, parameters: Sequence[Any], to_hex: Literal[True]) -> str:
+    def encode(
+        self, parameters: Union[Sequence[Any], Mapping[str, Any]], to_hex: Literal[True]
+    ) -> str:
         ...
 
     @overload
-    def encode(self, parameters: Sequence[Any], to_hex: Literal[False] = ...) -> bytes:
-        ...
-
-    @overload
-    def encode(self, parameters: Sequence[Any], to_hex: bool) -> Union[bytes, str]:
+    def encode(
+        self,
+        parameters: Union[Sequence[Any], Mapping[str, Any]],
+        to_hex: Literal[False] = ...,
+    ) -> bytes:
         ...
 
     def encode(
-        self, parameters: Sequence[Any], to_hex: bool = False
+        self,
+        parameters: Union[Sequence[Any], Mapping[str, Any]],
+        to_hex: object = _dummy,
     ) -> Union[bytes, str]:
-        """Encode the parameters according to the function definition.
+        r"""Encode the parameters according to the function definition.
 
         .. versionchanged:: 2.0.0
             parameter ``to_hex`` is deprecated, use ``"0x" + result.hex()``
@@ -465,8 +682,9 @@ class Function(Encodable[FuncParameterT]):
 
         Parameters
         ----------
-        parameters : Sequence of Any
-            A list of parameters waiting to be encoded.
+        parameters : Sequence[Any] or Mapping[str, Any]
+            A list of parameters waiting to be encoded,
+            or a mapping from names to values.
         to_hex : bool, default: False
             If the return should be ``0x...`` hex string
 
@@ -476,24 +694,84 @@ class Function(Encodable[FuncParameterT]):
             By default or if ``to_hex=False`` was passed.
         str
             If ``to_hex=True`` was passed.
+
+        Examples
+        --------
+        Encode sequence:
+        >>> func = Function({
+        ...     'inputs': [{'internalType': 'string', 'name': '', 'type': 'string'}],
+        ...     'outputs': [],
+        ...     'name': 'myFunction',
+        ...     'stateMutability': 'pure',
+        ...     'type': 'function',
+        ... })
+        >>> enc = func.encode(['foo'])
+        >>> assert enc == (
+        ...     func.selector
+        ...     + b'\x20'.rjust(32, b'\x00')  # Address of argument
+        ...     + b'\x03'.rjust(32, b'\x00')  # Length
+        ...     + b'foo'.ljust(32, b'\x00')  # String itself
+        ... )
+
+        Encode mapping:
+        >>> func = Function({
+        ...     'inputs': [{'internalType': 'string', 'name': 'arg', 'type': 'string'}],
+        ...     'outputs': [],
+        ...     'name': 'myFunction',
+        ...     'stateMutability': 'pure',
+        ...     'type': 'function',
+        ... })
+        >>> enc = func.encode({'arg': 'foo'})
+        >>> assert enc == (
+        ...     func.selector
+        ...     + b'\x20'.rjust(32, b'\x00')  # Address of argument
+        ...     + b'\x03'.rjust(32, b'\x00')  # Length
+        ...     + b'foo'.ljust(32, b'\x00')  # String itself
+        ... )
         """
-        my_types = [self.make_proper_type(x) for x in self._definition["inputs"]]
-        my_bytes = self.selector + Coder.encode_list(my_types, parameters)
-        if to_hex:
+        inputs = self._definition["inputs"]
+        my_types = [self.make_proper_type(x) for x in inputs]
+
+        norm_parameters = self._normalize_values(parameters, inputs)
+
+        my_bytes = self.selector + Coder.encode_list(my_types, norm_parameters)
+        if to_hex is not _dummy:
             warnings.warn(
                 DeprecationWarning(
                     "to_hex parameter is deprecated. "
                     "Use ``'0x' + output.hex()`` instead to replicate that behaviour"
                 )
             )
+        if to_hex and to_hex is not _dummy:
             return "0x" + my_bytes.hex()
         else:
             return my_bytes
 
+    def decode_parameters(self, value: bytes) -> FunctionResult:
+        """Decode parameters back to values.
+
+        .. versionadded:: 2.0.0
+
+        Parameters
+        ----------
+        value: bytes
+            Data to decode.
+
+        Returns
+        -------
+        FunctionResult
+            Decoded values.
+        """
+        my_types = [self.make_proper_type(x) for x in self._definition["inputs"]]
+        # Strip signature
+        result_list = Coder.decode_list(my_types, value[4:])
+
+        return self._to_final_type("InType", result_list, self._definition["inputs"])
+
     def decode(self, output_data: bytes) -> FunctionResult:
         """Decode function call output data back into human readable results.
 
-        The result is dynamic subclass of
+        The result is a dynamic subclass of
         :class:`typing.NamedTuple` (:func:`collections.namedtuple` return type)
         and :class:`FunctionResult`
 
@@ -553,17 +831,38 @@ class Function(Encodable[FuncParameterT]):
         >>> result.to_dict()  # Convert to dictionary
         {'ret_0': True}
         """
-        my_types = [self.make_proper_type(x) for x in self._definition["outputs"]]
+        outputs = self._definition["outputs"]
+        my_types = [self.make_proper_type(x) for x in outputs]
         result_list = Coder.decode_list(my_types, output_data)
 
+        return self._to_final_type("OutType", result_list, self._definition["outputs"])
+
+    def encode_outputs(self, values: Union[Sequence[Any], Mapping[str, Any]]) -> bytes:
+        """Encode the return values according to the function definition.
+
+        .. versionadded:: 2.0.0
+
+        Parameters
+        ----------
+        values : Sequence[Any] or Mapping[str, Any]
+            A list of parameters waiting to be encoded,
+            or a mapping from names to values.
+
+        Returns
+        -------
+        bytes
+            Encoded output values.
+
+        Raises
+        ------
+        ValueError
+            If mapping was given for unnamed parameters
+            or mapping keys are not the same as output names.
+        """
         outputs = self._definition["outputs"]
-        NewType = self._make_output_namedtuple_type("OutType", outputs)
-        return NewType(
-            *(
-                self.apply_recursive_names(value, typeinfo)
-                for typeinfo, value in zip(outputs, result_list)
-            )
-        )
+        my_types = [self.make_proper_type(x) for x in outputs]
+
+        return Coder.encode_list(my_types, self._normalize_values(values, outputs))
 
     @deprecated_to_property
     def get_selector(self) -> bytes:
@@ -602,6 +901,10 @@ class Event(Encodable[EventParameterT]):
 
         if len(self.indexed_params) - int(self.is_anonymous) > 3:
             raise ValueError("Too much indexed parameters!")
+
+        self.unindexed_params = [
+            x for x in self._definition["inputs"] if not x["indexed"]
+        ]
 
     @property
     def is_anonymous(self) -> bool:
@@ -649,21 +952,19 @@ class Event(Encodable[EventParameterT]):
             return missing * b"\x00" + bytes(data)
 
     @classmethod
-    def dynamic_type_to_topic(
-        cls, type_: EventParameterT, value: Any, array_depth: int = 0
-    ) -> List[bytes]:
-        """Encode single value according to given ``type``."""
+    def dynamic_type_to_topic(cls, type_: EventParameterT, value: Any) -> List[bytes]:
+        """Encode single value according to given ``type_``."""
         t_type = type_["type"]
-        if cls._get_array_dimensions_count(t_type) > array_depth:
+        new_type, demoted = cls._demote_type(type_)
+        if demoted:
             return [
-                cls._pad(cls.dynamic_type_to_topic(type_, v, array_depth + 1), 32, "l")
-                for v in value
+                cls._pad(cls.dynamic_type_to_topic(new_type, v), 32, "l") for v in value
             ]
 
         if t_type.startswith("tuple"):
             return [
-                cls._pad(cls.dynamic_type_to_topic(t, v, array_depth), 32, "l")
-                for t, v in zip(type_["components"], value)
+                cls._pad(cls.dynamic_type_to_topic(t, v), 32, "l")
+                for t, v in izip(type_["components"], value)
             ]
 
         if t_type == "string":
@@ -680,7 +981,7 @@ class Event(Encodable[EventParameterT]):
     def encode(
         self, parameters: Union[Mapping[str, Any], Sequence[Any]]
     ) -> List[Optional[bytes]]:
-        """Assemble indexed keys into topics.
+        r"""Assemble indexed keys into topics.
 
         Commonly used to filter out logs of concerned topics, e.g. to filter out
         `VIP180 <https://github.com/vechain/VIPs/blob/master/vips/VIP-180.md>`_
@@ -692,22 +993,6 @@ class Event(Encodable[EventParameterT]):
             A dict/list of indexed parameters of the given event.
             Fill in :class:`None` to occupy the position, if you aren't sure
             about the value.
-
-            e.g. for event defined as
-
-            .. code-block:: text
-
-                EventName(address from indexed, address to indexed, uint256 value)
-
-            the parameters can be::
-
-                ['0xa32f..ff', '0x1f...ac']
-                # or
-                {'from': '0xa32f..ff', 'to': '0x1f...ac'}
-                # or
-                [None, '0x1f...ac']
-                # or
-                {'from': None, 'to': '0x1f...ac'}
 
         Returns
         -------
@@ -721,29 +1006,65 @@ class Event(Encodable[EventParameterT]):
         ValueError
             If there is unnamed parameter in definition and dict of parameters is given,
             or if parameters count doesn't match the definition.
+
+        Examples
+        --------
+        Let's say we have
+
+        .. code-block:: text
+
+            MyEvent(address from indexed, address to indexed, uint256 value)
+
+        Then corresponding event is
+        >>> event = Event({
+        ...     'inputs': [
+        ...         {'name': 'from', 'indexed': True, 'type': 'address'},
+        ...         {'name': 'to', 'indexed': True, 'type': 'address'},
+        ...         {'name': 'value', 'indexed': False, 'type': 'uint256'},
+        ...     ],
+        ...     'name': 'MyEvent',
+        ...     'type': 'event',
+        ... })
+
+        We can use it to encode all topics:
+        >>> address_from = '0x' + 'f' * 40
+        >>> address_to = '0x' + '9' * 40
+        >>> enc = event.encode([address_from, address_to])
+        >>> assert tuple(enc) == (
+        ...     event.signature,
+        ...     bytes.fromhex(hex(int(address_from, 16))[2:].rjust(64, '0')),
+        ...     bytes.fromhex(hex(int(address_to, 16))[2:].rjust(64, '0')),
+        ... )
+
+        Note the interesting conversion here: ``address`` is equivalent to ``uint160``,
+        so one would expect just ``bytes.fromhex(address_from[2:])``, right?
+        Indexed event parameters are **always** padded to 32 bytes too, even if they
+        are shorter. Numbers are padded to the right (or as two's complement,
+        if negative), strings and bytes - to the left.
+
+        Or we can convert only some of params:
+        >>> enc = event.encode([address_from, None])
+        >>> assert tuple(enc) == (
+        ...     event.signature,
+        ...     bytes.fromhex(hex(int(address_from, 16))[2:].rjust(64, '0')),
+        ...     None,
+        ... )
+
+        Mapping is also accepted for named parameters:
+        >>> enc = event.encode({'from': address_from, 'to': None})
+        >>> assert tuple(enc) == (
+        ...     event.signature,
+        ...     bytes.fromhex(hex(int(address_from, 16))[2:].rjust(64, '0')),
+        ...     None,
+        ... )
         """
         topics: List[Optional[bytes]] = []
+
+        parameters = self._normalize_values(parameters, self.indexed_params)
 
         # not anonymous? topic[0] = signature.
         if not self.is_anonymous:
             topics.append(self.signature)
-
-        has_no_name_param = any(True for x in self.indexed_params if not x["name"])
-
-        # Disallow dicts for unnamed parameters
-        if isinstance(parameters, Mapping) and has_no_name_param:
-            raise ValueError(
-                "Event definition contains param without a name, use a list"
-                " of parameters instead of dict."
-            )
-
-        # Check arguments length
-        if len(parameters) != len(self.indexed_params):
-            raise ValueError(
-                "Indexed parameters needs {} items, {} is given.".format(
-                    len(self.indexed_params), len(parameters)
-                )
-            )
 
         def encode(param: Any, definition: EventParameterT) -> bytes:
             if self.is_dynamic_type(definition["type"]):
@@ -751,23 +1072,145 @@ class Event(Encodable[EventParameterT]):
             else:
                 return Coder.encode_single(self.make_proper_type(definition), param)
 
-        if isinstance(parameters, Mapping):
-            for definition in self.indexed_params:
-                param = parameters.get(definition["name"])
-                topics.append(param if param is None else encode(param, definition))
-        elif (
+        if (
             isinstance(parameters, Sequence)
             and not isinstance(parameters, (bytes, bytearray))
             # bytes are Sequence too!
         ):
-            for param, definition in zip(parameters, self.indexed_params):
+            for param, definition in izip(parameters, self.indexed_params):
                 topics.append(param if param is None else encode(param, definition))
         else:
             raise TypeError(
                 f"Expected sequence or mapping of parameters, got: {type(parameters)}"
             )
 
-        return topics
+        return list(topics)
+
+    def encode_data(self, parameters: Union[Mapping[str, Any], Sequence[Any]]) -> bytes:
+        """Encode unindexed parameters into bytes.
+
+        .. versionadded:: 2.0.0
+
+        Parameters
+        ----------
+        parameters: Mapping[str, Any] or Sequence[Any]
+            A dict/list of unindexed parameters of the given event.
+
+        Returns
+        -------
+        bytes
+            Encoded result.
+
+        Examples
+        --------
+        >>> event = Event({
+        ...     'inputs': [
+        ...         {'name': 'from', 'indexed': True, 'type': 'address'},
+        ...         {'name': 'value', 'indexed': False, 'type': 'uint256'},
+        ...         {'name': 'to', 'indexed': True, 'type': 'address'},
+        ...         {'name': 'value2', 'indexed': False, 'type': 'uint64'},
+        ...     ],
+        ...     'name': 'MyEvent',
+        ...     'type': 'event',
+        ... })
+
+        We can use it to encode values as a sequence:
+        >>> enc = event.encode_data([256, 129])  # 256 == 0x100, 129 == 0x81
+        >>> assert enc.hex() == '100'.rjust(64, '0') + '81'.rjust(64, '0')
+
+        Or as a mapping
+        >>> enc = event.encode_data({'value': 256, 'value2': 129})
+        >>> assert enc.hex() == '100'.rjust(64, '0') + '81'.rjust(64, '0')
+        """
+        parameters = self._normalize_values(parameters, self.unindexed_params)
+        my_types = list(map(self.make_proper_type, self.unindexed_params))
+        return Coder.encode_list(my_types, parameters)
+
+    def encode_full(
+        self, parameters: Union[Mapping[str, Any], Sequence[Any]]
+    ) -> Tuple[List[Optional[bytes]], bytes]:
+        r"""Encode both indexed and unindexed parameters.
+
+        .. versionadded:: 2.0.0
+
+        Parameters
+        ----------
+        parameters: Mapping[str, Any] or Sequence[Any]
+            A dict/list of all parameters of the given event.
+
+        Returns
+        -------
+        Tuple[List[bytes or None], bytes]
+            Tuple
+            with first item being :meth:`Event.encode` result
+            and second item being :meth:`Event.encode_data` result.
+
+        Raises
+        ------
+        KeyError
+            If some required parameters were missing.
+        ValueError
+            If some extra parameters were given.
+
+        Examples
+        --------
+        >>> event = Event({
+        ...     'inputs': [
+        ...         {'name': 'from', 'indexed': True, 'type': 'address'},
+        ...         {'name': 'value', 'indexed': False, 'type': 'uint256'},
+        ...         {'name': 'to', 'indexed': True, 'type': 'address'},
+        ...         {'name': 'value2', 'indexed': False, 'type': 'uint64'},
+        ...     ],
+        ...     'name': 'MyEvent',
+        ...     'type': 'event',
+        ... })
+        >>> address_from = '0x' + 'f' * 40
+        >>> address_to = '0x' + '9' * 40
+
+        Expected values:
+        >>> topics_enc = event.encode([address_from, address_to])
+        >>> data_enc = event.encode_data([256, 127])
+
+        Now with :meth:`Event.encode_full`:
+        >>> topics, data = event.encode_full([address_from, 256, address_to, 127])
+        >>> assert topics == topics_enc
+        >>> assert data == data_enc
+
+        Or in mapping form (note that order doesn't matter):
+        >>> topics, data = event.encode_full({
+        ...     'to': address_to,
+        ...     'value': 256,
+        ...     'value2': 127,
+        ...     'from': address_from,
+        ... })
+        >>> assert topics == topics_enc
+        >>> assert data == data_enc
+        """
+        unindexed: Union[List[Any], Dict[str, Any]]
+        indexed: Union[List[Any], Dict[str, Any]]
+
+        if isinstance(parameters, Mapping):
+            unindexed = {
+                p["name"]: parameters[p["name"]] for p in self.unindexed_params
+            }
+            indexed = {p["name"]: parameters[p["name"]] for p in self.indexed_params}
+            if len(indexed) + len(unindexed) != len(parameters):
+                raise ValueError("Invalid keys count.")
+        elif isinstance(parameters, Sequence):
+            unindexed = [
+                v
+                for v, p in izip(parameters, self._definition["inputs"])
+                if not p["indexed"]
+            ]
+            indexed = [
+                v
+                for v, p in izip(parameters, self._definition["inputs"])
+                if p["indexed"]
+            ]
+        else:
+            raise TypeError("Sequence or mapping of parameters expected.")
+
+        return (self.encode(indexed), self.encode_data(unindexed))
 
     def decode(
         self,
@@ -775,7 +1218,7 @@ class Event(Encodable[EventParameterT]):
         topics: Optional[Sequence[Optional[bytes]]] = None,
         strict: bool = True,
     ) -> FunctionResult:
-        """Decode "data" according to the "topic"s.
+        r"""Decode "data" according to the "topic"s.
 
         One output can contain an array of logs.
 
@@ -783,6 +1226,7 @@ class Event(Encodable[EventParameterT]):
         ----------
         data : bytes
             Data to decode.
+            It should be ``b'\x00'`` for event without unindexed parameters.
         topics : Sequence[bytes or None], optional
             Sequence of topics.
             Fill unknown or not important positions with :class:`None`,
@@ -829,15 +1273,78 @@ class Event(Encodable[EventParameterT]):
 
         If the event is "anonymous" then the signature is not inserted into
         the "topics" list, hence ``topics[0]`` is not the signature.
+
+        Examples
+        --------
+        Decode indexed topic that is not hashed:
+        >>> event = Event({
+        ...     'inputs': [
+        ...         {'indexed': True, 'name': 'a1', 'type': 'bool'},
+        ...     ],
+        ...     'name': 'MyEvent',
+        ...     'type': 'event',
+        ... })
+        >>> topics = [
+        ...     event.signature,  # Not anonymous
+        ...     b'\x01'.rjust(32, b'\x00'),  # True as 32-bit integer
+        ... ]
+        >>> data = b'\x00'  # No unindexed topics
+        >>> event.decode(data, topics).to_dict()
+        {'a1': True}
+
+        Decode mix of indexed and unindexed parameters:
+        >>> event = Event({
+        ...     'inputs': [
+        ...         {'indexed': True, 'name': 't1', 'type': 'bool'},
+        ...         {'indexed': True, 'name': 't2', 'type': 'bool'},
+        ...         {'indexed': False, 'name': 'u1', 'type': 'string'},
+        ...     ],
+        ...     'name': 'MyEvent',
+        ...     'type': 'event',
+        ...     'anonymous': True,
+        ... })
+        >>> topics = [
+        ...     b'\x01'.rjust(32, b'\x00'),  # True as 32-bit integer
+        ...     b'\x00'.rjust(32, b'\x00'),  # False as 32-bit integer
+        ... ]
+        >>> data = (
+        ...     b''
+        ...     + b'\x20'.rjust(32, b'\x00')  # address of first argument
+        ...     + b'\x03'.rjust(32, b'\x00')  # length of b'foo'
+        ...     + b'foo'.ljust(32, b'\x00')  # b'foo'
+        ... )  # string 'foo' encoded
+        >>> event.decode(data, topics).to_dict()
+        {'t1': True, 't2': False, 'u1': 'foo'}
+
+        "Decode" hashed topic:
+        >>> from thor_devkit.cry import keccak256
+        >>> event = Event({
+        ...     'inputs': [
+        ...         {'indexed': True, 'name': 't1', 'type': 'string'},
+        ...     ],
+        ...     'name': 'MyEvent',
+        ...     'type': 'event',
+        ...     'anonymous': True,
+        ... })
+        >>> encoded_topic = b'foo'.ljust(32, b'\x00')
+        >>> topic = keccak256([encoded_topic])[0]
+        >>> assert event.decode(b'\x00', [topic]).t1 == topic
+
+        Note that we don't get a string as output due to the nature of
+        indexed parameters.
+
+        See also
+        --------
+        :meth:`Function.decode`: for examples of result usage.
         """
         if not self.is_anonymous and topics:
             # if not anonymous, topics[0] is the signature of event.
             # we cut it out, because we already have self.signature
-            topics = topics[1:]
-
-        unindexed_params_defs = [
-            x for x in self._definition["inputs"] if not x["indexed"]
-        ]
+            sig, *topics = topics
+            if sig != self.signature:
+                raise ValueError(
+                    "First topic of non-anonymous event must be its signature"
+                )
 
         indexed_count, topics_count = len(self.indexed_params), len(topics or [])
         if topics is not None and indexed_count != topics_count:
@@ -847,11 +1354,11 @@ class Event(Encodable[EventParameterT]):
                 raise ValueError("Invalid topics count.")
         topics = topics or []
 
-        my_types = list(map(self.make_proper_type, unindexed_params_defs))
+        my_types = list(map(self.make_proper_type, self.unindexed_params))
         result_list = Coder.decode_list(my_types, data)
         unindexed_params = (
             self.apply_recursive_names(value, typeinfo)
-            for typeinfo, value in zip(unindexed_params_defs, result_list)
+            for typeinfo, value in izip(self.unindexed_params, result_list)
         )
 
         inputs = self._definition["inputs"]
@@ -866,6 +1373,13 @@ class Event(Encodable[EventParameterT]):
                     r.append(Coder.decode_single(each["type"], topic))
             else:
                 r.append(next(unindexed_params))
+
+        try:
+            next(unindexed_params)
+        except StopIteration:
+            pass
+        else:  # pragma: no cover
+            raise ValueError("Wrong unindexed parameters count, internal error.")
 
         NewType = self._make_output_namedtuple_type("OutType", inputs)
         return NewType(*r)

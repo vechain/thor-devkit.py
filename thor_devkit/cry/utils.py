@@ -1,6 +1,7 @@
 """Utils helping with ``hex <-> string`` conversion and stripping."""
 import sys
-from typing import Any, Callable, Type, TypeVar, cast
+from functools import partial
+from typing import TYPE_CHECKING, Any, Callable, Type, TypeVar, cast
 
 from thor_devkit.deprecation import renamed_function
 
@@ -8,6 +9,51 @@ if sys.version_info < (3, 8):
     from typing_extensions import Literal
 else:
     from typing import Literal
+
+
+def _strict_zip(*iterables):  # type: ignore[no-untyped-def]
+    iterators = [iter(it) for it in iterables]
+    yield from zip(*iterators)
+    for i, it in enumerate(iterators):
+        try:
+            next(it)
+        except StopIteration:
+            pass
+        else:
+            raise ValueError(f"izip argument {i} was longer than some other.")
+
+
+if TYPE_CHECKING:
+    izip = zip
+    r"""Implements ``python3.10+`` zip strict mode.
+
+    In python 3.10 and higher it is an alias for ``partial(zip, strict=True)``.
+
+    :meta hide-value:
+
+    Parameters
+    ----------
+    \*iterables: Iterable[Any]
+        Iterables to zip together.
+
+    Yields
+    ------
+    Tuple[Any, ...]
+        Tuples of values like standard :func:`zip` generates.
+
+    Raises
+    ------
+    ValueError
+        If not all iterables had equal length.
+    """
+
+    # We don't have variadic generics yet (see PEP646, unsupported by mypy).
+    # Convince mypy that this is :func:`zip` itself.
+    # izip = zip
+elif sys.version_info < (3, 10):
+    izip = _strict_zip
+else:
+    izip = partial(zip, strict=True)
 
 
 def strip_0x04(p: bytes) -> bytes:

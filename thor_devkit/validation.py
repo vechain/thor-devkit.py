@@ -99,7 +99,7 @@ def hex_integer(
         if to_int:
             return int_value
 
-        return "0x" + (value if no_prefix else value[2:]).upper()
+        return "0x" + (value if no_prefix else value[2:]).lower()
 
     # We can define two functions in branches od ``to_int`` flag, but it will be
     # longer and less readable. Just ignore: we are sure that return is
@@ -117,7 +117,7 @@ def hex_string(
     length: Optional[int]
         Expected length of string.
     allow_empty: bool, default: False
-        Allow empty string (or ``0x`` if ``expect_prefix=True``)
+        Allow empty string.
 
     Returns
     -------
@@ -151,7 +151,7 @@ def hex_string(
         except ValueError as e:
             raise Invalid("Expected hex string, that is convertible to bytes") from e
 
-        return value.upper()
+        return value.lower()
 
     # We can define two functions in branches od ``to_int`` flag, but it will be
     # longer and less readable. Just ignore: we are sure that return is

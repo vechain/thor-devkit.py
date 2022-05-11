@@ -62,6 +62,7 @@ addopts = """
     --no-cov-on-fail
     --cov-report=term-missing
     --cov-branch
+    --doctest-modules
 """
 
 
@@ -137,6 +138,7 @@ extend_ignore = [
     "PIE798",  # Allow class with only static methods for namespacing
     "D105",  # Magic methods may remain unannotated
     "D401",  # Imperative mood of first docstring line is not always encouraged
+    "D405",  # Cryptic false positives (section name should be capitalized)
     "RST306",  # Plugin can't resolve links defined in other docstrings.
 ]
 # Ignore
@@ -169,6 +171,7 @@ rst-directives = [
     "versionadded",
     "versionchanged",
     "deprecated",
+    "code-block",
     # autodocsumm plugin
     "autoclasssumm",
     # From custom plugin

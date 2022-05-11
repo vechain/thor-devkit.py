@@ -188,7 +188,7 @@ def f_in_struct():
                     {"internalType": "address", "name": "identity", "type": "address"},
                 ],
                 "internalType": "struct ThisClass.SomeStruct",
-                "name": "inputs",
+                "name": "args",
                 "type": "tuple",
             }
         ],
@@ -202,12 +202,18 @@ def f_in_struct():
 
 @pytest.fixture()
 def f_in_struct_data():
-    return (True, True, "0x4977d68df97bb313b23238520580d8d3a59939bf")
+    return {
+        "args": {
+            "flag1": True,
+            "flag2": True,
+            "identity": "0x4977d68df97bb313b23238520580d8d3a59939bf",
+        }
+    }
 
 
 @pytest.fixture()
 def f_in_struct_enc(f_in_struct_data):
-    bool1, bool2, b = f_in_struct_data
+    bool1, bool2, b = f_in_struct_data["args"].values()
     return bytes.fromhex(
         str(int(bool1)).rjust(64, "0")
         + str(int(bool2)).rjust(64, "0")
@@ -225,7 +231,7 @@ def _make_f_in_struct_dynarray(array_size=""):
                     {"internalType": "address", "name": "identity", "type": "address"},
                 ],
                 "internalType": f"struct ThisClass.SomeStruct[{array_size}]",
-                "name": "inputs",
+                "name": "args",
                 "type": f"tuple[{array_size}]",
             }
         ],
@@ -244,22 +250,22 @@ def f_in_struct_dynarray():
 
 @pytest.fixture(params=[1, 2, 4, 17])
 def f_in_struct_dynarray_data(f_in_struct_data, request):
-    return [f_in_struct_data for _ in range(request.param)]
+    return {"args": [f_in_struct_data["args"] for _ in range(request.param)]}
 
 
 @pytest.fixture()
 def f_in_struct_dynarray_enc(f_in_struct_dynarray_data, dyn_prefix):
     return bytes.fromhex(
         dyn_prefix.hex()
-        + hex(len(f_in_struct_dynarray_data))[2:].rjust(64, "0")
+        + hex(len(f_in_struct_dynarray_data["args"]))[2:].rjust(64, "0")
         + "".join(
             [
                 (
-                    str(int(d[0])).rjust(64, "0")
-                    + str(int(d[1])).rjust(64, "0")
-                    + d[2][2:].rjust(64, "0")
+                    str(int(d["flag1"])).rjust(64, "0")
+                    + str(int(d["flag2"])).rjust(64, "0")
+                    + d["identity"][2:].rjust(64, "0")
                 )
-                for d in f_in_struct_dynarray_data
+                for d in f_in_struct_dynarray_data["args"]
             ]
         )
     )
@@ -267,12 +273,12 @@ def f_in_struct_dynarray_enc(f_in_struct_dynarray_data, dyn_prefix):
 
 @pytest.fixture(params=[1, 2, 4, 17])
 def f_in_struct_fixarray_data(f_in_struct_data, request):
-    return [f_in_struct_data for _ in range(request.param)]
+    return {"args": [f_in_struct_data["args"] for _ in range(request.param)]}
 
 
 @pytest.fixture()
 def f_in_struct_fixarray(f_in_struct_fixarray_data):
-    return _make_f_in_struct_dynarray(len(f_in_struct_fixarray_data))
+    return _make_f_in_struct_dynarray(len(f_in_struct_fixarray_data["args"]))
 
 
 @pytest.fixture()
@@ -281,11 +287,91 @@ def f_in_struct_fixarray_enc(f_in_struct_fixarray_data):
         "".join(
             [
                 (
-                    str(int(d[0])).rjust(64, "0")
-                    + str(int(d[1])).rjust(64, "0")
-                    + d[2][2:].rjust(64, "0")
+                    str(int(d["flag1"])).rjust(64, "0")
+                    + str(int(d["flag2"])).rjust(64, "0")
+                    + d["identity"][2:].rjust(64, "0")
                 )
-                for d in f_in_struct_fixarray_data
+                for d in f_in_struct_fixarray_data["args"]
+            ]
+        )
+    )
+
+
+@pytest.fixture(params=[1, 2, 4, 17])
+def f_in_struct_complex_data(f_in_struct_data, request):
+    return {
+        "args": [f_in_struct_data["args"] for _ in range(request.param)],
+        "args2": [f_in_struct_data["args"] for _ in range(request.param + 2)],
+        "flag0": True,
+    }
+
+
+@pytest.fixture()
+def f_in_struct_complex(f_in_struct_complex_data):
+    array_size = len(f_in_struct_complex_data["args"])
+    data: FunctionT = {
+        "inputs": [
+            {
+                "components": [
+                    {"internalType": "bool", "name": "flag1", "type": "bool"},
+                    {"internalType": "bool", "name": "flag2", "type": "bool"},
+                    {"internalType": "address", "name": "identity", "type": "address"},
+                ],
+                "internalType": f"struct ThisClass.SomeStruct[{array_size}]",
+                "name": "args",
+                "type": "tuple[]",
+            },
+            {
+                "components": [
+                    {"internalType": "bool", "name": "flag1", "type": "bool"},
+                    {"internalType": "bool", "name": "flag2", "type": "bool"},
+                    {"internalType": "address", "name": "identity", "type": "address"},
+                ],
+                "internalType": f"struct ThisClass.SomeStruct[{array_size + 2}]",
+                "name": "args2",
+                "type": "tuple[]",
+            },
+            {
+                "internalType": "bool",
+                "name": "flag0",
+                "type": "bool",
+            },
+        ],
+        "name": "doSomething",
+        "outputs": [],
+        "stateMutability": "pure",
+        "type": "function",
+    }
+    return Function(data)
+
+
+@pytest.fixture()
+def f_in_struct_complex_enc(f_in_struct_complex_data, dyn_prefix):
+    array_size = len(f_in_struct_complex_data["args"])
+    return bytes.fromhex(
+        hex(32 * 3)[2:].rjust(64, "0")
+        + hex(32 * 4 + array_size * 32 * 3)[2:].rjust(64, "0")
+        + hex(int(f_in_struct_complex_data["flag0"]))[2:].rjust(64, "0")
+        + hex(array_size)[2:].rjust(64, "0")
+        + "".join(
+            [
+                (
+                    str(int(d["flag1"])).rjust(64, "0")
+                    + str(int(d["flag2"])).rjust(64, "0")
+                    + d["identity"][2:].rjust(64, "0")
+                )
+                for d in f_in_struct_complex_data["args"]
+            ]
+        )
+        + hex(array_size + 2)[2:].rjust(64, "0")
+        + "".join(
+            [
+                (
+                    str(int(d["flag1"])).rjust(64, "0")
+                    + str(int(d["flag2"])).rjust(64, "0")
+                    + d["identity"][2:].rjust(64, "0")
+                )
+                for d in f_in_struct_complex_data["args2"]
             ]
         )
     )
@@ -299,28 +385,32 @@ def test_function(simple_dynamic: Function):
     assert simple_dynamic.selector.hex() == selector
     assert simple_dynamic.name == "f1"
 
-    assert simple_dynamic.encode([1, "foo"]).hex() == (
+    encoded = bytes.fromhex(
         selector
         + "1".rjust(64, "0")  # True
         + "40".rjust(64, "0")  # address of 2nd argument ("foo")
         + hex(len(b"foo"))[2:].rjust(64, "0")  # len("foo")
         + b"foo".hex().ljust(64, "0")  # "foo"
     )
+    assert simple_dynamic.encode([1, "foo"]).hex() == encoded.hex()
+    assert simple_dynamic.encode({"a1": 1, "a2": "foo"}).hex() == encoded.hex()
+    assert simple_dynamic.decode_parameters(encoded).to_dict() == {"a1": 1, "a2": "foo"}
 
     expected: Any = {
         "r1": "0xabc0000000000000000000000000000000000001",
         "r2": b"foo",
     }
+    encoded_out = bytes.fromhex(
+        expected["r1"][2:].rjust(64, "0")
+        + "40".rjust(64, "0")  # addr
+        + hex(len(expected["r2"]))[2:].rjust(64, "0")
+        + expected["r2"].hex().ljust(64, "0")
+    )
+    assert simple_dynamic.decode(encoded_out).to_dict() == expected
+    assert simple_dynamic.encode_outputs(expected).hex() == encoded_out.hex()
     assert (
-        simple_dynamic.decode(
-            bytes.fromhex(
-                expected["r1"][2:].rjust(64, "0")
-                + "40".rjust(64, "0")  # addr
-                + hex(len(expected["r2"]))[2:].rjust(64, "0")
-                + expected["r2"].hex().ljust(64, "0")
-            )
-        ).to_dict()
-        == expected
+        simple_dynamic.encode_outputs(tuple(expected.values())).hex()
+        == encoded_out.hex()
     )
 
     with pytest.warns(DeprecationWarning):
@@ -333,16 +423,13 @@ def test_string(f_get_str: Function):
 
     memory = b"Hello World!"
     expected = {"memory": memory.decode()}
-    assert (
-        f_get_str.decode(
-            bytes.fromhex(
-                "20".rjust(64, "0")  # address
-                + hex(len(memory))[2:].rjust(64, "0")  # length
-                + memory.hex().ljust(64, "0")  # content
-            )
-        ).to_dict()
-        == expected
+    encoded_out = bytes.fromhex(
+        "20".rjust(64, "0")  # address
+        + hex(len(memory))[2:].rjust(64, "0")  # length
+        + memory.hex().ljust(64, "0")  # content
     )
+    assert f_get_str.decode(encoded_out).to_dict() == expected
+    assert f_get_str.encode_outputs(expected).hex() == encoded_out.hex()
 
 
 def test_bool(f_get_bool: Function):
@@ -350,10 +437,17 @@ def test_bool(f_get_bool: Function):
     assert f_get_bool.name == "getBool"
 
     expected = {"ret_0": True}
-    result = f_get_bool.decode(bytes.fromhex("1".rjust(64, "0")))
+    encoded_out = bytes.fromhex("1".rjust(64, "0"))
+    result = f_get_bool.decode(encoded_out)
+
     assert result.to_dict() == expected
     assert result.ret_0 == expected["ret_0"]
     assert result == tuple(expected.values())
+
+    assert f_get_bool.encode_outputs([True]).hex() == encoded_out.hex()
+
+    with pytest.raises(ValueError, match=r".+unnamed.*"):
+        f_get_bool.encode_outputs(expected)
 
 
 def test_big_number(f_get_big_numbers: Function):
@@ -361,16 +455,13 @@ def test_big_number(f_get_big_numbers: Function):
     assert f_get_big_numbers.name == "getBigNumbers"
 
     expected = {"a": 123456, "b": -123456}
-
-    assert (
-        expected
-        == f_get_big_numbers.decode(
-            bytes.fromhex(
-                hex(expected["a"])[2:].rjust(64, "0")
-                + hex(expected["b"] % 2**256)[2:].rjust(64, "0")
-            )
-        ).to_dict()
+    encoded_out = bytes.fromhex(
+        hex(expected["a"])[2:].rjust(64, "0")
+        + hex(expected["b"] % 2**256)[2:].rjust(64, "0")
     )
+
+    assert f_get_big_numbers.decode(encoded_out).to_dict() == expected
+    assert f_get_big_numbers.encode_outputs(expected).hex() == encoded_out.hex()
 
 
 def test_abiv2(
@@ -382,12 +473,24 @@ def test_abiv2(
         f_out_struct_dynarray.decode(f_out_struct_dynarray_enc).to_dict()
         == f_out_struct_dynarray_data
     )
+    assert (
+        f_out_struct_dynarray.encode_outputs(f_out_struct_dynarray_data).hex()
+        == f_out_struct_dynarray_enc.hex()
+    )
 
 
 def test_inputs_struct(f_in_struct: Function, f_in_struct_data, f_in_struct_enc: bytes):
+    selector = bytes.fromhex("3ca45dbf")
+    encoded = selector + f_in_struct_enc
+    assert f_in_struct.selector.hex() == selector.hex()
+    assert f_in_struct.encode(f_in_struct_data).hex() == encoded.hex()
     assert (
-        f_in_struct.encode([f_in_struct_data]).hex()
-        == "3ca45dbf" + f_in_struct_enc.hex()
+        f_in_struct.encode([tuple(f_in_struct_data["args"].values())]).hex()
+        == encoded.hex()
+    )
+    assert (
+        f_in_struct.decode_parameters(selector + f_in_struct_enc).to_dict()
+        == f_in_struct_data
     )
 
 
@@ -396,9 +499,17 @@ def test_inputs_struct_dynarray(
     f_in_struct_dynarray_data,
     f_in_struct_dynarray_enc: bytes,
 ):
+    selector = bytes.fromhex("eaf67dba")
+    assert f_in_struct_dynarray.selector.hex() == selector.hex()
     assert (
-        f_in_struct_dynarray.encode([f_in_struct_dynarray_data]).hex()
-        == "eaf67dba" + f_in_struct_dynarray_enc.hex()
+        f_in_struct_dynarray.encode(f_in_struct_dynarray_data).hex()
+        == selector.hex() + f_in_struct_dynarray_enc.hex()
+    )
+    assert (
+        f_in_struct_dynarray.decode_parameters(
+            selector + f_in_struct_dynarray_enc
+        ).to_dict()
+        == f_in_struct_dynarray_data
     )
 
 
@@ -407,7 +518,22 @@ def test_inputs_struct_fixarray(
     f_in_struct_fixarray_data,
     f_in_struct_fixarray_enc: bytes,
 ):
+    encoded = f_in_struct_fixarray.selector + f_in_struct_fixarray_enc
+    assert f_in_struct_fixarray.encode(f_in_struct_fixarray_data).hex() == encoded.hex()
     assert (
-        f_in_struct_fixarray.encode([f_in_struct_fixarray_data]).hex()
-        == f_in_struct_fixarray.selector.hex() + f_in_struct_fixarray_enc.hex()
+        f_in_struct_fixarray.decode_parameters(encoded).to_dict()
+        == f_in_struct_fixarray_data
+    )
+
+
+def test_inputs_complex(
+    f_in_struct_complex: Function,
+    f_in_struct_complex_data,
+    f_in_struct_complex_enc: bytes,
+):
+    encoded = f_in_struct_complex.selector + f_in_struct_complex_enc
+    assert f_in_struct_complex.encode(f_in_struct_complex_data).hex() == encoded.hex()
+    assert (
+        f_in_struct_complex.decode_parameters(encoded).to_dict()
+        == f_in_struct_complex_data
     )

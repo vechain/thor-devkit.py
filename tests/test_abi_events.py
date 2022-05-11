@@ -314,10 +314,22 @@ def too_much_indexed_anon_event():
     )
 
 
+@pytest.fixture()
+def foo_enc():
+    return bytes.fromhex(
+        "20".rjust(64, "0") + "3".rjust(64, "0") + "666f6f".ljust(64, "0")
+    )
+
+
+@pytest.fixture()
+def true_enc():
+    return b"\x01".rjust(32, b"\x00")
+
+
 # ***********************************************************
 
 
-def test_event_basic(simple_event_no_hash):
+def test_event_basic(simple_event_no_hash, foo_enc, true_enc):
     e = abi.Event(simple_event_no_hash)
 
     assert (
@@ -326,17 +338,15 @@ def test_event_basic(simple_event_no_hash):
     )
 
     assert e.decode(
-        bytes.fromhex("0" * 62 + "2" + "0" * 64 + "3666f6f" + "0" * 58),
-        [e.signature, bytes.fromhex("0" * 63 + "1")],
+        foo_enc,
+        [e.signature, true_enc],
     ).to_dict() == {"a1": 1, "a2": "foo"}
 
     assert e.encode({"a1": None}) == [e.signature, None]
 
-    assert e.encode({"a1": 1}) == [e.signature, bytes.fromhex("0" * 63 + "1")]
+    assert e.encode({"a1": 1}) == [e.signature, true_enc]
 
-    with pytest.raises(
-        ValueError, match="Indexed parameters needs 1 items, 2 is given."
-    ):
+    with pytest.raises(ValueError, match=".+ expected 1, got 2"):
         e.encode({"a1": 1, "x": 3})
 
 
@@ -348,17 +358,15 @@ def test_too_much_indexed(too_much_indexed_event, too_much_indexed_anon_event):
         abi.Event(too_much_indexed_anon_event)
 
 
-def test_event_anonymous(anonymous_event_no_hash):
+def test_event_anonymous(anonymous_event_no_hash, foo_enc, true_enc):
     e = abi.Event(anonymous_event_no_hash)
-
     assert e.decode(
-        bytes.fromhex("0" * 62 + "2" + "0" * 64 + "3666f6f" + "0" * 58),
-        [bytes.fromhex("0" * 63 + "1")],
+        foo_enc,
+        [true_enc],
     ).to_dict() == {"a1": 1, "a2": "foo"}
 
-    assert e.encode({"a1": 1}) == [bytes.fromhex("0" * 63 + "1")]
-
-    assert e.encode([1]) == [bytes.fromhex("0" * 63 + "1")]
+    assert e.encode({"a1": 1}) == [true_enc]
+    assert e.encode([1]) == [true_enc]
 
 
 def test_event_hashed(simple_event_hash):
@@ -370,7 +378,7 @@ def test_event_hashed(simple_event_hash):
     assert e.decode(b"\x00", [e.signature, hashed]).to_dict() == {"a1": hashed}
 
 
-def test_simple_int_event(simple_event_int):
+def test_simple_int_event(simple_event_int, true_enc):
     e = abi.Event(simple_event_int)
     assert (
         e.signature.hex()
@@ -379,16 +387,16 @@ def test_simple_int_event(simple_event_int):
 
     assert e.encode({"a1": 1}) == [
         e.signature,
-        bytes.fromhex("0" * 63 + "1"),
+        true_enc,
     ]
 
     assert e.decode(
         bytes.fromhex("00"),
-        [e.signature, bytes.fromhex("0" * 63 + "1")],
+        [e.signature, true_enc],
     ).to_dict() == {"a1": 1}
 
 
-def test_event_tuple_abiv2(tuple_event):
+def test_event_tuple_abiv2(tuple_event, true_enc):
     e = abi.Event(tuple_event)
 
     expected = [
@@ -407,14 +415,14 @@ def test_event_tuple_abiv2(tuple_event):
         d.hex() for d in expected
     ]
 
-    assert e.decode(bytes.fromhex("0" * 63 + "1"), expected).to_dict() == {
+    assert e.decode(true_enc, expected).to_dict() == {
         "a1": expected[1],
         "a2": expected[2],
         "a3": True,
     }
 
 
-def test_event_tuple_dynarr_abiv2(tuple_dynamic_array_event):
+def test_event_tuple_dynarr_abiv2(tuple_dynamic_array_event, true_enc):
     e = abi.Event(tuple_dynamic_array_event)
     expected = [
         e.signature,
@@ -448,7 +456,7 @@ def test_event_tuple_dynarr_abiv2(tuple_dynamic_array_event):
         d.hex() for d in expected
     ]
 
-    assert e.decode(bytes.fromhex("0" * 63 + "1"), expected).to_dict() == {
+    assert e.decode(true_enc, expected).to_dict() == {
         "a1": expected[1],
         "a2": expected[2],
         "a3": True,
@@ -488,7 +496,7 @@ def test_event_tuple_fixarr_abiv2(tuple_fixed_array_event):
         d.hex() for d in expected
     ]
 
-    assert e.decode(bytes.fromhex("0" * 63 + "0"), expected).to_dict() == {
+    assert e.decode(b"\x00" * 32, expected).to_dict() == {
         "a1": expected[1],
         "a2": expected[2],
         "a3": False,

@@ -130,7 +130,7 @@ def derive_public_key(priv_key: bytes) -> bytes:
         If the private key is not valid.
     """
     if not is_valid_private_key(priv_key):
-        raise ValueError("Private Key not valid.")
+        raise ValueError("Private key not valid.")
 
     _a = SigningKey.from_string(priv_key, curve=SECP256k1)
     return _a.verifying_key.to_string("uncompressed")
