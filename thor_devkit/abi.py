@@ -49,20 +49,24 @@ else:
     from typing import NotRequired
 
 __all__ = [
+    # Main
     "Function",
     "Event",
     "Coder",
+    # Types
     "_ParameterT",
     "StateMutabilityT",
     "FuncParameterT",
     "FunctionT",
     "EventParameterT",
     "EventT",
+    # Schemas
     "MUTABILITY",
     "FUNC_PARAMETER",
     "FUNCTION",
     "EVENT_PARAMETER",
     "EVENT",
+    # Other
     "calc_event_topic",
     "calc_function_selector",
     "FunctionResult",

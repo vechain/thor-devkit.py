@@ -30,11 +30,14 @@ else:
     from typing import NotRequired
 
 __all__ = [
-    "PAYLOAD",
-    "PayloadT",
-    "CERTIFICATE",
-    "CertificateT",
+    # Main
     "Certificate",
+    # Types
+    "PayloadT",
+    "CertificateT",
+    # Schemas
+    "PAYLOAD",
+    "CERTIFICATE",
 ]
 
 SIGNATURE_PATTERN: Final = re.compile(r"^0x[0-9a-f]{130}$", re.I)

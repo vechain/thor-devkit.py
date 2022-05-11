@@ -30,12 +30,15 @@ else:
     from typing import TypeAlias
 
 __all__ = [
-    "AllowedStrengthsT",
-    "ALLOWED_STRENGTHS",
+    # Main
     "generate",
     "is_valid",
     "derive_seed",
     "derive_private_key",
+    # Types
+    "AllowedStrengthsT",
+    # Schemas
+    "ALLOWED_STRENGTHS",
 ]
 
 

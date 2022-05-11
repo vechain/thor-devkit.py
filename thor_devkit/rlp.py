@@ -35,6 +35,7 @@ else:
 
 
 __all__ = [
+    "ComplexCodec",
     "BytesKind",
     "NumericKind",
     "BlobKind",
@@ -46,7 +47,6 @@ __all__ = [
     "HomoListWrapper",
     "pack",
     "unpack",
-    "ComplexCodec",
 ]
 
 HEX_STRING_PATTERN: Final = re.compile(r"^0x[0-9a-f]*$", re.I)

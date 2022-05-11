@@ -38,17 +38,21 @@ else:
 
 
 __all__ = [
+    # Main
+    "Transaction",
+    # Types
+    "ClauseT",
+    "ReservedT",
+    "TransactionBodyT",
+    # Schemas
+    "CLAUSE",
+    "RESERVED",
+    "BODY",
+    # Other
     "UnsignedTxWrapper",
     "SignedTxWrapper",
-    "ClauseT",
-    "CLAUSE",
-    "ReservedT",
-    "RESERVED",
-    "TransactionBodyT",
-    "BODY",
     "data_gas",
     "intrinsic_gas",
-    "Transaction",
 ]
 
 FeaturesKind: Final = NumericKind(4)
