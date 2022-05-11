@@ -49,20 +49,24 @@ else:
     from typing import NotRequired
 
 __all__ = [
-    "_ParameterT",
-    "MUTABILITY",
-    "StateMutabilityT",
-    "FUNC_PARAMETER",
-    "FuncParameterT",
-    "FUNCTION",
-    "FunctionT",
-    "EVENT_PARAMETER",
-    "EventParameterT",
-    "EVENT",
-    "EventT",
-    "Coder",
     "Function",
     "Event",
+    "Coder",
+    "_ParameterT",
+    "StateMutabilityT",
+    "FuncParameterT",
+    "FunctionT",
+    "EventParameterT",
+    "EventT",
+    "MUTABILITY",
+    "FUNC_PARAMETER",
+    "FUNCTION",
+    "EVENT_PARAMETER",
+    "EVENT",
+    "calc_event_topic",
+    "calc_function_selector",
+    "FunctionResult",
+    "Encodable",
 ]
 
 MUTABILITY: Final = Schema(voluptuous.Any("pure", "view", "payable", "nonpayable"))
@@ -247,6 +251,8 @@ class FunctionResult(base):
     this class will contain decoded parameters. They can be obtained either by name
     or by numeric index as from plain tuples.
 
+    .. versionadded:: 2.0.0
+
     Warning
     -------
     Names of result items can slightly differ from names in definition.
@@ -256,10 +262,6 @@ class FunctionResult(base):
     --------
     :meth:`FunctionResult.name_to_identifier`: Details of names changing.
 
-    .. versionadded:: 2.0.0
-
-    See Also
-    --------
     :meth:`Function.decode`: for examples of items access
     """
 
@@ -306,7 +308,7 @@ class FunctionResult(base):
 
         The following rules apply:
 
-        - Empty string are converted to f"ret_{position}"
+        - Empty string are converted to ``f"ret_{position}"``
         - Python keyword (maybe already with underscores at the end)
           gets underscore (``_``) appended
         - All other words are returned unchanged.
@@ -342,6 +344,9 @@ class FunctionResult(base):
 
         >>> FunctionResult.name_to_identifier('for')
         'for_'
+
+        >>> FunctionResult.name_to_identifier('from_')
+        'from__'
         """
         if not word:
             return f"ret_{position}"
@@ -375,11 +380,6 @@ class FunctionResult(base):
         -------
         str
             Valid solidity identifier.
-
-        Raises
-        ------
-        ValueError
-            If given string is not a valid solidity identifier.
 
         Examples
         --------
@@ -698,6 +698,7 @@ class Function(Encodable[FuncParameterT]):
         Examples
         --------
         Encode sequence:
+
         >>> func = Function({
         ...     'inputs': [{'internalType': 'string', 'name': '', 'type': 'string'}],
         ...     'outputs': [],
@@ -714,6 +715,7 @@ class Function(Encodable[FuncParameterT]):
         ... )
 
         Encode mapping:
+
         >>> func = Function({
         ...     'inputs': [{'internalType': 'string', 'name': 'arg', 'type': 'string'}],
         ...     'outputs': [],
@@ -1016,6 +1018,7 @@ class Event(Encodable[EventParameterT]):
             MyEvent(address from indexed, address to indexed, uint256 value)
 
         Then corresponding event is
+
         >>> event = Event({
         ...     'inputs': [
         ...         {'name': 'from', 'indexed': True, 'type': 'address'},
@@ -1027,6 +1030,7 @@ class Event(Encodable[EventParameterT]):
         ... })
 
         We can use it to encode all topics:
+
         >>> address_from = '0x' + 'f' * 40
         >>> address_to = '0x' + '9' * 40
         >>> enc = event.encode([address_from, address_to])
@@ -1043,6 +1047,7 @@ class Event(Encodable[EventParameterT]):
         if negative), strings and bytes - to the left.
 
         Or we can convert only some of params:
+
         >>> enc = event.encode([address_from, None])
         >>> assert tuple(enc) == (
         ...     event.signature,
@@ -1051,12 +1056,14 @@ class Event(Encodable[EventParameterT]):
         ... )
 
         Mapping is also accepted for named parameters:
+
         >>> enc = event.encode({'from': address_from, 'to': None})
         >>> assert tuple(enc) == (
         ...     event.signature,
         ...     bytes.fromhex(hex(int(address_from, 16))[2:].rjust(64, '0')),
         ...     None,
         ... )
+
         """
         topics: List[Optional[bytes]] = []
 
@@ -1115,10 +1122,12 @@ class Event(Encodable[EventParameterT]):
         ... })
 
         We can use it to encode values as a sequence:
+
         >>> enc = event.encode_data([256, 129])  # 256 == 0x100, 129 == 0x81
         >>> assert enc.hex() == '100'.rjust(64, '0') + '81'.rjust(64, '0')
 
-        Or as a mapping
+        Or as a mapping:
+
         >>> enc = event.encode_data({'value': 256, 'value2': 129})
         >>> assert enc.hex() == '100'.rjust(64, '0') + '81'.rjust(64, '0')
         """
@@ -1168,15 +1177,18 @@ class Event(Encodable[EventParameterT]):
         >>> address_to = '0x' + '9' * 40
 
         Expected values:
+
         >>> topics_enc = event.encode([address_from, address_to])
         >>> data_enc = event.encode_data([256, 127])
 
         Now with :meth:`Event.encode_full`:
+
         >>> topics, data = event.encode_full([address_from, 256, address_to, 127])
         >>> assert topics == topics_enc
         >>> assert data == data_enc
 
         Or in mapping form (note that order doesn't matter):
+
         >>> topics, data = event.encode_full({
         ...     'to': address_to,
         ...     'value': 256,
@@ -1185,6 +1197,7 @@ class Event(Encodable[EventParameterT]):
         ... })
         >>> assert topics == topics_enc
         >>> assert data == data_enc
+
         """
         unindexed: Union[List[Any], Dict[str, Any]]
         indexed: Union[List[Any], Dict[str, Any]]
@@ -1277,6 +1290,7 @@ class Event(Encodable[EventParameterT]):
         Examples
         --------
         Decode indexed topic that is not hashed:
+
         >>> event = Event({
         ...     'inputs': [
         ...         {'indexed': True, 'name': 'a1', 'type': 'bool'},
@@ -1286,13 +1300,14 @@ class Event(Encodable[EventParameterT]):
         ... })
         >>> topics = [
         ...     event.signature,  # Not anonymous
-        ...     b'\x01'.rjust(32, b'\x00'),  # True as 32-bit integer
+        ...     b'\x01'.rjust(32, b'\x00'),  # True as 32-byte integer
         ... ]
         >>> data = b'\x00'  # No unindexed topics
         >>> event.decode(data, topics).to_dict()
         {'a1': True}
 
         Decode mix of indexed and unindexed parameters:
+
         >>> event = Event({
         ...     'inputs': [
         ...         {'indexed': True, 'name': 't1', 'type': 'bool'},
@@ -1304,8 +1319,8 @@ class Event(Encodable[EventParameterT]):
         ...     'anonymous': True,
         ... })
         >>> topics = [
-        ...     b'\x01'.rjust(32, b'\x00'),  # True as 32-bit integer
-        ...     b'\x00'.rjust(32, b'\x00'),  # False as 32-bit integer
+        ...     b'\x01'.rjust(32, b'\x00'),  # True as 32-byte integer
+        ...     b'\x00'.rjust(32, b'\x00'),  # False as 32-byte integer
         ... ]
         >>> data = (
         ...     b''
@@ -1317,6 +1332,7 @@ class Event(Encodable[EventParameterT]):
         {'t1': True, 't2': False, 'u1': 'foo'}
 
         "Decode" hashed topic:
+
         >>> from thor_devkit.cry import keccak256
         >>> event = Event({
         ...     'inputs': [

@@ -74,4 +74,3 @@ API documentation
 -----------------
 
 .. automodule:: thor_devkit.abi
-   :ignore-module-all:
