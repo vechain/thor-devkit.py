@@ -201,6 +201,24 @@ def f_in_struct():
 
 
 @pytest.fixture()
+def f_in_struct_odd():
+    data: FunctionT = {
+        "inputs": [
+            {
+                "internalType": "struct ThisClass.SomeStruct",
+                "name": "args",
+                "type": "(bool,bool,address)",
+            }
+        ],
+        "name": "doSomething",
+        "outputs": [],
+        "stateMutability": "pure",
+        "type": "function",
+    }
+    return Function(data)
+
+
+@pytest.fixture()
 def f_in_struct_data():
     return {
         "args": {
@@ -537,3 +555,16 @@ def test_inputs_complex(
         f_in_struct_complex.decode_parameters(encoded).to_dict()
         == f_in_struct_complex_data
     )
+
+
+def test_odd(f_in_struct_odd: Function, f_in_struct_data, f_in_struct_enc: bytes):
+    selector = bytes.fromhex("3ca45dbf")
+    encoded = selector + f_in_struct_enc
+    assert f_in_struct_odd.selector.hex() == selector.hex()
+    assert (
+        f_in_struct_odd.encode([tuple(f_in_struct_data["args"].values())]).hex()
+        == encoded.hex()
+    )
+    assert f_in_struct_odd.decode_parameters(selector + f_in_struct_enc).to_dict() == {
+        "args": tuple(f_in_struct_data["args"].values())
+    }

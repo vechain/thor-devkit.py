@@ -63,6 +63,7 @@ addopts = """
     --cov-report=term-missing
     --cov-branch
     --doctest-modules
+    --doctest-continue-on-failure
 """
 
 
@@ -79,18 +80,22 @@ exclude_lines = [
     # Often used in abstract classes
     "raise NotImplementedError",
     # Debug code
-    'if self\.debug',
+    'if self\.debug:',
     "def __repr__",
     # Scripts entrypoints
     "if __name__ == .__main__.:",
     # Should never run
-    '@(abc.)?abstractmethod',
+    '@(abc\.)?abstractmethod',
     # Deprecated stuff
     "@deprecated_to_property",
     "@renamed_function",
     "@renamed_method",
+    "@renamed_class",
+    "@deprecated",
     # Typing artifact, that has no implementation
     "@overload",
+    # Typing artifact, False at runtime
+    'if (typing\.)?TYPE_CHECKING:'
 ]
 
 

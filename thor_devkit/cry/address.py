@@ -1,25 +1,16 @@
 """VeChain "public key" and "address" related operations and verifications."""
 
-import re
-import sys
+from voluptuous.error import Invalid
 
 from thor_devkit.cry.keccak import keccak256
 from thor_devkit.cry.utils import remove_0x, validate_uncompressed_public_key
-
-if sys.version_info < (3, 8):
-    from typing_extensions import Final
-else:
-    from typing import Final
-
+from thor_devkit.validation import address_type
 
 __all__ = [
     "public_key_to_address",
     "is_address",
     "to_checksum_address",
 ]
-
-ADDRESS_RE: Final = re.compile(r"^0x[0-9a-f]{40}$", re.I)
-"""Regex the address should match."""
 
 
 def public_key_to_address(key_bytes: bytes) -> bytes:
@@ -55,7 +46,11 @@ def is_address(address: str) -> bool:
     bool
        Whether given address is valid.
     """
-    return bool(ADDRESS_RE.match(address))
+    try:
+        address_type()(address)
+        return True
+    except Invalid:
+        return False
 
 
 def to_checksum_address(address: str) -> str:

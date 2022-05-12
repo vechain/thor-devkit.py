@@ -75,10 +75,29 @@ def test_verify(cert_1, private_key):
     temp = cert_1.to_dict()
     temp["signer"] = "0x"
     with pytest.raises(Invalid):
-        Certificate(**temp, signature=sig).verify()
+        c = Certificate(**temp, signature=sig)
 
     # Signature doesn't match.
     temp = cert_1.to_dict()
     temp["signer"] = "0x" + "0" * 40
+    c = Certificate(**temp, signature=sig)
     with pytest.raises(BadSignature):
-        Certificate(**temp, signature=sig).verify()
+        c.verify()
+    assert not c.is_valid()
+
+    # Signature missing.
+    temp = cert_1.to_dict()
+    c = Certificate(**temp)
+    with pytest.raises(ValueError, match=r"needs.*signature"):
+        c.verify()
+    assert not c.is_valid()
+
+    # Signature of wrong length.
+    temp = cert_1.to_dict()
+    with pytest.raises(Invalid):
+        Certificate(**temp, signature=sig[:-2])
+
+    # Signature not a hex string.
+    temp = cert_1.to_dict()
+    with pytest.raises(Invalid):
+        Certificate(**temp, signature=sig[:-1] + "z")

@@ -80,10 +80,10 @@ def test_numeric_kind_decode():
     assert kind.deserialize(bytes(range(1, 9))) == int("0x102030405060708", 16)
 
     # Should fail.
-    with pytest.raises(DeserializationError, match=r".+wrong size.+"):
+    with pytest.raises(DeserializationError, match=r"wrong size"):
         kind.deserialize(bytes([1] * 9))
 
-    with pytest.raises(DeserializationError, match=r".+leading zeroes"):
+    with pytest.raises(DeserializationError, match=r"leading zeroes"):
         kind.deserialize(bytes([0, 1, 2]))
 
 
@@ -91,13 +91,13 @@ def test_blob_kind_encode():
     kind = m_rlp.BlobKind()
     assert kind.serialize("0x1234567890").hex() == "1234567890"
 
-    with pytest.raises(SerializationError, match=r".+even.+"):
+    with pytest.raises(SerializationError, match=r"even"):
         kind.serialize("0x1")
 
     with pytest.raises(SerializationError, match=r"Expected.+string"):
         kind.serialize("0xxy")
 
-    with pytest.raises(TypeError, match=r'.+of type "str".+'):
+    with pytest.raises(SerializationError, match=r"Expected.+string"):
         kind.serialize(1)  # type: ignore[arg-type]
 
 
@@ -106,7 +106,7 @@ def test_blob_kind_decode():
 
     assert kind.deserialize(bytes([1, 2, 3, 4, 5])) == "0x0102030405"
 
-    with pytest.raises(TypeError, match=r"expected bytes.+"):
+    with pytest.raises(TypeError, match=r"expected bytes"):
         kind.deserialize("12")  # type: ignore[arg-type]
 
 
@@ -118,16 +118,16 @@ def test_fixed_blob_encode():
     with pytest.raises(SerializationError, match=r"Expected.+string"):
         kind.serialize("0x1234567z")
 
-    with pytest.raises(SerializationError, match=r"Expected string of length 10"):
+    with pytest.raises(SerializationError, match=r"Expected.+8, got 10"):
         kind.serialize("0x1234567890")
 
-    with pytest.raises(SerializationError, match=r"Expected string of length 10"):
+    with pytest.raises(SerializationError, match=r"even"):
         kind.serialize("0x1234567")
 
-    with pytest.raises(TypeError, match=r'.+of type "str".+'):
+    with pytest.raises(SerializationError, match=r"Expected.+string"):
         kind.serialize(1)  # type: ignore[arg-type]
 
-    with pytest.raises(TypeError, match=r'.+of type "str".+'):
+    with pytest.raises(SerializationError, match=r"Expected.+string"):
         kind.serialize(None)  # type: ignore[arg-type]
 
 
@@ -152,19 +152,19 @@ def test_optional_fixed_blob_kind_encode():
     with pytest.raises(SerializationError, match=r"Expected.+string"):
         kind.serialize("0x1234567z")
 
-    with pytest.raises(SerializationError, match=r"Expected string of length 10"):
+    with pytest.raises(SerializationError, match=r"of length 8"):
         kind.serialize("0x11")
 
-    with pytest.raises(SerializationError, match=r"Expected string of length 10"):
+    with pytest.raises(SerializationError, match=r"of length 8"):
         kind.serialize("0x1234567890")
 
-    with pytest.raises(SerializationError, match=r"Expected string of length 10"):
+    with pytest.raises(SerializationError, match=r"even"):
         kind.serialize("0x1234567")
 
-    with pytest.raises(TypeError):
+    with pytest.raises(SerializationError, match="int"):
         kind.serialize(1)  # type: ignore[arg-type]
 
-    with pytest.raises(SerializationError, match=r"Expected string of length 10"):
+    with pytest.raises(SerializationError, match=r"of length 8"):
         kind.serialize("0x")
 
 
@@ -178,7 +178,7 @@ def test_optional_fixed_blob_kind_decode():
         kind.deserialize(bytes(2))
 
 
-def test_compact_fixed_blobkind_encode():
+def test_compact_fixed_blob_kind_encode():
     kind = m_rlp.CompactFixedBlobKind(4)
     # zero leading
     assert kind.serialize("0x00112233").hex() == "112233"
@@ -186,21 +186,21 @@ def test_compact_fixed_blobkind_encode():
     assert kind.serialize("0x11002233").hex() == "11002233"
 
 
-def test_compact_fixed_blobkind_decode():
+def test_compact_fixed_blob_kind_decode():
     kind = m_rlp.CompactFixedBlobKind(4)
     # Should prefix the zeros
     assert kind.deserialize(bytes([1])) == "0x00000001"
     # Should prefix the zeros, and the middle zeros should not interfere.
     assert kind.deserialize(bytes.fromhex("110022")) == "0x00110022"
 
-    with pytest.raises(DeserializationError, match=r".+too long.+"):
+    with pytest.raises(DeserializationError, match=r"too long"):
         kind.deserialize(b"1122334455")
 
-    with pytest.raises(DeserializationError, match=r".+no leading zeroes"):
+    with pytest.raises(DeserializationError, match=r"no leading zeroes"):
         kind.deserialize(bytes(1))
 
 
-def test_compact_fixed_blobkind_encode_with_zero():
+def test_compact_fixed_blob_kind_encode_with_zero():
     kind = m_rlp.CompactFixedBlobKind(4)
     assert kind.serialize("0x00000000") == b""
     assert kind.deserialize(b"") == "0x00000000"
@@ -310,14 +310,14 @@ def test_rlp_complex(complex_data, complex_codec, complex_encoded):
 
 def test_rlp_complex_malformed_1(complex_data, complex_codec):
     complex_data.pop("foo")
-    with pytest.raises(SerializationError, match=r"Keys count differs:.+"):
+    with pytest.raises(SerializationError, match=r"Missing key: 'foo'"):
         complex_codec.encode(complex_data)
 
 
 def test_rlp_complex_malformed_2(complex_data, complex_codec):
     complex_data.pop("foo")
     complex_data["sam"] = 19
-    with pytest.raises(SerializationError, match=r"Missing key.+"):
+    with pytest.raises(SerializationError, match=r"Missing key: 'foo'"):
         complex_codec.encode(complex_data)
 
 
@@ -325,20 +325,33 @@ def test_rlp_complex_malformed_3(complex_data, complex_codec):
     complex_data.pop("foo")
     complex_data["sam"] = 18
     complex_data["say"] = 19
-    with pytest.raises(SerializationError, match=r"Keys count differs:.+"):
+    with pytest.raises(SerializationError, match=r"Missing key: 'foo'"):
         complex_codec.encode(complex_data)
 
 
 def test_rlp_complex_malformed_4(complex_data, complex_codec):
-    complex_data["baz"].append(2)
-    with pytest.raises(SerializationError, match=r"Items count differs:.+"):
+    complex_data["sam"] = 19
+    with pytest.raises(SerializationError, match=r"Keys count differs:"):
         complex_codec.encode(complex_data)
 
 
 def test_rlp_complex_malformed_5(complex_data, complex_codec):
-    complex_data["baz"].pop(-1)
-    with pytest.raises(SerializationError, match=r"Items count differs:.+"):
+    complex_data["baz"].append(2)
+    with pytest.raises(SerializationError, match=r"Items count differs:"):
         complex_codec.encode(complex_data)
+
+
+def test_rlp_complex_malformed_6(complex_data, complex_codec):
+    complex_data["baz"].pop(-1)
+    with pytest.raises(SerializationError, match=r"Items count differs:"):
+        complex_codec.encode(complex_data)
+
+
+def test_rlp_complex_malformed_7(complex_codec):
+    # Add extra item to array
+    enc = "d67b8412345678cfc4118204d2c41282162ec413820457"
+    with pytest.raises(DeserializationError, match=r"Items count differs:"):
+        complex_codec.decode(bytes.fromhex(enc))
 
 
 def test_rlp_complex_homo(complex_data, complex_codec_homo, complex_encoded):
@@ -349,3 +362,16 @@ def test_rlp_complex_homo(complex_data, complex_codec_homo, complex_encoded):
 def test_rlp_complex_strange(complex_data_nested, complex_codec_nested):
     my_bytes = complex_codec_nested.encode(complex_data_nested)
     assert complex_codec_nested.decode(my_bytes) == complex_data_nested
+
+
+def test_wrong_coder_pack():
+    from thor_devkit.rlp import DictWrapper, pack, unpack
+
+    with pytest.raises(TypeError), pytest.warns(DeprecationWarning):
+        pack(1, int)  # type: ignore[arg-type]
+
+    with pytest.raises(TypeError), pytest.warns(DeprecationWarning):
+        unpack(b"", int)  # type: ignore[arg-type]
+
+    with pytest.raises(TypeError), pytest.warns(DeprecationWarning):
+        unpack(b"", DictWrapper)  # type: ignore[arg-type]

@@ -1,12 +1,13 @@
 import pytest
 
-from thor_devkit import abi, cry
+from thor_devkit import cry
+from thor_devkit.abi import EVENT, Coder, Event
 
 
 # *********************** FIXTURES **************************
 @pytest.fixture()
 def simple_event_no_hash():
-    return abi.EVENT(
+    return EVENT(
         {
             "anonymous": False,
             "inputs": [
@@ -21,7 +22,7 @@ def simple_event_no_hash():
 
 @pytest.fixture()
 def anonymous_event_no_hash():
-    return abi.EVENT(
+    return EVENT(
         {
             "anonymous": True,
             "inputs": [
@@ -36,7 +37,7 @@ def anonymous_event_no_hash():
 
 @pytest.fixture()
 def simple_event_hash():
-    return abi.EVENT(
+    return EVENT(
         {
             "inputs": [{"indexed": True, "name": "a1", "type": "string"}],
             "name": "E4",
@@ -47,7 +48,7 @@ def simple_event_hash():
 
 @pytest.fixture()
 def simple_event_int():
-    return abi.EVENT(
+    return EVENT(
         {
             "anonymous": False,
             "inputs": [{"indexed": True, "name": "a1", "type": "uint256"}],
@@ -59,7 +60,7 @@ def simple_event_int():
 
 @pytest.fixture()
 def tuple_event():
-    return abi.EVENT(
+    return EVENT(
         {
             "inputs": [
                 {
@@ -83,7 +84,7 @@ def tuple_event():
 
 @pytest.fixture()
 def tuple_fixed_array_event():
-    return abi.EVENT(
+    return EVENT(
         {
             "inputs": [
                 {
@@ -107,7 +108,7 @@ def tuple_fixed_array_event():
 
 @pytest.fixture()
 def tuple_dynamic_array_event():
-    return abi.EVENT(
+    return EVENT(
         {
             "inputs": [
                 {
@@ -131,7 +132,7 @@ def tuple_dynamic_array_event():
 
 @pytest.fixture()
 def fixed_array_event():
-    return abi.EVENT(
+    return EVENT(
         {
             "inputs": [
                 {"indexed": True, "name": "a1", "type": "int16[3]"},
@@ -144,7 +145,7 @@ def fixed_array_event():
 
 @pytest.fixture()
 def dynamic_array_event():
-    return abi.EVENT(
+    return EVENT(
         {
             "inputs": [
                 {"indexed": True, "name": "a1", "type": "int16[]"},
@@ -157,7 +158,7 @@ def dynamic_array_event():
 
 @pytest.fixture()
 def unindexed_struct_event():
-    return abi.EVENT(
+    return EVENT(
         {
             "inputs": [
                 {
@@ -178,7 +179,7 @@ def unindexed_struct_event():
 
 @pytest.fixture()
 def unindexed_struct_fixed_array_event():
-    return abi.EVENT(
+    return EVENT(
         {
             "inputs": [
                 {
@@ -199,7 +200,7 @@ def unindexed_struct_fixed_array_event():
 
 @pytest.fixture()
 def unindexed_struct_dynamic_array_event():
-    return abi.EVENT(
+    return EVENT(
         {
             "inputs": [
                 {
@@ -220,7 +221,7 @@ def unindexed_struct_dynamic_array_event():
 
 @pytest.fixture()
 def unindexed_struct_nested_event():
-    return abi.EVENT(
+    return EVENT(
         {
             "inputs": [
                 {
@@ -248,7 +249,7 @@ def unindexed_struct_nested_event():
 
 @pytest.fixture()
 def only_unindexed_event():
-    return abi.EVENT(
+    return EVENT(
         {
             "inputs": [
                 {"indexed": False, "name": "a1", "type": "int16"},
@@ -264,7 +265,7 @@ def only_unindexed_event():
 
 @pytest.fixture()
 def mixed_indexed_unindexed_event():
-    return abi.EVENT(
+    return EVENT(
         {
             "inputs": [
                 {"indexed": False, "name": "a1", "type": "int16"},
@@ -283,7 +284,7 @@ def mixed_indexed_unindexed_event():
 
 @pytest.fixture()
 def too_much_indexed_event():
-    return abi.EVENT(
+    return EVENT(
         {
             "inputs": [
                 {"indexed": True, "name": "a1", "type": "bool"},
@@ -299,7 +300,7 @@ def too_much_indexed_event():
 
 @pytest.fixture()
 def too_much_indexed_anon_event():
-    return abi.EVENT(
+    return EVENT(
         {
             "inputs": [
                 {"indexed": True, "name": "a1", "type": "bool"},
@@ -309,6 +310,22 @@ def too_much_indexed_anon_event():
                 {"indexed": True, "name": "a5", "type": "bool"},
             ],
             "name": "E4",
+            "type": "event",
+        }
+    )
+
+
+@pytest.fixture()
+def multi_inputs_event():
+    return EVENT(
+        {
+            "inputs": [
+                {"name": "from", "indexed": True, "type": "address"},
+                {"name": "value", "indexed": False, "type": "uint256"},
+                {"name": "to", "indexed": True, "type": "address"},
+                {"name": "value2", "indexed": False, "type": "uint64"},
+            ],
+            "name": "MyEvent",
             "type": "event",
         }
     )
@@ -329,48 +346,88 @@ def true_enc():
 # ***********************************************************
 
 
-def test_event_basic(simple_event_no_hash, foo_enc, true_enc):
-    e = abi.Event(simple_event_no_hash)
+def test_event_basic_decode(simple_event_no_hash, foo_enc, true_enc):
+    e = Event(simple_event_no_hash)
 
     assert (
         e.signature.hex()
         == "47b78f0ec63d97830ace2babb45e6271b15a678528e901a9651e45b65105e6c2"
     )
 
-    assert e.decode(
-        foo_enc,
-        [e.signature, true_enc],
-    ).to_dict() == {"a1": 1, "a2": "foo"}
+    assert e.decode(foo_enc, [e.signature, true_enc]).to_dict() == {
+        "a1": 1,
+        "a2": "foo",
+    }
+
+    with pytest.raises(ValueError, match=r"First topic.+ signature"):
+        e.decode(foo_enc, [b"\x00", true_enc])
+
+    with pytest.raises(ValueError, match=r"Invalid topics count"):
+        e.decode(foo_enc, [e.signature])
+    with pytest.raises(ValueError, match=r"Invalid topics count"):
+        e.decode(foo_enc, [e.signature, true_enc, true_enc])
+
+    assert e.decode(foo_enc, [e.signature, None]).to_dict() == {
+        "a1": None,
+        "a2": "foo",
+    }
+    with pytest.raises(ValueError, match=r"Invalid topics count"):
+        e.decode(foo_enc, [e.signature, true_enc, true_enc])
+
+    assert e.decode(foo_enc, None).to_dict() == {"a1": None, "a2": "foo"}
+
+
+def test_event_basic_encode(simple_event_no_hash, true_enc):
+    e = Event(simple_event_no_hash)
 
     assert e.encode({"a1": None}) == [e.signature, None]
-
     assert e.encode({"a1": 1}) == [e.signature, true_enc]
 
-    with pytest.raises(ValueError, match=".+ expected 1, got 2"):
+    with pytest.raises(ValueError, match=r".+ expected 1, got 2"):
         e.encode({"a1": 1, "x": 3})
+
+    with pytest.raises(ValueError, match=r"Missing key.+"):
+        e.encode({"a2": 1})
+
+    with pytest.raises(TypeError):
+        e.encode(1)  # type: ignore[arg-type]
 
 
 def test_too_much_indexed(too_much_indexed_event, too_much_indexed_anon_event):
     with pytest.raises(ValueError, match="Too much indexed parameters!"):
-        abi.Event(too_much_indexed_event)
+        Event(too_much_indexed_event)
 
     with pytest.raises(ValueError, match="Too much indexed parameters!"):
-        abi.Event(too_much_indexed_anon_event)
+        Event(too_much_indexed_anon_event)
 
 
 def test_event_anonymous(anonymous_event_no_hash, foo_enc, true_enc):
-    e = abi.Event(anonymous_event_no_hash)
-    assert e.decode(
+    e = Event(anonymous_event_no_hash)
+    decoded = e.decode(
         foo_enc,
         [true_enc],
-    ).to_dict() == {"a1": 1, "a2": "foo"}
+    )
+    assert decoded.to_dict() == {"a1": 1, "a2": "foo"}
+    assert decoded.a1 == 1
+    assert decoded.a2 == "foo"
+    with pytest.raises(AttributeError):
+        decoded.non_existent
+
+    assert e.decode(foo_enc, [None]).to_dict() == {
+        "a1": None,
+        "a2": "foo",
+    }
+    with pytest.raises(ValueError, match=r"Invalid topics count"):
+        e.decode(foo_enc, [e.signature, None])
+
+    assert e.decode(foo_enc, None).to_dict() == {"a1": None, "a2": "foo"}
 
     assert e.encode({"a1": 1}) == [true_enc]
     assert e.encode([1]) == [true_enc]
 
 
 def test_event_hashed(simple_event_hash):
-    e = abi.Event(simple_event_hash)
+    e = Event(simple_event_hash)
     hashed = cry.keccak256([b"hello"])[0]
 
     assert e.encode({"a1": "hello"}) == [e.signature, hashed]
@@ -379,7 +436,7 @@ def test_event_hashed(simple_event_hash):
 
 
 def test_simple_int_event(simple_event_int, true_enc):
-    e = abi.Event(simple_event_int)
+    e = Event(simple_event_int)
     assert (
         e.signature.hex()
         == "e96585649d926cc4f5031a6113d7494d766198c0ac68b04eb93207460f9d7fd2"
@@ -397,7 +454,7 @@ def test_simple_int_event(simple_event_int, true_enc):
 
 
 def test_event_tuple_abiv2(tuple_event, true_enc):
-    e = abi.Event(tuple_event)
+    e = Event(tuple_event)
 
     expected = [
         e.signature,
@@ -423,7 +480,7 @@ def test_event_tuple_abiv2(tuple_event, true_enc):
 
 
 def test_event_tuple_dynarr_abiv2(tuple_dynamic_array_event, true_enc):
-    e = abi.Event(tuple_dynamic_array_event)
+    e = Event(tuple_dynamic_array_event)
     expected = [
         e.signature,
         cry.keccak256(
@@ -464,7 +521,7 @@ def test_event_tuple_dynarr_abiv2(tuple_dynamic_array_event, true_enc):
 
 
 def test_event_tuple_fixarr_abiv2(tuple_fixed_array_event):
-    e = abi.Event(tuple_fixed_array_event)
+    e = Event(tuple_fixed_array_event)
     expected = [
         e.signature,
         cry.keccak256(
@@ -504,7 +561,7 @@ def test_event_tuple_fixarr_abiv2(tuple_fixed_array_event):
 
 
 def test_event_fixarr_abiv2(fixed_array_event):
-    e = abi.Event(fixed_array_event)
+    e = Event(fixed_array_event)
     expected = [
         e.signature,
         cry.keccak256(
@@ -524,7 +581,7 @@ def test_event_fixarr_abiv2(fixed_array_event):
 
 
 def test_event_dynarr_abiv2(dynamic_array_event):
-    e = abi.Event(dynamic_array_event)
+    e = Event(dynamic_array_event)
     expected = [
         e.signature,
         cry.keccak256(
@@ -546,7 +603,7 @@ def test_event_dynarr_abiv2(dynamic_array_event):
 
 
 def test_decode_only_unindexed(only_unindexed_event):
-    e = abi.Event(only_unindexed_event)
+    e = Event(only_unindexed_event)
 
     expected_data = {
         "a1": 7,
@@ -577,7 +634,7 @@ def test_decode_only_unindexed(only_unindexed_event):
 
     # Don't trust myself
     assert (
-        abi.Coder.encode_list(
+        Coder.encode_list(
             ["int", "string", "bool[3]", "bool[]"], list(expected_data.values())
         ).hex()
         == encoded.hex()
@@ -587,7 +644,7 @@ def test_decode_only_unindexed(only_unindexed_event):
 
 
 def test_decode_mixed(mixed_indexed_unindexed_event):
-    e = abi.Event(mixed_indexed_unindexed_event)
+    e = Event(mixed_indexed_unindexed_event)
 
     coded_str = cry.keccak256([b"bazz"])[0]
     indexed_enc = [b"\x01".rjust(32, b"\x00")] * 2 + [coded_str]
@@ -627,7 +684,7 @@ def test_decode_mixed(mixed_indexed_unindexed_event):
     )
 
     assert (
-        abi.Coder.encode_list(
+        Coder.encode_list(
             ["int", "string", "bool[3]", "bool[]"], list(expected_data.values())[:4]
         ).hex()
         == encoded.hex()
@@ -637,7 +694,7 @@ def test_decode_mixed(mixed_indexed_unindexed_event):
 
 
 def test_decode_struct_unindexed(unindexed_struct_event):
-    e = abi.Event(unindexed_struct_event)
+    e = Event(unindexed_struct_event)
 
     expected_data = {"a1": {"b1": True, "b2": "bar"}}
 
@@ -650,9 +707,7 @@ def test_decode_struct_unindexed(unindexed_struct_event):
         + b"bar".ljust(32, b"\x00")
     )
     assert (
-        abi.Coder.encode_single(
-            "(bool,string)", list(expected_data["a1"].values())
-        ).hex()
+        Coder.encode_single("(bool,string)", list(expected_data["a1"].values())).hex()
         == encoded.hex()
     )
 
@@ -660,7 +715,7 @@ def test_decode_struct_unindexed(unindexed_struct_event):
 
 
 def test_decode_struct_fixarray_unindexed(unindexed_struct_fixed_array_event):
-    e = abi.Event(unindexed_struct_fixed_array_event)
+    e = Event(unindexed_struct_fixed_array_event)
 
     expected_data = {
         "a1": [
@@ -694,7 +749,7 @@ def test_decode_struct_fixarray_unindexed(unindexed_struct_fixed_array_event):
         + b"bar3".ljust(32, b"\x00")
     )
     assert (
-        abi.Coder.encode_single(
+        Coder.encode_single(
             "(bool,string)[3]", [list(d.values()) for d in expected_data["a1"]]
         ).hex()
         == encoded.hex()
@@ -704,7 +759,7 @@ def test_decode_struct_fixarray_unindexed(unindexed_struct_fixed_array_event):
 
 
 def test_decode_struct_dynarray_unindexed(unindexed_struct_dynamic_array_event):
-    e = abi.Event(unindexed_struct_dynamic_array_event)
+    e = Event(unindexed_struct_dynamic_array_event)
 
     expected_data = {
         "a1": [
@@ -739,7 +794,7 @@ def test_decode_struct_dynarray_unindexed(unindexed_struct_dynamic_array_event):
         + b"bar3".ljust(32, b"\x00")
     )
     assert (
-        abi.Coder.encode_single(
+        Coder.encode_single(
             "(bool,string)[]", [list(d.values()) for d in expected_data["a1"]]
         ).hex()
         == encoded.hex()
@@ -749,7 +804,7 @@ def test_decode_struct_dynarray_unindexed(unindexed_struct_dynamic_array_event):
 
 
 def test_decode_struct_nested_unindexed(unindexed_struct_nested_event):
-    e = abi.Event(unindexed_struct_nested_event)
+    e = Event(unindexed_struct_nested_event)
 
     expected_data = {
         "a1": [
@@ -779,10 +834,82 @@ def test_decode_struct_nested_unindexed(unindexed_struct_nested_event):
         + b"bar2".ljust(32, b"\x00")
     )
     assert (
-        abi.Coder.encode_single(
+        Coder.encode_single(
             "((bool,bool),string)[]", [((True, False), "bar1"), ((False, True), "bar2")]
         ).hex()
         == encoded.hex()
     )
 
     assert e.decode(encoded, [e.signature]).to_dict() == expected_data
+
+
+def test_encode_full(multi_inputs_event):
+    event = Event(multi_inputs_event)
+    address_from = "0x" + "f" * 40
+    address_to = "0x" + "9" * 40
+
+    topics_enc = event.encode([address_from, address_to])
+    data_enc = event.encode_data([256, 127])
+
+    topics, data = event.encode_full([address_from, 256, address_to, 127])
+    assert topics == topics_enc
+    assert data == data_enc
+
+    topics, data = event.encode_full(
+        {
+            "to": address_to,
+            "value": 256,
+            "value2": 127,
+            "from": address_from,
+        }
+    )
+    assert topics == topics_enc
+    assert data == data_enc
+
+    with pytest.raises(ValueError, match=".+ shorter .+"):
+        event.encode_full([address_from, 256, address_to, 127, 0])
+    with pytest.raises(ValueError, match=".+ shorter .+"):
+        event.encode_full([1, address_from, 256, address_to, 127])
+
+    with pytest.raises(ValueError, match="Invalid keys count"):
+        event.encode_full(
+            {
+                "to": address_to,
+                "value": 256,
+                "value2": 127,
+                "from": address_from,
+                "x": 1,
+            }
+        )
+
+    with pytest.raises(ValueError, match="Key 'from' is missing"):
+        event.encode_full(
+            {
+                "to": address_to,
+                "value": 256,
+                "value2": 127,
+            }
+        )
+
+    with pytest.raises(ValueError, match="Key 'from' is missing"):
+        event.encode_full(
+            {
+                "to": address_to,
+                "value": 256,
+                "value2": 127,
+                "not_address_from": address_from,
+            }
+        )
+
+    with pytest.raises(TypeError):
+        event.encode_full(1)  # type: ignore[arg-type]
+
+
+def test_encode_data(multi_inputs_event):
+    event = Event(multi_inputs_event)
+
+    enc = event.encode_data([256, 129])  # 256 == 0x100, 129 == 0x81
+    assert enc.hex() == "100".rjust(64, "0") + "81".rjust(64, "0")
+
+    enc = event.encode_data({"value": 256, "value2": 129})
+    assert enc.hex() == "100".rjust(64, "0") + "81".rjust(64, "0")

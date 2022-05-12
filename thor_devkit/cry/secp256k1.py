@@ -7,15 +7,16 @@
 """
 import sys
 
+import eth_keys.exceptions
 from ecdsa import SECP256k1, SigningKey
 from eth_keys import KeyAPI
 
 from thor_devkit.deprecation import renamed_function
 
 if sys.version_info < (3, 8):
-    from typing_extensions import Final
+    from typing_extensions import Final, Literal
 else:
-    from typing import Final
+    from typing import Final, Literal
 
 __all__ = [
     "is_valid_private_key",
@@ -34,16 +35,33 @@ ZERO: Final = bytes(32)
 """32-bit zero in bytes form."""
 
 
-def _is_valid_private_key(priv_key: bytes) -> bool:
-    priv_key = bytes(priv_key)
+def validate_private_key(priv_key: bytes) -> Literal[True]:
+    """Validate given private key.
+
+    .. versionadded:: 2.0.0
+
+    Returns
+    -------
+    Literal[True]
+        Always True.
+
+    Raises
+    ------
+    ValueError
+        If key is not valid.
+    """
+    try:
+        priv_key = bytes(priv_key)
+    except TypeError as e:
+        raise ValueError("Given key is not convertible to bytes.") from e
 
     if priv_key == ZERO:
-        return False
-
+        raise ValueError("Private key must not be zero.")
     if priv_key >= MAX:
-        return False
-
-    return len(priv_key) == 32
+        raise ValueError("Private key must be less than MAX.")
+    if len(priv_key) != 32:
+        raise ValueError("Length of private key must be equal to 32.")
+    return True
 
 
 def is_valid_private_key(priv_key: bytes) -> bool:
@@ -61,10 +79,13 @@ def is_valid_private_key(priv_key: bytes) -> bool:
     bool
         True if the private key is valid.
     """
-    return _is_valid_private_key(priv_key)
+    try:
+        return validate_private_key(priv_key)
+    except ValueError:
+        return False
 
 
-def _is_valid_message_hash(msg_hash: bytes) -> bool:
+def _validate_message_hash(msg_hash: bytes) -> Literal[True]:
     """Verify if a message hash is in correct format (as in terms of VeChain).
 
     Parameters
@@ -77,7 +98,11 @@ def _is_valid_message_hash(msg_hash: bytes) -> bool:
     bool
         Whether the message hash is in correct format.
     """
-    return len(msg_hash) == 32
+    if not isinstance(msg_hash, bytes):
+        raise ValueError("Message hash must be of type 'bytes'")
+    if len(msg_hash) != 32:
+        raise ValueError("Message hash must be 32 bytes long")
+    return True
 
 
 def generate_private_key() -> bytes:
@@ -90,9 +115,11 @@ def generate_private_key() -> bytes:
     bytes
         The private key in 32 bytes format.
     """
+    # We shouldn't measure coverage here, because situation "key is invalid"
+    # is almost improbable
     while True:
         _a = SigningKey.generate(curve=SECP256k1).to_string()
-        if is_valid_private_key(_a):
+        if is_valid_private_key(_a):  # pragma: no cover
             return _a
 
 
@@ -129,8 +156,7 @@ def derive_public_key(priv_key: bytes) -> bytes:
     ValueError
         If the private key is not valid.
     """
-    if not is_valid_private_key(priv_key):
-        raise ValueError("Private key not valid.")
+    validate_private_key(priv_key)
 
     _a = SigningKey.from_string(priv_key, curve=SECP256k1)
     return _a.verifying_key.to_string("uncompressed")
@@ -172,11 +198,8 @@ def sign(msg_hash: bytes, priv_key: bytes) -> bytes:
     ValueError
         If the input is malformed.
     """
-    if not _is_valid_message_hash(msg_hash):
-        raise ValueError("Message hash not valid.")
-
-    if not is_valid_private_key(priv_key):
-        raise ValueError("Private Key not valid.")
+    _validate_message_hash(msg_hash)
+    validate_private_key(priv_key)
 
     sig = KeyAPI().ecdsa_sign(msg_hash, KeyAPI.PrivateKey(priv_key))
 
@@ -209,16 +232,15 @@ def recover(msg_hash: bytes, sig: bytes) -> bytes:
         or recovery bit is bad,
         or cannot recover(sig and msg_hash doesn't match).
     """
-    if not _is_valid_message_hash(msg_hash):
-        raise ValueError("Message Hash must be 32 bytes.")
+    _validate_message_hash(msg_hash)
 
-    if len(sig) != 65:
-        raise ValueError("Signature must be 65 bytes.")
+    # This validates signature
+    try:
+        signature = KeyAPI.Signature(signature_bytes=sig)
+    except (eth_keys.exceptions.BadSignature, eth_keys.exceptions.ValidationError) as e:
+        raise ValueError("Signature is invalid.") from e
 
-    if sig[-1] not in {0, 1}:
-        raise ValueError("Signature last byte must be 0 or 1")
-
-    pk = KeyAPI().ecdsa_recover(msg_hash, KeyAPI.Signature(signature_bytes=sig))
+    pk = KeyAPI().ecdsa_recover(msg_hash, signature)
 
     # uncompressed should have first byte = 04
     return bytes([4]) + pk.to_bytes()

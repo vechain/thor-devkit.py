@@ -4,7 +4,6 @@ Implemented according to
 `VIP192 <https://github.com/vechain/VIPs/blob/master/vips/VIP-192.md>`_
 """
 import json
-import re
 import sys
 from typing import Optional
 
@@ -39,9 +38,6 @@ __all__ = [
     "PAYLOAD",
     "CERTIFICATE",
 ]
-
-SIGNATURE_PATTERN: Final = re.compile(r"^0x[0-9a-f]{130}$", re.I)
-"""Signature must be hex-string with ``0x`` prefix."""
 
 
 PAYLOAD: Final = Schema(
@@ -181,7 +177,7 @@ class Certificate:
             body["signature"] = signature
 
         # Validate and normalize
-        self._body = CERTIFICATE(body)
+        self._body: CertificateT = CERTIFICATE(body)
 
     def to_dict(self) -> CertificateT:
         """Export certificate body as dictionary."""
@@ -231,12 +227,6 @@ class Certificate:
         sig = data.pop("signature", "")
         if not sig:
             raise ValueError('the certificate needs a "signature" field.')
-        elif len(sig) % 2 != 0:
-            raise ValueError("the length of certificate signature must be even.")
-        elif not SIGNATURE_PATTERN.match(sig):
-            raise ValueError(
-                "the signature of certificate doesn't match expected format"
-            )
 
         the_encoded = Certificate(**data).encode()
         signing_hash, _ = blake2b256([the_encoded.encode()])
@@ -246,6 +236,21 @@ class Certificate:
             raise BadSignature
 
         return True
+
+    def is_valid(self) -> bool:
+        """Check if the signature of certificate is valid.
+
+        .. versionadded:: 2.0.0
+
+        Returns
+        -------
+        bool
+            Whether signature is valid.
+        """
+        try:
+            return self.verify()
+        except (ValueError, BadSignature):
+            return False
 
 
 @renamed_function("Certificate.encode")

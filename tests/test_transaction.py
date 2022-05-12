@@ -253,6 +253,20 @@ def test_reserved_with_untrimmed_bytes(non_delegated_body):
         Transaction.decode(untrimmed_enc, unsigned=True)
 
 
+def test_reserved(non_delegated_body):
+    non_delegated_body["reserved"] = {"features": 1}
+    enc = Transaction(non_delegated_body).encode()
+    assert non_delegated_body == Transaction.decode(enc, unsigned=True).body
+
+
+def test_reserved_features_0(non_delegated_body):
+    non_delegated_body["reserved"] = {"features": 0}
+    enc = Transaction(non_delegated_body).encode()
+    expected_body = {**non_delegated_body}
+    expected_body.pop("reserved")
+    assert expected_body == Transaction.decode(enc, unsigned=True).body
+
+
 def test_signed(signed_non_delegated_tx, signer):
     signed = signed_non_delegated_tx
 
@@ -393,8 +407,8 @@ def test_unused_2(delegated_body):
 
 def test_body_copy(non_delegated_body):
     tx = Transaction(non_delegated_body)
-    b1 = tx.get_body(False)
-    b2 = tx.get_body(True)
+    b1 = tx.body
+    b2 = tx.copy_body()
 
     assert b1 is not b2  # id should be different
     assert b1 == b2  # content should be the same

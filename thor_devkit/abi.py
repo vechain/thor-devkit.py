@@ -16,6 +16,7 @@ from typing import (
     List,
     Mapping,
     NamedTuple,
+    NoReturn,
     Optional,
     Sequence,
     Tuple,
@@ -293,7 +294,7 @@ class FunctionResult(base):
             for k, v in self._asdict().items()
         }
 
-    def __getattr__(self, name: str) -> Any:
+    def __getattr__(self, name: str) -> NoReturn:
         """Dot attribute access (if not found).
 
         This is needed to make mypy happy with mix of this and dynamic namedtuple.
@@ -302,7 +303,7 @@ class FunctionResult(base):
         but all types are Any. If type-checking is very important, make sure to
         `assert` proper types to narrow them.
         """
-        return super().__getattr__(name)  # type: ignore[misc]
+        raise AttributeError(f"{self!r} does not have attribute '{name}'.")
 
     @staticmethod
     def name_to_identifier(word: str, position: int = 0) -> str:
@@ -351,12 +352,16 @@ class FunctionResult(base):
 
         >>> FunctionResult.name_to_identifier('from_')
         'from__'
+
+        >>> FunctionResult.name_to_identifier('1f')
+        Traceback (most recent call last):
+        ValueError: Invalid identifier given: '1f'
         """
         if not word:
             return f"ret_{position}"
 
         if not word.isidentifier():
-            raise ValueError(f"Invalid identifier given: {word}")
+            raise ValueError(f"Invalid identifier given: '{word}'")
 
         if iskeyword(word.rstrip("_")):
             return f"{word}_"
@@ -395,6 +400,9 @@ class FunctionResult(base):
 
         >>> FunctionResult.name_from_identifier('for_')
         'for'
+
+        >>> FunctionResult.name_from_identifier('from__')
+        'from_'
         """
         if word.endswith("_") and iskeyword(word.rstrip("_")):
             return word[:-1]
@@ -638,8 +646,6 @@ _dummy = object()
 class Function(Encodable[FuncParameterT]):
     """ABI Function."""
 
-    _definition: FunctionT
-
     def __init__(self, f_definition: FunctionT) -> None:
         """Initialize a function by definition.
 
@@ -648,8 +654,8 @@ class Function(Encodable[FuncParameterT]):
         f_definition : FunctionT
             A dict with style of :const:`FUNCTION`
         """
-        self._definition = FUNCTION(f_definition)  # Protect.
-        self._selector = calc_function_selector(f_definition)  # first 4 bytes.
+        self._definition: FunctionT = FUNCTION(f_definition)  # Protect.
+        self._selector: bytes = calc_function_selector(f_definition)  # first 4 bytes.
 
     @property
     def selector(self) -> bytes:
@@ -885,8 +891,6 @@ class Function(Encodable[FuncParameterT]):
 class Event(Encodable[EventParameterT]):
     """ABI Event."""
 
-    _definition: EventT
-
     def __init__(self, e_definition: EventT) -> None:
         """Initialize an Event with definition.
 
@@ -900,15 +904,17 @@ class Event(Encodable[EventParameterT]):
         ValueError
             Number of indexed parameters exceeds the limit.
         """
-        self._definition = EVENT(e_definition)
-        self._signature = calc_event_topic(self._definition)
+        self._definition: EventT = EVENT(e_definition)
+        self._signature: bytes = calc_event_topic(self._definition)
 
-        self.indexed_params = [x for x in self._definition["inputs"] if x["indexed"]]
+        self.indexed_params: List[EventParameterT] = [
+            x for x in self._definition["inputs"] if x["indexed"]
+        ]
 
         if len(self.indexed_params) - int(self.is_anonymous) > 3:
             raise ValueError("Too much indexed parameters!")
 
-        self.unindexed_params = [
+        self.unindexed_params: List[EventParameterT] = [
             x for x in self._definition["inputs"] if not x["indexed"]
         ]
 
@@ -942,11 +948,41 @@ class Event(Encodable[EventParameterT]):
         return type_.split("[")[0]
 
     @staticmethod
-    def _pad(
+    def pad(
         data: Union[Sequence[bytes], bytes],
-        mod: int,
+        mod: int = 32,
         to: Literal["r", "l"] = "l",
     ) -> bytes:
+        r"""Join sequence of bytes together and pad to multiple of ``mod``.
+
+        Parameters
+        ----------
+        data: bytes or Sequence[bytes]
+            Data to process.
+        mod: int, default: 32
+            Length unit (bytes are padded to multiple of this parameter)
+        to: Literal["r", "l"]
+            Pad to left or to right.
+
+        Returns
+        -------
+        bytes
+            Given sequence joined and padded to multiple of ``mod``.
+
+        Examples
+        --------
+        >>> Event.pad(b'foo', 32, 'l').hex()
+        '666f6f0000000000000000000000000000000000000000000000000000000000'
+
+        >>> Event.pad(b'\x07', 16, 'r').hex()
+        '00000000000000000000000000000007'
+
+        >>> Event.pad([b'foo', b'bar'], 32, 'l').hex()
+        '666f6f6261720000000000000000000000000000000000000000000000000000'
+
+        >>> Event.pad([b'\x07', b'\x04'], 16, 'r').hex()
+        '00000000000000000000000000000704'
+        """
         if not isinstance(data, (bytes, bytearray)):
             data = b"".join(data)
 
@@ -964,12 +1000,12 @@ class Event(Encodable[EventParameterT]):
         new_type, demoted = cls._demote_type(type_)
         if demoted:
             return [
-                cls._pad(cls.dynamic_type_to_topic(new_type, v), 32, "l") for v in value
+                cls.pad(cls.dynamic_type_to_topic(new_type, v), 32, "l") for v in value
             ]
 
         if t_type.startswith("tuple"):
             return [
-                cls._pad(cls.dynamic_type_to_topic(t, v), 32, "l")
+                cls.pad(cls.dynamic_type_to_topic(t, v), 32, "l")
                 for t, v in izip(type_["components"], value)
             ]
 
@@ -1160,10 +1196,11 @@ class Event(Encodable[EventParameterT]):
 
         Raises
         ------
-        KeyError
-            If some required parameters were missing.
         ValueError
-            If some extra parameters were given.
+            If some required parameters were missing,
+            of some extra parameters were given.
+        TypeError
+            If given parameters are neither sequence nor mapping.
 
         Examples
         --------
@@ -1207,10 +1244,15 @@ class Event(Encodable[EventParameterT]):
         indexed: Union[List[Any], Dict[str, Any]]
 
         if isinstance(parameters, Mapping):
-            unindexed = {
-                p["name"]: parameters[p["name"]] for p in self.unindexed_params
-            }
-            indexed = {p["name"]: parameters[p["name"]] for p in self.indexed_params}
+            try:
+                unindexed = {
+                    p["name"]: parameters[p["name"]] for p in self.unindexed_params
+                }
+                indexed = {
+                    p["name"]: parameters[p["name"]] for p in self.indexed_params
+                }
+            except KeyError as e:
+                raise ValueError(f"Key '{e.args[0]}' is missing.")
             if len(indexed) + len(unindexed) != len(parameters):
                 raise ValueError("Invalid keys count.")
         elif isinstance(parameters, Sequence):
@@ -1233,7 +1275,6 @@ class Event(Encodable[EventParameterT]):
         self,
         data: bytes,
         topics: Optional[Sequence[Optional[bytes]]] = None,
-        strict: bool = True,
     ) -> FunctionResult:
         r"""Decode "data" according to the "topic"s.
 
@@ -1249,10 +1290,8 @@ class Event(Encodable[EventParameterT]):
             Fill unknown or not important positions with :class:`None`,
             it will be preserved.
 
-            :class:`None` is interpreted like empty list.
-        strict : bool, default: True
-            Raise an exception if topics count is less than expected.
-            If ``False``, topics will be padded with :class:`None` (to the left).
+            :class:`None` is interpreted like list of proper length where
+            all items (except signature, if needed) are :class:`None`.
 
         Returns
         -------
@@ -1357,22 +1396,24 @@ class Event(Encodable[EventParameterT]):
         --------
         :meth:`Function.decode`: for examples of result usage.
         """
-        if not self.is_anonymous and topics:
+        indexed_count = len(self.indexed_params)
+        if topics is None:
+            topics = [None] * indexed_count
+        elif not self.is_anonymous:
             # if not anonymous, topics[0] is the signature of event.
             # we cut it out, because we already have self.signature
-            sig, *topics = topics
-            if sig != self.signature:
+            if not topics or topics[0] not in {self.signature, None}:
                 raise ValueError(
                     "First topic of non-anonymous event must be its signature"
                 )
+            _, *topics = topics
 
-        indexed_count, topics_count = len(self.indexed_params), len(topics or [])
-        if topics is not None and indexed_count != topics_count:
-            if not strict and indexed_count > topics_count:
-                topics = list(topics or []) + [None] * (indexed_count - topics_count)
-            else:
-                raise ValueError("Invalid topics count.")
-        topics = topics or []
+        # Check topics count
+        topics_count = len(topics)
+        if indexed_count != topics_count:
+            raise ValueError(
+                f"Invalid topics count: expected {indexed_count}, got {topics_count}."
+            )
 
         my_types = list(map(self.make_proper_type, self.unindexed_params))
         result_list = Coder.decode_list(my_types, data)

@@ -1,6 +1,6 @@
 r"""RLP Encoding/Decoding layer for "real-world" objects."""
-import re
 import sys
+import warnings
 from abc import ABC, abstractmethod
 from typing import (
     Any,
@@ -14,20 +14,18 @@ from typing import (
     Tuple,
     TypeVar,
     Union,
-    overload,
 )
 
 from rlp import decode as rlp_decode
 from rlp import encode as rlp_encode
 from rlp.sedes import BigEndianInt
+from voluptuous.error import Invalid
 
-from thor_devkit.deprecation import class_renamed
+from thor_devkit import validation
+from thor_devkit.cry.utils import izip
+from thor_devkit.deprecation import deprecated, renamed_class
 from thor_devkit.exceptions import DeserializationError, SerializationError
 
-if sys.version_info < (3, 8):
-    from typing_extensions import Final
-else:
-    from typing import Final
 if sys.version_info < (3, 10):
     from typing_extensions import TypeGuard
 else:
@@ -35,34 +33,51 @@ else:
 
 
 __all__ = [
+    # Main
     "ComplexCodec",
+    # Scalar
     "BytesKind",
     "NumericKind",
     "BlobKind",
     "FixedBlobKind",
     "OptionalFixedBlobKind",
     "CompactFixedBlobKind",
+    # Wrappers
     "DictWrapper",
     "ListWrapper",
     "HomoListWrapper",
-    "pack",
-    "unpack",
+    # Abstract
+    "AbstractSerializer",
+    "ScalarKind",
+    "BaseWrapper",
 ]
 
-HEX_STRING_PATTERN: Final = re.compile(r"^0x[0-9a-f]*$", re.I)
-NONEMPTY_HEX_STRING_PATTERN: Final = re.compile(r"^0x[0-9a-f]+$", re.I)
-
-
-def _is_hex_string(a: str, must_contain_data: bool) -> bool:
-    c = NONEMPTY_HEX_STRING_PATTERN if must_contain_data else HEX_STRING_PATTERN
-    return bool(c.match(a))
-
-
+# We lack recursive types with mypy
+_PackedSequenceT = Sequence[
+    Union[bytes, Sequence[Union[bytes, Sequence[Union[bytes, Sequence[Any]]]]]]
+]
 _T = TypeVar("_T")
 
 
-class ScalarKind(Generic[_T], ABC):
-    """Abstract class for all serializers."""
+class AbstractSerializer(Generic[_T], ABC):
+    """Abstract class for all serializers.
+
+    .. versionadded:: 2.0.0
+    """
+
+    @abstractmethod
+    def serialize(self, __obj: _T) -> Union[bytes, _PackedSequenceT]:
+        """Serialize the object into a RLP encodable "item"."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def deserialize(self, __serial: Any) -> _T:
+        """Deserialize given bytes into higher-level object."""
+        raise NotImplementedError
+
+
+class ScalarKind(AbstractSerializer[_T]):
+    """Abstract class for all scalar serializers (they accept "basic" values)."""
 
     @abstractmethod
     def serialize(self, __obj: _T) -> bytes:
@@ -148,6 +163,8 @@ class NumericKind(BigEndianInt, ScalarKind[int]):
     .. versionchanged:: 2.0.0
         Allowed :class:`bool` values :class:`True` and :class:`False`.
     """
+
+    max_bytes: Optional[int]
 
     def __init__(self, max_bytes: Optional[int] = None) -> None:
         """Initialize a NumericKind.
@@ -260,23 +277,11 @@ class BlobKind(ScalarKind[str]):
         ------
         SerializationError
             If input data is malformed.
-        TypeError
-            If input is not a string.
         """
-        if not isinstance(obj, str):
-            raise TypeError(
-                f'Serialized object must be of type "str", got: {type(obj)}'
-            )
-
-        if not _is_hex_string(obj, False):
-            raise SerializationError("Expected 0x... style string", obj)
-
-        if len(obj) % 2:
-            raise SerializationError("Expected 0x... style string of even length.", obj)
-
-        obj2 = obj[2:]  # remove '0x'
-
-        return bytes.fromhex(obj2)
+        try:
+            return validation.hex_string(allow_prefix=True, to_bytes=True)(obj)
+        except Invalid as e:
+            raise SerializationError(str(e), obj)
 
     def deserialize(self, serial: bytes) -> str:
         """Deserialize bytes to ``0x...`` string.
@@ -314,6 +319,8 @@ class FixedBlobKind(BlobKind):
         (also means the input hex is fixed length)
     """
 
+    byte_length: int
+
     def __init__(self, byte_length: int) -> None:
         self.byte_length = byte_length
 
@@ -334,21 +341,11 @@ class FixedBlobKind(BlobKind):
         ------
         SerializationError
             If input data is malformed (e.g. wrong length)
-        TypeError
-            If input is not a string
         """
-        # 0x counts for 2 chars. 1 bytes = 2 hex char.
-        allowed_hex_length = self.byte_length * 2 + 2
-
-        if not isinstance(obj, str):
-            raise TypeError(
-                f'serialized object must be of type "str", got: {type(obj)}'
-            )
-
-        if len(obj) != allowed_hex_length:
-            raise SerializationError(
-                f"Expected string of length {allowed_hex_length}", obj
-            )
+        try:
+            validation.hex_string(self.byte_length * 2, allow_prefix=True)(obj)
+        except Invalid as e:
+            raise SerializationError(str(e), obj) from e
 
         return super().serialize(obj)
 
@@ -372,7 +369,7 @@ class FixedBlobKind(BlobKind):
         """
         if len(serial) != self.byte_length:
             raise DeserializationError(
-                "Bytes should be of length {}".format(self.byte_length), serial
+                f"Bytes should be of length {self.byte_length}", serial
             )
 
         return super().deserialize(serial)
@@ -392,9 +389,6 @@ class OptionalFixedBlobKind(FixedBlobKind):
         For this kind, input can be None.
         Then decoded is also None.
     """
-
-    def __init__(self, byte_length: int) -> None:
-        super().__init__(byte_length)
 
     def serialize(self, obj: Optional[str] = None) -> bytes:
         """Serialize a ``0x...`` string or :class:`None` to bytes.
@@ -434,12 +428,14 @@ class OptionalFixedBlobKind(FixedBlobKind):
         return super().deserialize(serial)
 
 
-@class_renamed("NoneableFixedBlobKind")
+@renamed_class("NoneableFixedBlobKind")
 class NoneableFixedBlobKind(OptionalFixedBlobKind):
     """Deprecated alias for :class:`OptionalFixedBlobKind`.
 
     .. deprecated:: 2.0.0
         Use :class:`OptionalFixedBlobKind` instead.
+
+    .. customtox-exclude::
     """
 
 
@@ -457,9 +453,6 @@ class CompactFixedBlobKind(FixedBlobKind):
         When decode, it expects the input bytes length <= fixed_length.
         and it pads the leading zeros back. Output ``'0x{"0" * n}xxx...'``
     """
-
-    def __init__(self, byte_length: int) -> None:
-        super().__init__(byte_length)
 
     def serialize(self, obj: str) -> bytes:
         """Serialize a ``0x...`` string to bytes, stripping leading zeroes.
@@ -518,18 +511,37 @@ class CompactFixedBlobKind(FixedBlobKind):
         return super().deserialize(bytes(b_list))
 
 
-class BaseWrapper:
-    """BaseWrapper is a container for complex types to be encode/decoded."""
+class BaseWrapper(AbstractSerializer[_T]):
+    """Abstract serializer for complex types."""
+
+    @abstractmethod
+    def serialize(self, __obj: _T) -> _PackedSequenceT:
+        """Serialize the object into a RLP encodable "item".
+
+        ..versionadded:: 2.0.0
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def deserialize(self, __serial: _PackedSequenceT) -> _T:
+        """Deserialize given bytes into higher-level object.
+
+        ..versionadded:: 2.0.0
+        """
+        raise NotImplementedError
 
 
-class DictWrapper(BaseWrapper):
+class DictWrapper(BaseWrapper[Mapping[str, Any]]):
     """DictWrapper is a container for parsing dict like objects."""
+
+    keys: Sequence[str]
+    codecs: Sequence[AbstractSerializer[Any]]
 
     def __init__(
         self,
         codecs: Union[
-            Sequence[Tuple[str, Union[BaseWrapper, ScalarKind[Any]]]],
-            Mapping[str, Union[BaseWrapper, ScalarKind[Any]]],
+            Sequence[Tuple[str, AbstractSerializer[Any]]],
+            Mapping[str, AbstractSerializer[Any]],
         ],
     ) -> None:
         """Create wrapper from items.
@@ -543,27 +555,92 @@ class DictWrapper(BaseWrapper):
             - Any sequence of tuples (name, codec), e.g. [('foo', NumericKind())]
         """
         if isinstance(codecs, Mapping):
-            self.keys, self.codecs = zip(*codecs.items())
+            self.keys, self.codecs = izip(*codecs.items())
         else:
-            self.keys, self.codecs = zip(*codecs)
+            self.keys, self.codecs = izip(*codecs)
 
     def __len__(self) -> int:
         """Count of serializable objects."""
         return len(self.codecs)
 
+    def serialize(self, obj: Mapping[str, Any]) -> _PackedSequenceT:
+        """Serialize dictionary to sequence of serialized values.
 
-class ListWrapper(BaseWrapper):
+        .. versionadded:: 2.0.0
+
+        Parameters
+        ----------
+        obj: Mapping[str, Any]
+            Dictionary to serialize.
+
+        Returns
+        -------
+        Sequence[bytes or Sequence[...]] (recursive)
+            Sequence of serialized values.
+
+        Raises
+        ------
+        SerializationError
+            If input is malformed.
+        """
+        try:
+            return [
+                codec.serialize(obj[key])
+                for (key, codec, _) in izip(self.keys, self.codecs, obj)
+            ]
+        except KeyError as e:
+            raise SerializationError(f"Missing key: '{e.args[0]}'", obj)
+        except ValueError as e:
+            raise SerializationError(
+                f"Keys count differs: expected {len(obj)}, got {len(self)}", obj
+            ) from e
+
+    def deserialize(self, serial: _PackedSequenceT) -> Dict[str, Any]:
+        """Deserialize sequence of encoded values to dictionary with serialized values.
+
+        .. versionadded:: 2.0.0
+
+        Parameters
+        ----------
+        obj: Sequence[bytes or Sequence[...]] (recursive)
+            Sequence of values to deserialize.
+
+        Returns
+        -------
+        Mapping[str, Any]
+            Deserialized values, mapping field names to decoded values.
+
+        Raises
+        ------
+        DeserializationError
+            If input is malformed.
+        """
+        try:
+            return {
+                key: codec.deserialize(blob)
+                for (blob, key, codec) in izip(serial, self.keys, self.codecs)
+            }
+        except ValueError as e:
+            raise DeserializationError(
+                f"Keys count differs: expected {len(serial)}, got {len(self)}",
+                serial,
+            ) from e
+
+
+class ListWrapper(BaseWrapper[Sequence[Any]]):
     """Container for parsing a heterogeneous list.
 
     The items in the list can be of different types.
     """
 
-    def __init__(self, codecs: Sequence[Union[BaseWrapper, ScalarKind[Any]]]) -> None:
+    codecs: Sequence[AbstractSerializer[Any]]
+
+    def __init__(self, codecs: Sequence[AbstractSerializer[Any]]) -> None:
         """Create wrapper from items.
 
         Parameters
         ----------
-        codecs : Sequence[Union[BaseWrapper, ScalarKind[Any]]]
+        codecs : Sequence[AbstractSerializer]
             A list of codecs.
             eg. [codec, codec, codec...]
             codec is either a BaseWrapper, or a ScalarKind.
@@ -574,58 +651,141 @@ class ListWrapper(BaseWrapper):
         """Count of serializable objects."""
         return len(self.codecs)
 
+    def serialize(self, obj: Sequence[Any]) -> _PackedSequenceT:
+        """Serialize sequence (list) of values to sequence of serialized values.
 
-class HomoListWrapper(BaseWrapper):
+        .. versionadded:: 2.0.0
+
+        Parameters
+        ----------
+        obj: Sequence[Any]
+            Sequence of values to serialize.
+
+        Returns
+        -------
+        Sequence[bytes or Sequence[...]] (recursive)
+            Sequence of serialized values.
+
+        Raises
+        ------
+        SerializationError
+            If input is malformed.
+        """
+        try:
+            return [codec.serialize(item) for (item, codec) in izip(obj, self.codecs)]
+        except ValueError as e:
+            raise SerializationError(
+                f"Items count differs: expected {len(obj)}, got {len(self)}", obj
+            ) from e
+
+    def deserialize(self, serial: _PackedSequenceT) -> Sequence[Any]:
+        """Deserialize sequence of encoded values to sequence.
+
+        .. versionadded:: 2.0.0
+
+        Parameters
+        ----------
+        obj: Sequence[bytes or Sequence[...]] (recursive)
+            Sequence of values to deserialize.
+
+        Returns
+        -------
+        Sequence[Any]
+            Deserialized values.
+
+        Raises
+        ------
+        DeserializationError
+            If input is malformed.
+        """
+        try:
+            return [
+                codec.deserialize(blob) for (blob, codec) in izip(serial, self.codecs)
+            ]
+        except ValueError as e:
+            raise DeserializationError(
+                f"Items count differs: expected {len(serial)}, got {len(self)}",
+                serial,
+            ) from e
+
+
+class HomoListWrapper(BaseWrapper[Sequence[Any]]):
     """Container for parsing a homogeneous list.
 
     Used when the items in the list are of the same type.
     """
 
-    def __init__(self, codec: Union[BaseWrapper, ScalarKind[Any]]) -> None:
+    codec: AbstractSerializer[Any]
+
+    def __init__(self, codec: AbstractSerializer[Any]) -> None:
         """Create wrapper from items.
 
         Parameters
         ----------
-        codec : Union[BaseWrapper, ScalarKind[Any]]
+        codec : AbstractSerializer
             codec is either a BaseWrapper, or a ScalarKind.
         """
         self.codec = codec
 
+    def serialize(self, obj: Sequence[Any]) -> _PackedSequenceT:
+        """Serialize sequence (list) of values to sequence of serialized values.
 
-# We lack recursive types with mypy
-_PackedSequenceT = Sequence[
-    Union[bytes, Sequence[Union[bytes, Sequence[Union[bytes, Sequence[Any]]]]]]
-]
-_PackedListT = List[Union[bytes, List[Union[bytes, List[Union[bytes, List[Any]]]]]]]
+        .. versionadded:: 2.0.0
+
+        Parameters
+        ----------
+        obj: Sequence[Any]
+            Sequence of values to serialize.
+
+        Returns
+        -------
+        Sequence[bytes or Sequence[...]] (recursive)
+            Sequence of serialized values.
+
+        Raises
+        ------
+        SerializationError
+            If input is malformed.
+        """
+        return [self.codec.serialize(item) for item in obj]
+
+    def deserialize(self, serial: _PackedSequenceT) -> Sequence[Any]:
+        """Deserialize sequence of encoded values to sequence.
+
+        .. versionadded:: 2.0.0
+
+        Parameters
+        ----------
+        obj: Sequence[bytes or Sequence[...]] (recursive)
+            Sequence of values to deserialize.
+
+        Returns
+        -------
+        Sequence[Any]
+            Deserialized values.
+
+        Raises
+        ------
+        DeserializationError
+            If input is malformed.
+        """
+        return [self.codec.deserialize(blob) for blob in serial]
 
 
-@overload
-def pack(obj: _T, wrapper: ScalarKind[_T]) -> bytes:
-    ...
-
-
-@overload
-def pack(obj: Any, wrapper: BaseWrapper) -> _PackedListT:
-    ...
-
-
-@overload
-def pack(
-    obj: Any, wrapper: Union[BaseWrapper, ScalarKind[Any]]
-) -> Union[bytes, _PackedListT]:
-    ...
-
-
-def pack(
-    obj: Any, wrapper: Union[BaseWrapper, ScalarKind[Any]]
-) -> Union[bytes, _PackedListT]:
+@deprecated
+def pack(obj: Any, wrapper: AbstractSerializer[Any]) -> Union[bytes, _PackedSequenceT]:
     """Pack a Python object according to wrapper.
+
+    .. deprecated:: 2.0.0
+        Use ``<wrapper>.serialize`` directly instead.
+
+    .. customtox-exclude::
 
     Parameters
     ----------
     obj : Any
         A dict, a list, or a string/int/any...
-    wrapper : Union[BaseWrapper, ScalarKind[Any]]
+    wrapper : AbstractSerializer[Any]
         A Wrapper.
 
     Returns
@@ -642,83 +802,31 @@ def pack(
     TypeError
         If wrapper type is unknown.
     """
-    # Simple wrapper: ScalarKind
-    if isinstance(wrapper, ScalarKind):
-        return wrapper.serialize(obj)
+    warnings.warn("Function 'pack' is deprecated. Use '<wrapper>.serialize' instead.")
 
-    # Complicated wrapper: BaseWrapper
-    if isinstance(wrapper, BaseWrapper):
-        # no zip(strict=True) before python 3.10, thus have to check manually
-        if isinstance(wrapper, DictWrapper):
-            if len(obj) != len(wrapper):
-                raise SerializationError(
-                    f"Keys count differs: expected {len(obj)}, got {len(wrapper)}", obj
-                )
-            try:
-                return [
-                    pack(obj[key], codec)
-                    for (key, codec) in zip(wrapper.keys, wrapper.codecs)
-                ]
-            except KeyError as e:
-                raise SerializationError(f"Missing key: {e.args[0]}", obj)
+    if not isinstance(wrapper, AbstractSerializer):
+        raise TypeError(f"Wrapper type is unknown: {type(wrapper)}")
 
-        if isinstance(wrapper, ListWrapper):
-            if len(obj) != len(wrapper):
-                raise SerializationError(
-                    f"Items count differs: expected {len(obj)}, got {len(wrapper)}", obj
-                )
-            return [pack(item, codec) for (item, codec) in zip(obj, wrapper.codecs)]
-
-        if isinstance(wrapper, HomoListWrapper):
-            return [pack(item, wrapper.codec) for item in obj]
-
-    raise TypeError("Wrapper type is unknown.{}".format(wrapper))
+    return wrapper.serialize(obj)
 
 
-@overload
-def unpack(packed: bytes, wrapper: ScalarKind[_T]) -> _T:
-    ...
-
-
-@overload
-def unpack(packed: _PackedSequenceT, wrapper: DictWrapper) -> Dict[str, Any]:
-    ...
-
-
-@overload
-def unpack(
-    packed: _PackedSequenceT,
-    wrapper: Union[ListWrapper, HomoListWrapper],
-) -> List[Any]:
-    ...
-
-
-@overload
-def unpack(
-    packed: _PackedSequenceT, wrapper: BaseWrapper
-) -> Union[Dict[str, Any], List[Any]]:
-    ...
-
-
-@overload
+@deprecated
 def unpack(
     packed: Union[bytes, _PackedSequenceT],
-    wrapper: Union[BaseWrapper, ScalarKind[Any]],
-) -> Union[Dict[str, Any], List[Any], Any]:
-    ...
-
-
-def unpack(
-    packed: Union[bytes, _PackedSequenceT],
-    wrapper: Union[BaseWrapper, ScalarKind[Any]],
+    wrapper: AbstractSerializer[Any],
 ) -> Union[Dict[str, Any], List[Any], Any]:
     """Unpack a serialized thing back into a dict/list or a Python basic type.
+
+    .. deprecated:: 2.0.0
+        Use ``<wrapper>.deserialize`` directly instead.
+
+    .. customtox-exclude::
 
     Parameters
     ----------
     packed : bytes or sequence of them
         A list of RLP encoded or pure bytes (may be nested).
-    wrapper : Union[BaseWrapper, ScalarKind[Any]]
+    wrapper : AbstractSerializer[Any]
         The Wrapper.
 
     Returns
@@ -734,42 +842,14 @@ def unpack(
     TypeError
         If wrapper type is unknown.
     """
-    # Simple wrapper: ScalarKind
-    if isinstance(wrapper, ScalarKind):
-        assert isinstance(packed, (bytes, bytearray))
-        return wrapper.deserialize(packed)
+    warnings.warn(
+        "Function 'unpack' is deprecated. Use '<wrapper>.deserialize' instead."
+    )
 
-    # Complicated wrapper: BaseWrapper
-    if isinstance(wrapper, BaseWrapper):
-        assert isinstance(packed, Iterable)
-        assert not isinstance(packed, (bytes, bytearray))
+    if not isinstance(wrapper, AbstractSerializer):
+        raise TypeError("Wrapper type is unknown.")
 
-        if isinstance(wrapper, DictWrapper):
-            if len(packed) != len(wrapper):
-                raise DeserializationError(
-                    f"Keys count differs: expected {len(packed)}, got {len(wrapper)}",
-                    packed,
-                )
-
-            return {
-                key: unpack(blob, codec)
-                for (blob, key, codec) in zip(packed, wrapper.keys, wrapper.codecs)
-            }
-
-        if isinstance(wrapper, ListWrapper):
-            if len(packed) != len(wrapper):
-                raise DeserializationError(
-                    f"Items count differs: expected {len(packed)}, got {len(wrapper)}",
-                    packed,
-                )
-            return [
-                unpack(blob, codec) for (blob, codec) in zip(packed, wrapper.codecs)
-            ]
-
-        if isinstance(wrapper, HomoListWrapper):
-            return [unpack(blob, wrapper.codec) for blob in packed]
-
-    raise TypeError("Wrapper type is unknown.")
+    return wrapper.deserialize(packed)
 
 
 def pretty_print(
@@ -814,15 +894,17 @@ class ComplexCodec:
     (and reverse operations) together.
     """
 
-    def __init__(self, wrapper: BaseWrapper) -> None:
+    wrapper: AbstractSerializer[Any]
+
+    def __init__(self, wrapper: AbstractSerializer[Any]) -> None:
         self.wrapper = wrapper
 
     def encode(self, data: Any) -> bytes:
         """Serialize and RLP-encode given high-level data to bytes."""
-        packed = pack(data, self.wrapper)
+        packed = self.wrapper.serialize(data)
         return rlp_encode(packed)
 
     def decode(self, data: bytes) -> Any:
         """RLP-decode and deserialize given bytes into higher-level structure."""
         to_be_unpacked = rlp_decode(data)
-        return unpack(to_be_unpacked, self.wrapper)
+        return self.wrapper.deserialize(to_be_unpacked)

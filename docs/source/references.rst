@@ -1,5 +1,5 @@
 Useful references
 =================
 
-* `BIP32 <https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki>`_
-* `BIP44 <https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki>`_
+* `Catalog of Bitcoin Improvement Proposals <https://github.com/bitcoin/bips/>`_
+* `Catalog of VeChain Enhancement Proposals <https://github.com/vechain/VIPs/tree/master/vips>`_

@@ -4,6 +4,7 @@ This module defines data structure of a transaction,
 and the encoding/decoding of transaction data.
 """
 import sys
+import warnings
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Sequence, Union
 
@@ -11,10 +12,10 @@ import voluptuous
 from voluptuous import REMOVE_EXTRA, Schema
 
 from thor_devkit.cry import address, blake2b256, secp256k1
-from thor_devkit.deprecation import deprecated_to_property
+from thor_devkit.deprecation import deprecated, deprecated_to_property
 from thor_devkit.exceptions import BadTransaction
 from thor_devkit.rlp import (
-    BaseWrapper,
+    AbstractSerializer,
     BlobKind,
     BytesKind,
     CompactFixedBlobKind,
@@ -23,7 +24,6 @@ from thor_devkit.rlp import (
     HomoListWrapper,
     NumericKind,
     OptionalFixedBlobKind,
-    ScalarKind,
 )
 from thor_devkit.validation import address_type, hex_integer
 
@@ -59,7 +59,7 @@ FeaturesKind: Final = NumericKind(4)
 """Kind Definitions. Used for VeChain's "reserved features" kind."""
 
 # Unsigned/signed RLP wrapper parameters.
-_params: Final[Dict[str, Union[BaseWrapper, ScalarKind[Any]]]] = {
+_params: Final[Dict[str, AbstractSerializer[Any]]] = {
     "chainTag": NumericKind(1),
     "blockRef": CompactFixedBlobKind(8),
     "expiration": NumericKind(4),
@@ -294,35 +294,24 @@ class Transaction:
 
     def __init__(self, body: TransactionBodyT) -> None:
         """Construct a transaction from a given body."""
-        self.body = BODY(body)
+        self._body: TransactionBodyT = BODY(body)
 
-    def get_body(self, as_copy: bool = True) -> TransactionBodyT:
-        """Get a dict of the body represents the transaction.
+    @property
+    def body(self) -> TransactionBodyT:
+        """Get a dict of the body that represents the transaction."""
+        return self._body
 
-        Parameters
-        ----------
-        as_copy : bool, default: True
-            Return a new dict clone of the body
-
-        Returns
-        -------
-        TransactionBodyT
-            If as_copy, return a newly created dict.
-            If not, return the body of this Transaction object.
-        """
-        if as_copy:
-            return deepcopy(self.body)
-        else:
-            return self.body
+    def copy_body(self) -> TransactionBodyT:
+        """Get a deep copy of transaction body."""
+        return deepcopy(self.body)
 
     def _encode_reserved(self) -> List[bytes]:
         reserved = self.body.get("reserved", {})
         f = reserved.get("features") or 0
-        unused: List[bytes] = reserved.get("unused", []) or []
+        unused: List[bytes] = list(reserved.get("unused", [])) or []
         m_list = [FeaturesKind.serialize(f)] + unused
 
         return right_trim_empty_bytes(m_list)
-        # return m_list
 
     def get_signing_hash(self, delegate_for: Optional[str] = None) -> bytes:
         """Get signing hash (with delegate address if given)."""
@@ -452,13 +441,13 @@ class Transaction:
     def encode(self, force_unsigned: bool = False) -> bytes:
         """Encode the tx into bytes."""
         reserved_list = self._encode_reserved()
-        temp = deepcopy(self.body)
+        temp = dict(self.copy_body())  # cast to dict for mypy
         temp["reserved"] = reserved_list
 
         if not self.signature or force_unsigned:
             return ComplexCodec(UnsignedTxWrapper).encode(temp)
         else:
-            temp.update({"signature": self.signature})
+            temp["signature"] = self.signature
             return ComplexCodec(SignedTxWrapper).encode(temp)
 
     @staticmethod
@@ -569,3 +558,34 @@ class Transaction:
             Use :attr:`.id` property instead.
         """
         return self.id
+
+    @deprecated
+    def get_body(self, as_copy: bool = True) -> TransactionBodyT:
+        """Get a dict of the body that represents the transaction.
+
+        .. deprecated:: 2.0.0
+            Use :meth:`body` or :meth:`copy_body` instead.
+
+        .. customtox-exclude::
+
+        Parameters
+        ----------
+        as_copy : bool, default: True
+            Return a new dict clone of the body
+
+        Returns
+        -------
+        TransactionBodyT
+            If as_copy, return a newly created dict.
+            If not, return the body of this Transaction object.
+        """
+        warnings.warn(
+            DeprecationWarning(
+                "Method 'get_body' is deprecated."
+                " Use 'body' property or 'copy_body' method instead."
+            )
+        )
+        if as_copy:
+            return self.copy_body()
+        else:
+            return self.body

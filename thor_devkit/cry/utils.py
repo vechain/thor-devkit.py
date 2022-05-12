@@ -1,4 +1,5 @@
 """Utils helping with ``hex <-> string`` conversion and stripping."""
+import contextlib
 import sys
 from functools import partial
 from typing import TYPE_CHECKING, Any, Callable, Type, TypeVar, cast
@@ -12,15 +13,28 @@ else:
 
 
 def _strict_zip(*iterables):  # type: ignore[no-untyped-def]
-    iterators = [iter(it) for it in iterables]
-    yield from zip(*iterators)
-    for i, it in enumerate(iterators):
-        try:
-            next(it)
-        except StopIteration:
-            pass
-        else:
-            raise ValueError(f"izip argument {i} was longer than some other.")
+    """Implementation from `PEP618 <https://peps.python.org/pep-0618/>`_."""
+    if not iterables:
+        return
+    iterators = tuple(iter(iterable) for iterable in iterables)
+    with contextlib.suppress(StopIteration):
+        while True:
+            items = []
+            for iterator in iterators:
+                items.append(next(iterator))
+            yield tuple(items)
+
+    if items:
+        i = len(items)
+        plural = " " if i == 1 else "s 1-"
+        msg = f"zip() argument {i+1} is shorter than argument{plural}{i}"
+        raise ValueError(msg)
+    sentinel = object()
+    for i, iterator in enumerate(iterators[1:], 1):
+        if next(iterator, sentinel) is not sentinel:
+            plural = " " if i == 1 else "s 1-"
+            msg = f"zip() argument {i+1} is longer than argument{plural}{i}"
+            raise ValueError(msg)
 
 
 if TYPE_CHECKING:
@@ -55,7 +69,7 @@ else:
 
 
 def strip_0x04(p: bytes) -> bytes:
-    """Strip the ``0x04`` off the starting of a byte sequence."""
+    """Strip the ``0x04`` off the starting of a byte sequence 65 bytes long."""
     if len(p) == 65 and p[0] == 4:
         return p[1:]
     else:

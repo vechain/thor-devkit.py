@@ -92,7 +92,7 @@ class HDNode:
         bip32_ctx : Bip32
             Context to build node from.
         """
-        self.bip32_ctx = bip32_ctx
+        self.bip32_ctx: Bip32 = bip32_ctx
 
     @staticmethod
     def from_seed(seed: bytes, init_path: str = VET_EXTERNAL_PATH) -> "HDNode":

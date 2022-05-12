@@ -55,6 +55,15 @@ def test_remove_0x_2():
     assert utils.remove_0x(p) == p
 
 
+def test_strip_0x04():
+    b = b"\x04" + bytes(64)
+    assert utils.strip_0x04(b) == bytes(64)
+    assert utils.strip_0x04(b"\xFF" * 65) == b"\xFF" * 65
+    assert utils.strip_0x04(b"\xFF" * 64) == b"\xFF" * 64
+    assert utils.strip_0x04(b"\xFF") == b"\xFF"
+    assert utils.strip_0x04(b"\x04") == b"\x04"
+
+
 def test_blake2b():
     expected = "256c83b297114d201b30179f3f0ef0cace9783622da5974326b436178aeef610"
 
@@ -81,6 +90,13 @@ def test_keccak256():
         cry.keccak256(b"hello")  # type: ignore[arg-type]
 
 
+def test_safe_lowercase():
+    assert utils.safe_tolowercase("foo") == "foo"
+    assert utils.safe_tolowercase("Foo") == "foo"
+    assert utils.safe_tolowercase("F4") == "f4"
+    assert utils.safe_tolowercase(1) == 1
+
+
 def test_address(address: str):
     assert cry.is_address(address)
     assert cry.to_checksum_address(address) == re.sub(r"^(0X)", r"0x", address)
@@ -97,6 +113,46 @@ def test_bad_address():
 def test_private_key_length(private_key: bytes):
     private_key = secp256k1.generate_private_key()
     assert len(private_key) == 32
+    secp256k1.validate_private_key(private_key)
+    assert secp256k1.is_valid_private_key(private_key)
+
+
+def test_private_key_validation(private_key: bytes):
+    key = b"\x00" * 32
+    with pytest.raises(ValueError, match="zero"):
+        secp256k1.validate_private_key(key)
+    assert not secp256k1.is_valid_private_key(key)
+
+    key = b"\xFF" * 32
+    with pytest.raises(ValueError, match="MAX"):
+        secp256k1.validate_private_key(key)
+    assert not secp256k1.is_valid_private_key(key)
+
+    key = b"\x00" * 31
+    with pytest.raises(ValueError, match="Length"):
+        secp256k1.validate_private_key(key)
+    assert not secp256k1.is_valid_private_key(key)
+
+    key = object()
+    with pytest.raises(ValueError, match="not convertible to bytes"):
+        secp256k1.validate_private_key(key)  # type: ignore[arg-type]
+    assert not secp256k1.is_valid_private_key(key)  # type: ignore[arg-type]
+
+
+def test_upublic_key_validation(private_key: bytes):
+    key = b"\x04" + b"\x7E" * 64
+    utils.validate_uncompressed_public_key(key)
+    assert utils.is_valid_uncompressed_public_key(key)
+
+    key = b"\x01" + b"\x7E" * 64
+    with pytest.raises(ValueError, match="04"):
+        utils.validate_uncompressed_public_key(key)
+    assert not utils.is_valid_uncompressed_public_key(key)
+
+    key = b"\x04" + b"\x7E" * 63
+    with pytest.raises(ValueError, match="65 bytes"):
+        utils.validate_uncompressed_public_key(key)
+    assert not utils.is_valid_uncompressed_public_key(key)
 
 
 def test_derive_public_key(public_key: bytes, private_key: bytes):
@@ -112,14 +168,26 @@ def test_public_key_to_address(public_key: bytes):
 def test_sign_hash(public_key: bytes, private_key: bytes):
     msg_hash, _ = cry.keccak256([b"hello world"])
 
-    sig = cry.secp256k1.sign(msg_hash, private_key)
+    sig = secp256k1.sign(msg_hash, private_key)
     assert sig.hex() == (
         "f8fe82c74f9e1f5bf443f8a7f8eb968140f554968fdcab0a6ffe904e451c8b924"
         "4be44bccb1feb34dd20d9d8943f8c131227e55861736907b02d32c06b934d7200"
     )
 
-    _pub = cry.secp256k1.recover(msg_hash, sig)
+    _pub = secp256k1.recover(msg_hash, sig)
     assert _pub.hex() == public_key.hex()
+
+    with pytest.raises(ValueError, match="of type 'bytes'"):
+        secp256k1.sign(object(), private_key)  # type: ignore[arg-type]
+
+    with pytest.raises(ValueError, match="32 bytes"):
+        secp256k1.sign(b"\x0A" * 30, private_key)
+
+    with pytest.raises(ValueError, match="Signature"):
+        secp256k1.recover(msg_hash, private_key[:-1])
+
+    with pytest.raises(ValueError, match="Signature"):
+        secp256k1.recover(msg_hash, private_key[:-1] + b"\x02")
 
 
 def test_mnemonic(seed_phrase):
@@ -132,6 +200,10 @@ def test_mnemonic(seed_phrase):
     # Random Generate.
     _words = mnemonic.generate()
     assert len(_words) == 12
+
+    # Non-standard strength
+    with pytest.raises(ValueError, match=r"strength should be one of"):
+        mnemonic.generate(72)  # type: ignore[arg-type]
 
     # Valid: True
     words = seed_phrase.split()
@@ -239,3 +311,30 @@ def test_hdnode(seed_phrase):
         assert child_node.address().hex() == address
 
     cry.HDNode.from_seed(mnemonic.derive_seed(words))
+
+
+def test_strict_zip():
+    from thor_devkit.cry.utils import _strict_zip
+
+    assert list(_strict_zip()) == []
+    assert list(_strict_zip([])) == []
+    assert list(_strict_zip([1, 2])) == [(1,), (2,)]
+    assert list(_strict_zip([1, 2], ["a", "b"])) == [(1, "a"), (2, "b")]
+    assert list(_strict_zip([1, 2], ["a", "b"], (3, 4))) == [(1, "a", 3), (2, "b", 4)]
+
+    def _gen():
+        yield from range(5)
+
+    assert list(_strict_zip(_gen(), range(5))) == [
+        (0, 0),
+        (1, 1),
+        (2, 2),
+        (3, 3),
+        (4, 4),
+    ]
+
+    with pytest.raises(ValueError, match="argument 2 is shorter"):
+        list(_strict_zip([1, 2, 3], [1, 2]))
+
+    with pytest.raises(ValueError, match="argument 2 is longer"):
+        list(_strict_zip([1, 2, 3], [1, 2, 3, 4]))

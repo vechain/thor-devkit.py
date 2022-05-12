@@ -50,7 +50,7 @@ Given ``x`` item as input, we define ``rlp_encode`` as the following algorithm:
        and define encoding as follows:
 
        * If ``0 < len(x) < 0x38``
-         (note that empty byte string fulfills this requirement, as well as ``b'0x80``)::
+         (note that empty byte string fulfills this requirement, as well as ``b'0x80'``)::
 
             rlp_encode(x) = concat(0x80 + len(x), x)
 
@@ -60,7 +60,7 @@ Given ``x`` item as input, we define ``rlp_encode`` as the following algorithm:
 
             rlp_encode(x) = concat(0xB7 + len(len(x)), len(x), x)
 
-         In this case first byte is in range ``[0xB8; 0xBf]``.
+         In this case first byte is in range ``[0xB8; 0xBF]``.
 
        * For longer strings encoding is ``undefined``.
 
@@ -123,8 +123,7 @@ However, in the real world, the inputs are not pure bytes nor lists.
 Some are of complex key-value pairs like :class:`dict`.
 Some are of ``"0x123"`` form of number.
 
-This module exists for some pre-defined
-``real world object => "item"`` conversion, *serialization*:
+This module exists for some pre-defined conversion, *serialization*:
 
 .. graphviz::
     :caption: Actual RLP encoding diagram

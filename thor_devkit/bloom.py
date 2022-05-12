@@ -37,10 +37,10 @@ class Bloom:
     .. autoclasssumm:: Bloom
     """
 
-    MAX_K = 16
+    MAX_K: int = 16
     """Maximal amount of hash functions to use."""
 
-    BITS_LENGTH = 2048
+    BITS_LENGTH: int = 2048
     """Filter size in bits."""
 
     @classmethod
@@ -71,9 +71,9 @@ class Bloom:
             Bits of previous bloom filter to inherit.
             Leave it :class:`None` to create an empty bloom filter.
         """
-        self.k = k
+        self.k: int = k
         if bits is None:
-            self.bits = bytes(self.BITS_LENGTH // 8)
+            self.bits: bytes = bytes(self.BITS_LENGTH // 8)
         else:
             self.bits = bits
 
