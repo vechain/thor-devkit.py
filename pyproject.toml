@@ -49,6 +49,7 @@ test = [
     'pytest>=6.4.0',
     "pytest-cov",
     "pytest-mock",
+    "tox",
 ]
 docs = [
     'docutils>=0.14,<0.18',  # Sphinx haven't upgraded yet
@@ -198,3 +199,19 @@ docstring-convention = "numpy"
 
 [tool.isort]
 profile = "black"
+
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+envlist = clean,py36,py37,py38,py39,py310
+
+[testenv]
+deps = .[test]
+commands = pytest --cov-append
+
+[testenv:clean]
+deps = coverage[toml]
+skip_install = true
+commands = coverage erase
+"""
