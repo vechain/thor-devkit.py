@@ -235,7 +235,7 @@ class EventT(TypedDict):
     """Always ``event``."""
     name: str
     """Event name."""
-    inputs: list["EventParameterT"]
+    inputs: Sequence["EventParameterT"]
     """Event inputs."""
     anonymous: NotRequired[bool]
     """Whether event is anonymous (does not include signature in ``topic``)."""
@@ -459,7 +459,7 @@ class Encodable(Generic[_ParamT], ABC):
     .. versionadded:: 2.0.0
     """
 
-    _definition: FunctionT | EventT
+    _definition: Union[FunctionT, EventT]
 
     @property
     def name(self) -> str:
@@ -537,7 +537,7 @@ class Encodable(Generic[_ParamT], ABC):
         if demoted:
             return [cls.apply_recursive_names(v, new_type, chain[:-1]) for v in value]
 
-        components = cast(list[_ParamT], typeinfo.get("components", []))
+        components = cast(List[_ParamT], typeinfo.get("components", []))
         NewType = cls._make_output_namedtuple_type("_".join(chain), components)
         return NewType(
             *(

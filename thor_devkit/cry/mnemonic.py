@@ -21,9 +21,9 @@ from mnemonic import Mnemonic
 from thor_devkit.deprecation import renamed_function
 
 if sys.version_info < (3, 8):
-    from typing_extensions import Final, Literal, get_args
+    from typing_extensions import Final, Literal
 else:
-    from typing import Final, Literal, get_args
+    from typing import Final, Literal
 if sys.version_info < (3, 10):
     from typing_extensions import TypeAlias
 else:
@@ -45,11 +45,8 @@ __all__ = [
 AllowedStrengthsT: TypeAlias = Literal[128, 160, 192, 224, 256]
 """Allowed mnemonic strength literal type."""
 
-ALLOWED_STRENGTHS: Final[Tuple[AllowedStrengthsT, ...]] = get_args(AllowedStrengthsT)
-"""Allowed mnemonic strength options.
-
-:meta hide-value:
-"""
+ALLOWED_STRENGTHS: Final[Tuple[AllowedStrengthsT, ...]] = (128, 160, 192, 224, 256)
+"""Allowed mnemonic strength options."""
 
 
 def _get_key_path(base_path: str, index: int = 0) -> str:

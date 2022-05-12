@@ -53,7 +53,7 @@ def new_import_ivar_by_name(
 
     # ===================== Added part ==============================================
     # Try to resolve instance-level variables by MRO, if they were requested.
-    for base in asum.getmro(obj):
+    for base in new_getmro(obj):
         qname = getattr(base, "__qualname__", None) or getattr(base, "__name__", None)
         if not qname:
             continue

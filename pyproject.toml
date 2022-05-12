@@ -1,5 +1,12 @@
 [build-system]
-requires = ["setuptools", "setuptools-scm"]
+requires = [
+    'setuptools;python_version>="3.7"',
+    # python3.6 is legacy and doesn't support pyproject.toml properly.
+    # Use a backport.
+    'ppsetuptools;python_version<"3.7"',
+    # toml is in standard library in 3.11+
+    'toml>=0.10.1;python_version<"3.11"',
+]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -18,18 +25,18 @@ classifiers = [
 ]
 keywords = ["vechain", "thor", "blockchain", "sdk"]
 dependencies = [
-    "bip-utils>=1.0.5,<1.1.0",
-    "ecdsa>=0.16.1,<0.17.0",
-    "eth-abi>=3.0.0,<3.1.0",
-    "eth-keyfile>=0.6.0,<0.7.0",
-    "eth-keys>=0.4.0,<0.5.0",
-    "eth-utils>=2.0.0,<2.1.0",
-    "mnemonic==0.19",
-    "pysha3>=1.0.2,<=1.1.0",
-    "rlp>=3.0.0,<=3.1.0",
-    "typing_extensions>=4.2.0,<=5.0.0",
+    'bip-utils>=1.0.5,<1.1.0',
+    "ecdsa>=0.16.1,<0.18.0",
+    'eth-abi>=2.1.1,<3.1.0',
+    'eth-keyfile>=0.5.0,<0.7.0',
+    'eth-keys>=0.3.3,<0.5.0',
+    'eth-utils>=1.2.0,<2.1.0',
+    "mnemonic>=0.19,<=0.21",
+    "pysha3>=1.0.2,<1.1.0",
+    'rlp>=1.2.0,<3.1.0',
+    "typing_extensions>=4.1.0,<5.0.0",
     "twine",
-    "voluptuous>=0.12.0,<=0.13.0",
+    "voluptuous>=0.12.0,<0.14.0",
 ]
 requires-python = ">=3.6.2"
 
@@ -38,20 +45,21 @@ version = {attr = "thor_devkit.VERSION"}
 
 [project.optional-dependencies]
 test = [
-    "mypy>=0.942",
-    "pytest>=6.2.0",
+    'mypy>=0.942',
+    'pytest>=6.4.0',
     "pytest-cov",
     "pytest-mock",
 ]
 docs = [
-    "sphinx",
+    'docutils>=0.14,<0.18',  # Sphinx haven't upgraded yet
+    "sphinx>=4.5.0,<5.0.0",
     "sphinx-rtd-theme",
-    "autodocsumm",
+    "autodocsumm>=0.2.8,<0.3.0",
 ]
 
 [project.urls]
 Home = "https://github.com/laalaguer/thor-devkit.py"
-Documentation = "https://github.com/laalaguer/thor-devkit.py"
+Documentation = "https://github.com/laalaguer/thor-devkit.py"  # FIXME: rtd
 Source = "https://github.com/laalaguer/thor-devkit.py"
 Issues = "https://github.com/laalaguer/thor-devkit.py/issues"
 
@@ -64,6 +72,7 @@ addopts = """
     --cov-branch
     --doctest-modules
     --doctest-continue-on-failure
+    --ignore=docs
 """
 
 
