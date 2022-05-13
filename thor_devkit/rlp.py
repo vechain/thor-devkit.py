@@ -2,6 +2,7 @@ r"""RLP Encoding/Decoding layer for "real-world" objects."""
 import sys
 import warnings
 from abc import ABC, abstractmethod
+from itertools import dropwhile
 from typing import (
     Any,
     Dict,
@@ -212,10 +213,7 @@ class NumericKind(BigEndianInt, ScalarKind[int]):
         result_bytes = super().serialize(number)
 
         # remove leading 0 from bytes sequence.
-        first_nonzero = next(
-            (idx for idx, item in enumerate(result_bytes) if item), len(result_bytes)
-        )
-        return result_bytes[first_nonzero:]
+        return bytes(dropwhile(lambda x: not x, result_bytes))
 
     def deserialize(self, serial: bytes) -> int:
         """Deserialize bytes to int.
@@ -468,15 +466,7 @@ class CompactFixedBlobKind(FixedBlobKind):
             Encoded string with leading zeroes removed.
         """
         b = super().serialize(obj)
-        first_non_zero_index = next(
-            (idx for idx, each in enumerate(b) if each != 0), None
-        )
-
-        if first_non_zero_index is not None:
-            b_list = b[first_non_zero_index:]
-            return bytes(b_list) if b_list else bytes(0)
-
-        return bytes(0)
+        return bytes(dropwhile(lambda x: not x, b))
 
     def deserialize(self, serial: bytes) -> str:
         """Deserialize bytes to ``0x...`` string.
@@ -506,9 +496,8 @@ class CompactFixedBlobKind(FixedBlobKind):
                 "Byte sequence must have no leading zeroes", serial
             )
 
-        missing = self.byte_length - len(serial)
-        b_list = [0] * missing + [x for x in serial]
-        return super().deserialize(bytes(b_list))
+        padded = bytes(serial).rjust(self.byte_length, b"\x00")
+        return super().deserialize(padded)
 
 
 class BaseWrapper(AbstractSerializer[_T]):
