@@ -692,7 +692,7 @@ class Encodable(Generic[_ParamT], ABC):
         try:
             result = compile_()
         except solcx.exceptions.SolcNotInstalled:
-            solcx.install_solc(version)
+            solcx.install_solc(version or "latest")
             result = compile_()
 
         all_items = [e for g in result.values() for e in g["abi"]]  # Flatten
