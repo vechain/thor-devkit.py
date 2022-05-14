@@ -30,8 +30,8 @@ from typing import (
 
 import eth_abi
 import eth_utils
+import solcx
 import voluptuous
-from solcx import compile_files, compile_source
 from voluptuous import Schema
 
 from thor_devkit.cry import keccak256
@@ -676,12 +676,24 @@ class Encodable(Generic[_ParamT], ABC):
         --------
         :external+solcx:doc:`index`: underlying library reference.
         """
-        if file is not None:
-            result = compile_files([file], output_values=["abi"], solc_version=version)
-        elif text is not None:
-            result = compile_source(text, output_values=["abi"], solc_version=version)
-        else:  # pragma: no cover
-            raise TypeError("Please specify either file or text.")
+
+        def compile_() -> Dict[str, Any]:
+            if file is not None:
+                return solcx.compile_files(
+                    [file], output_values=["abi"], solc_version=version
+                )
+            elif text is not None:
+                return solcx.compile_source(
+                    text, output_values=["abi"], solc_version=version
+                )
+            else:  # pragma: no cover
+                raise TypeError("Please specify either file or text.")
+
+        try:
+            result = compile_()
+        except solcx.exceptions.SolcNotInstalled:
+            solcx.install_solc(version)
+            result = compile_()
 
         all_items = [e for g in result.values() for e in g["abi"]]  # Flatten
         given = [e for e in all_items if e["type"] == cls.__name__.lower()]
