@@ -455,6 +455,11 @@ _BaseT = TypeVar("_BaseT")
 _T = TypeVar("_T")
 _Self = TypeVar("_Self", bound="Encodable[Any]")
 
+if sys.version_info > (3, 8) or TYPE_CHECKING:
+    _PathT = Union[str, os.PathLike[str]]
+else:
+    _PathT = Union[str, os.PathLike]
+
 
 class Encodable(Generic[_ParamT], ABC):
     """Base class for :class:`Function` and :class:`Event`.
@@ -651,7 +656,7 @@ class Encodable(Generic[_ParamT], ABC):
         cls: Type[_Self],
         *,
         text: Optional[str] = None,
-        file: Union[str, os.PathLike[str], None] = None,
+        file: Optional[_PathT] = None,
         version: Optional[str] = None,
     ) -> _Self:
         """Instantiate Encodable from solidity definition.
