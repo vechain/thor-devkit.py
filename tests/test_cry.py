@@ -4,7 +4,7 @@ import pytest
 from voluptuous.error import Invalid
 
 from thor_devkit import cry
-from thor_devkit.cry import keystore, mnemonic, secp256k1, utils
+from thor_devkit.cry import HDNode, keystore, mnemonic, secp256k1, utils
 
 
 @pytest.fixture(
@@ -286,31 +286,31 @@ def test_hdnode(seed_phrase):
         "2ac1a0aecd5c80fb5524348130ab7cf92670470a",
     ]
 
-    hd_node = cry.HDNode.from_mnemonic(words)
+    hd_node = HDNode.from_mnemonic(words)
 
     for idx, address in enumerate(addresses):
         child_node = hd_node.derive(idx)
-        assert child_node.address().hex() == address
+        assert child_node.address.hex() == address
 
-    priv = hd_node.private_key()
-    pub = hd_node.public_key()
-    cc = hd_node.chain_code()
+    priv = hd_node.private_key
+    pub = hd_node.public_key
+    cc = hd_node.chain_code
 
-    hd_node.finger_print()
+    hd_node.finger_print
 
-    n = cry.HDNode.from_private_key(priv, cc)
+    n = HDNode.from_private_key(priv, cc)
 
     for idx, address in enumerate(addresses):
         child_node = n.derive(idx)
-        assert child_node.address().hex() == address
+        assert child_node.address.hex() == address
 
-    n2 = cry.HDNode.from_public_key(pub, cc)
+    n2 = HDNode.from_public_key(pub, cc)
 
     for idx, address in enumerate(addresses):
         child_node = n2.derive(idx)
-        assert child_node.address().hex() == address
+        assert child_node.address.hex() == address
 
-    cry.HDNode.from_seed(mnemonic.derive_seed(words))
+    HDNode.from_seed(mnemonic.derive_seed(words))
 
 
 def test_strict_zip():

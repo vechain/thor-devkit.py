@@ -71,13 +71,12 @@ print(cry.to_checksum_address(address))
 ### Sign & Verify Signature
 
 ```python
-from thor_devkit import cry
-from thor_devkit.cry import secp256k1
+from thor_devkit.cry import secp256k1, keccak256
 
 # bytes
 private_key = bytes.fromhex('7582be841ca040aa940fff6c05773129e135623e41acce3e0b8ba520dc1ae26a')
 # bytes
-msg_hash, _ = cry.keccak256([b'hello world'])
+msg_hash, _ = keccak256([b'hello world'])
 
 # Sign the message hash.
 # bytes
@@ -113,42 +112,41 @@ Hierarchical Deterministic Wallets.
 See [BIP-32](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki) and [BIP-44](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki).
 
 ```python
-from thor_devkit import cry
-from thor_devkit.cry import hdnode
+from thor_devkit.cry import hdnode, HDNode
 
 # Construct an HD node from words. (Recommended)
 words = 'ignore empty bird silly journey junior ripple have guard waste between tenant'.split(' ')
 
-hd_node = cry.HDNode.from_mnemonic(
+hd_node = HDNode.from_mnemonic(
     words,
-    init_path=hdnode.VET_EXTERNAL_PATH
+    init_path=hdnode.VET_EXTERNAL_PATH,
 ) # VET wallet, you can input other string values to generate BTC/ETH/... wallets.
 
 # Or, construct HD node from seed. (Advanced)
 seed = '28bc19620b4fbb1f8892b9607f6e406fcd8226a0d6dc167ff677d122a1a64ef936101a644e6b447fd495677f68215d8522c893100d9010668614a68b3c7bb49f'
 
-hd_node = cry.HDNode.from_seed(
+hd_node = HDNode.from_seed(
     bytes.fromhex(seed),
-    init_path=hdnode.VET_EXTERNAL_PATH
+    init_path=hdnode.VET_EXTERNAL_PATH,
 ) # VET wallet, you can input other string values to generate BTC/ETH/... wallets.
 
 # Access the HD node's properties.
-priv = hd_node.private_key()
-pub = hd_node.public_key()
-addr = hd_node.address()
-cc = hd_node.chain_code()
+priv = hd_node.private_key
+pub = hd_node.public_key
+addr = hd_node.address
+cc = hd_node.chain_code
 
 # Or, construct HD node from a given public key. (Advanced)
 # Notice: This HD node cannot derive child HD node with "private key".
-hd_node = cry.HDNode.from_public_key(pub, cc)
+hd_node = HDNode.from_public_key(pub, cc)
 
 # Or, construct HD node from a given private key. (Advanced)
-hd_node = cry.HDNode.from_private_key(priv, cc)
+hd_node = HDNode.from_private_key(priv, cc)
 
 # Let it derive further child HD nodes.
 for i in range(3):
-    print('addr:', '0x' + hd_node.derive(i).address().hex())
-    print('priv:', hd_node.derive(i).private_key().hex())
+    print('addr:', '0x' + hd_node.derive(i).address.hex())
+    print('priv:', hd_node.derive(i).private_key.hex())
 
 # addr: 0x339fb3c438606519e2c75bbf531fb43a0f449a70
 # priv: 27196338e7d0b5e7bf1be1c0327c53a244a18ef0b102976980e341500f492425
@@ -197,14 +195,14 @@ ks_backup = keystore.encrypt(private_key, password)
 ### Hash the Messages
 
 ```python
-from thor_devkit import cry
+from thor_devkit.cry import blake2b256, keccak256
 
-result, length = cry.blake2b256([b'hello world'])
-result2, length = cry.blake2b256([b'hello', b' world'])
+result, length = blake2b256([b'hello world'])
+result2, length = blake2b256([b'hello', b' world'])
 # result == result2
 
-result, length = cry.keccak256([b'hello world'])
-result2, length = cry.keccak256([b'hello', b' world'])
+result, length = keccak256([b'hello world'])
+result2, length = keccak256([b'hello', b' world'])
 # result == result2
 ```
 
@@ -229,7 +227,8 @@ assert b'bye bye blue bird' not in b
 ### Transaction
 
 ```python
-from thor_devkit import cry, transaction
+from thor_devkit import cry
+from thor_devkit.transaction import Transaction
 
 # See: https://docs.vechain.org/thor/learn/transaction-model.html#model
 body = {
@@ -255,7 +254,7 @@ body = {
 }
 
 # Construct an unsigned transaction.
-tx = transaction.Transaction(body)
+tx = Transaction(body)
 
 # Access its properties.
 assert tx.get_signing_hash() == cry.blake2b256([tx.encode()])[0]
@@ -296,7 +295,8 @@ print('0x' + encoded_bytes.hex())
 See [VIP-191](https://github.com/vechain/VIPs/blob/master/vips/VIP-191.md) for reference.
 
 ```python
-from thor_devkit import cry, transaction
+from thor_devkit.cry import secp256k1
+from thor_devkit.transaction import Transaction
 
 delegated_body = {
     "chainTag": 1,
@@ -323,7 +323,7 @@ delegated_body = {
     }
 }
 
-delegated_tx = transaction.Transaction(delegated_body)
+delegated_tx = Transaction(delegated_body)
 
 # Indicate it is a delegated Transaction using VIP-191.
 assert delegated_tx.is_delegated
@@ -344,7 +344,7 @@ dh = delegated_tx.get_signing_hash(addr_1) # Gas Payer hash to be signed.
 # Sender sign the hash.
 # Gas payer sign the hash.
 # Concat two parts to forge a legal signature.
-sig = cry.secp256k1.sign(h, priv_1) + cry.secp256k1.sign(dh, priv_2)
+sig = secp256k1.sign(h, priv_1) + secp256k1.sign(dh, priv_2)
 
 delegated_tx.signature = sig
 
@@ -353,10 +353,10 @@ assert delegated_tx.delegator == addr_2
 ```
 
 ### Sign/Verify Certificate (VIP-192)
+
 [https://github.com/vechain/VIPs/blob/master/vips/VIP-192.md](https://github.com/vechain/VIPs/blob/master/vips/VIP-192.md)
 
 ```python
-from thor_devkit import cry
 from thor_devkit.cry import secp256k1
 from thor_devkit.certificate import Certificate
 
@@ -406,7 +406,7 @@ assert cert2.is_valid()
 Encode function name and parameters according to ABI.
 
 ```python
-from thor_devkit import abi
+from thor_devkit.abi import Function
 
 abi_dict = {
         "constant": False,
@@ -437,11 +437,11 @@ abi_dict = {
 }
 
 # Get a function instance of the abi.
-f = abi.Function(abi_dict)
+f = Function(abi_dict)
 
 # Get function selector:
 selector = f.selector.hex()
-selector == '27fcbb2f'
+assert selector == '27fcbb2f'
 
 # Encode the function input parameters.
 f.encode([1, 'foo'], to_hex=True)
@@ -462,9 +462,9 @@ f.decode(bytes.fromhex(data))
 Decode logs according to data and topics.
 
 ```python
-from thor_devkit import abi
+from thor_devkit.abi import Event
 
-e2 = abi.EVENT({
+e2 = EVENT({
     "anonymous": True,
     "inputs": [
         {
@@ -482,7 +482,7 @@ e2 = abi.EVENT({
     "type": "event"
 })
 
-ee = abi.Event(e2)
+ee = Event(e2)
 
 # data in hex format.
 ee.decode(
@@ -583,3 +583,4 @@ In version `2.0.0` a few backwards incompatible changes were introduced.
 - Functions with odd names `derive_publicKey` and `generate_privateKey` are deprecated in favour of `derive_public_key` and `generate_private_key`.
 - `mnemonic.validate` is deprecated, use `mnemonic.is_valid` instead.
 - `keystore.well_formed` is deprecated, use `keystore.validate` and `keystore.is_valid` instead.
+- `HDNode` uses properties instead of methods for simple attributes: `private_key`, `public_key`, `chain_code`, `address`, `fingerprint`.

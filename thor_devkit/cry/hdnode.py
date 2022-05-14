@@ -229,8 +229,12 @@ class HDNode:
 
         return HDNode(bip32_ctx)
 
+    @property
     def public_key(self) -> bytes:
         """Get current node's public key in uncompressed format bytes.
+
+        .. versionchanged:: 2.0.0
+            Regular method turned into property.
 
         Returns
         -------
@@ -239,8 +243,12 @@ class HDNode:
         """
         return b"\x04" + self.bip32_ctx.PublicKey().RawUncompressed().ToBytes()
 
+    @property
     def private_key(self) -> bytes:
         """Get current node's private key in bytes format.
+
+        .. versionchanged:: 2.0.0
+            Regular method turned into property.
 
         Returns
         -------
@@ -254,8 +262,12 @@ class HDNode:
         """
         return self.bip32_ctx.PrivateKey().Raw().ToBytes()
 
+    @property
     def chain_code(self) -> bytes:
-        """Get the chaincode of current HD node.
+        """Get the chain code of current HD node.
+
+        .. versionchanged:: 2.0.0
+            Regular method turned into property.
 
         Returns
         -------
@@ -264,18 +276,26 @@ class HDNode:
         """
         return self.bip32_ctx.Chain()
 
+    @property
     def address(self) -> bytes:
         """Get the common address format.
+
+        .. versionchanged:: 2.0.0
+            Regular method turned into property.
 
         Returns
         -------
         bytes
             The address in bytes. (without ``0x`` prefix)
         """
-        return public_key_to_address(self.public_key())
+        return public_key_to_address(self.public_key)
 
+    @property
     def finger_print(self) -> bytes:
         """Get the finger print of current HD Node public key.
+
+        .. versionchanged:: 2.0.0
+            Regular method turned into property.
 
         Returns
         -------
