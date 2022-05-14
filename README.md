@@ -1,6 +1,13 @@
+[![PyPi Version](https://img.shields.io/pypi/v/thor_devkit.svg)](https://pypi.python.org/pypi/thor_devkit/)
+[![Python Versions](https://img.shields.io/pypi/pyversions/thor_devkit.svg)](https://pypi.python.org/pypi/thor_devkit/)
+<!-- Add after RTD are published -->
+<!-- [![Read the Docs](https://readthedocs.org/projects/thor_devkit/badge/?version=latest)](https://thor_devkit.readthedocs.io/en/latest/?badge=latest) -->
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
 # VeChain Thor Devkit (SDK) in Python 3
 
-Python 3 (Python 3.6+) library to assist smooth development on VeChain for developers and hobbyists.
+Python 3 (``Python 3.6+``) library to assist smooth development on VeChain for developers and hobbyists.
 
 |                          Content                          |
 | --------------------------------------------------------- |
@@ -20,31 +27,38 @@ Python 3 (Python 3.6+) library to assist smooth development on VeChain for devel
 ... and will always be updated with the **newest** features on VeChain.
 
 # Install
+
 ```bash
 pip3 install thor-devkit -U
 ```
 
 ***Caveat: Bip32 depends on the ripemd160 hash library, which should be present on your system.***
 
+Supported extras:
+
+- `test`: install developer requirements (`pip install thor-devkit[test]`).
+- `docs`: install `sphinx`-related packages (`pip install thor-devkit[test,docs]`).
+
 # Tutorials
 
 ### Private/Public Keys
+
 ```python
 from thor_devkit import cry
 from thor_devkit.cry import secp256k1
 
-private_key = secp256k1.generate_privateKey()
+private_key = secp256k1.generate_private_key()
 
-public_key = secp256k1.derive_publicKey(private_key)
+public_key = secp256k1.derive_public_key(private_key)
 
 _address_bytes = cry.public_key_to_address(public_key)
 address = '0x' + _address_bytes.hex()
 
-print( address )
+print(address)
 # 0x86d8cd908e43bc0076bc99e19e1a3c6221436ad0
 print('is address?', cry.is_address(address))
 # is address? True
-print( cry.to_checksum_address(address) )
+print(cry.to_checksum_address(address))
 # 0x86d8CD908e43BC0076Bc99e19E1a3c6221436aD0
 ```
 
@@ -77,9 +91,7 @@ words = mnemonic.generate()
 print(words)
 # ['fashion', 'reduce', 'resource', 'ordinary', 'seek', 'kite', 'space', 'marriage', 'cube', 'detail', 'bundle', 'latin']
 
-flag = mnemonic.validate(words)
-print(flag)
-# True
+assert mnemonic.is_valid(words)
 
 # Quickly get a Bip32 master seed for HD wallets. See below "HD Wallet".
 seed = mnemonic.derive_seed(words)
@@ -89,7 +101,10 @@ private_key = mnemonic.derive_private_key(words, 0)
 ```
 
 ### HD Wallet
-Hierarchical Deterministic Wallets. See [bip-32](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki) and [bip-44](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki).
+
+Hierarchical Deterministic Wallets.
+
+See [BIP-32](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki) and [BIP-44](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki).
 
 ```python
 from thor_devkit import cry
@@ -125,8 +140,8 @@ hd_node = cry.HDNode.from_public_key(pub, cc)
 hd_node = cry.HDNode.from_private_key(priv, cc)
 
 # Let it derive further child HD nodes.
-for i in range(0, 3):
-    print('addr:', '0x'+hd_node.derive(i).address().hex())
+for i in range(3):
+    print('addr:', '0x' + hd_node.derive(i).address().hex())
     print('priv:', hd_node.derive(i).private_key().hex())
 
 # addr: 0x339fb3c438606519e2c75bbf531fb43a0f449a70
@@ -174,6 +189,7 @@ ks_backup = keystore.encrypt(private_key, password)
 ```
 
 ### Hash the Messages
+
 ```python
 from thor_devkit import cry
 
@@ -188,6 +204,7 @@ result2, length = cry.keccak256([b'hello', b' world'])
 
 
 ### Bloom Filter
+
 ```python
 from thor_devkit import Bloom
 
@@ -196,13 +213,11 @@ _k = Bloom.estimate_k(100)
 b = Bloom(_k)
 
 # Add an item to the bloom filter.
-b.add(bytes('hello world', 'UTF-8'))
+b.add(b'hello world')
 
 # Verify
-b.test(bytes('hello world', 'UTF-8'))
-# True
-b.test(bytes('bye bye blue bird', 'UTF-8'))
-# False
+assert b'hello world' in b
+assert b'bye bye blue bird' not in b
 ```
 
 ### Transaction
@@ -237,13 +252,10 @@ body = {
 tx = transaction.Transaction(body)
 
 # Access its properties.
-tx.get_signing_hash() == cry.blake2b256([tx.encode()])[0] # True
-
-tx.get_signature() == None # True
-
-tx.get_origin() == None # True
-
-tx.get_intrinsic_gas() == 37432 # estimate the gas this tx gonna cost.
+assert tx.get_signing_hash() == cry.blake2b256([tx.encode()])[0]
+assert tx.signature is None
+assert tx.origin is None
+assert tx.intrinsic_gas == 37432 # estimate the gas this tx gonna cost.
 
 # Sign the transaction with a private key.
 priv_key = bytes.fromhex('7582be841ca040aa940fff6c05773129e135623e41acce3e0b8ba520dc1ae26a')
@@ -251,14 +263,14 @@ message_hash = tx.get_signing_hash()
 signature = cry.secp256k1.sign(message_hash, priv_key)
 
 # Set the signature on the transaction.
-tx.set_signature(signature)
+tx.signature = signature
 
 # Tx origin?
-print(tx.get_origin())
+print(tx.origin)
 # 0xd989829d88b0ed1b06edf5c50174ecfa64f14a64
 
 # Tx id?
-print(tx.get_id())
+print(tx.id)
 # 0xda90eaea52980bc4bb8d40cb2ff84d78433b3b4a6e7d50b75736c5e3e77b71ec
 
 # Tx encoded into bytes, ready to be sent out.
@@ -274,7 +286,8 @@ print('0x' + encoded_bytes.hex())
 ```
 
 ### Transaction (VIP-191)
-[https://github.com/vechain/VIPs/blob/master/vips/VIP-191.md](https://github.com/vechain/VIPs/blob/master/vips/VIP-191.md)
+
+See [VIP-191](https://github.com/vechain/VIPs/blob/master/vips/VIP-191.md) for reference.
 
 ```python
 from thor_devkit import cry, transaction
@@ -307,17 +320,15 @@ delegated_body = {
 delegated_tx = transaction.Transaction(delegated_body)
 
 # Indicate it is a delegated Transaction using VIP-191.
-assert delegated_tx.is_delegated() == True
+assert delegated_tx.is_delegated
 
 # Sender
 addr_1 = '0xf9ea4ba688d55cc7f0eae0dd62f8271b744637bf'
-
 priv_1 = bytes.fromhex('58e444d4fe08b0f4d9d86ec42f26cf15072af3ddc29a78e33b0ceaaa292bcf6b')
 
 
 # Gas Payer
 addr_2 = '0x34b7538c2a7c213dd34c3ecc0098097d03a94dcb'
-
 priv_2 = bytes.fromhex('0bfd6a863f347f4ef2cf2d09c3db7b343d84bb3e6fc8c201afee62de6381dc65')
 
 
@@ -329,10 +340,10 @@ dh = delegated_tx.get_signing_hash(addr_1) # Gas Payer hash to be signed.
 # Concat two parts to forge a legal signature.
 sig = cry.secp256k1.sign(h, priv_1) + cry.secp256k1.sign(dh, priv_2)
 
-delegated_tx.set_signature(sig)
+delegated_tx.signature = sig
 
-assert delegated_tx.get_origin() == addr_1
-assert delegated_tx.get_delegator() == addr_2
+assert delegated_tx.origin == addr_1
+assert delegated_tx.delegator == addr_2
 ```
 
 ### Sign/Verify Certificate (VIP-192)
@@ -341,7 +352,7 @@ assert delegated_tx.get_delegator() == addr_2
 ```python
 from thor_devkit import cry
 from thor_devkit.cry import secp256k1
-from thor_devkit import certificate
+from thor_devkit.certificate import Certificate
 
 # My address.
 address = '0xd989829d88b0ed1b06edf5c50174ecfa64f14a64'
@@ -353,20 +364,20 @@ cert_dict = {
     'purpose': 'identification',
     'payload': {
         'type': 'text',
-        'content': 'fyi'
+        'content': 'fyi',
     },
     'domain': 'localhost',
     'timestamp': 1545035330,
-    'signer': address
+    'signer': address,
 }
 
 # Construct a cert, without signature.
-cert = certificate.Certificate(**cert_dict)
+cert = Certificate(**cert_dict)
 
 # Sign the cert with my private key.
 sig_bytes = secp256k1.sign(
     cry.blake2b256([
-        certificate.encode(cert).encode('utf-8')
+        cert.encode().encode()  # encode to string, then string to bytes.
     ])[0],
     private_key
 )
@@ -376,10 +387,12 @@ signature = '0x' + sig_bytes.hex()
 cert_dict['signature'] = signature
 
 # Construct a cert, with signature.
-cert2 = certificate.Certificate(**cert_dict)
+cert2 = Certificate(**cert_dict)
 
 # Verify, if verify failed it will throw Exceptions.
-certificate.verify(cert2)
+cert2.verify()
+# Or get boolean:
+assert cert2.is_valid()
 ```
 
 ### ABI
@@ -417,24 +430,21 @@ abi_dict = {
         "type": "function"
 }
 
-# Verify if abi_dict is in good shape.
-f1 = abi.FUNCTION(abi_dict)
-
 # Get a function instance of the abi.
-f = abi.Function(f1)
+f = abi.Function(abi_dict)
 
 # Get function selector:
 selector = f.selector.hex()
 selector == '27fcbb2f'
 
 # Encode the function input parameters.
-r = f.encode([1, 'foo'], to_hex=True)
-r == '0x27fcbb2f000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000003666f6f0000000000000000000000000000000000000000000000000000000000'
+f.encode([1, 'foo'], to_hex=True)
+# '0x27fcbb2f000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000003666f6f0000000000000000000000000000000000000000000000000000000000'
 
 # Decode function return result according to abi.
 data = '000000000000000000000000abc000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000003666f6f0000000000000000000000000000000000000000000000000000000000'
 
-r = f.decode(bytes.fromhex(data))
+f.decode(bytes.fromhex(data))
 # {
 #     "0": '0xabc0000000000000000000000000000000000001',
 #     "1": b'666f6f',
@@ -469,19 +479,19 @@ e2 = abi.EVENT({
 ee = abi.Event(e2)
 
 # data in hex format.
-r = ee.decode(
+ee.decode(
     data=bytes.fromhex('00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000003666f6f0000000000000000000000000000000000000000000000000000000000'),
     topics=[
         bytes.fromhex('0000000000000000000000000000000000000000000000000000000000000001')
     ]
 )
-
-# r == { "0": 1, "1": "foo", "a1": 1, "a2": "foo" }
+# { "0": 1, "1": "foo", "a1": 1, "a2": "foo" }
 ```
 
 # Tweak the Code
 
 ## Layout
+
 ```
 .
 ├── LICENSE
@@ -507,12 +517,39 @@ r = ee.decode(
 ```
 
 ## Local Development
+
+You can setup local version with
+
+```bash
+# Create new environment (you can use other name or reuse existing one)
+python -m venv .env
+. .env/bin/activate
+# Editable install
+pip install -e .[test]
+# Install git hooks
+pre-commit install
+```
+
+Or with help of `Makefile`:
+
 ```bash
 # install dependencies
 make install
 # test code
 make test
 ```
+
+All project tests are based on `pytest`. You can use `tox` (configuration resides in `pyproject.toml`) to test against multiple `python` versions (it will also happen in CI, when you submit a PR).
+
+You can run `pre-commit` hooks without commiting with
+
+```bash
+pre-commit run --all-files
+```
+
+We enforce strict coding style: `black` is a part of `pre-commit` setup, also it
+includes `flake8` for additional validation.
+
 
 ## Knowledge
 

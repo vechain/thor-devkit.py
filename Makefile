@@ -1,6 +1,7 @@
 install:
 	python3 -m venv .env
 	. .env/bin/activate && python3 -m pip install -e .
+	pre-commit install
 
 test:
 	. .env/bin/activate && python3 -m pytest -vv -s
