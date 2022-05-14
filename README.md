@@ -408,6 +408,7 @@ Or get boolean validness:
 Encode function name and parameters according to ABI.
 
 ```pycon
+>>> from pprint import pprint
 >>> from thor_devkit.abi import Function
 >>> abi_dict = {
 ...     "constant": False,
@@ -457,6 +458,21 @@ Decode function return result according to ABI:
 >>> assert result[0] == '0xabc0000000000000000000000000000000000001'   # Access by index
 >>> assert result.r2 == b'foo'  # Or by name
 
+Create function from solidity code:
+>>> contract = '''
+... contract A {
+...     function f(uint x) public returns(bool) {}
+... }
+... '''
+>>> func = Function.from_solidity(text=contract)
+>>>
+>>> pprint(func._definition)
+{'inputs': [{'internalType': 'uint256', 'name': 'x', 'type': 'uint256'}],
+ 'name': 'f',
+ 'outputs': [{'internalType': 'bool', 'name': '', 'type': 'bool'}],
+ 'stateMutability': 'nonpayable',
+ 'type': 'function'}
+
 ```
 
 Decode logs according to data and topics.
@@ -495,6 +511,26 @@ Decode data in hex format:
 1
 >>> result.a2
 'foo'
+
+Create event from solidity code:
+>>> contract = '''
+... contract A {
+...     event E(uint indexed a1, string a2) anonymous;
+... }
+... '''
+>>> func = Event.from_solidity(text=contract)
+>>> pprint(func._definition)
+{'anonymous': True,
+ 'inputs': [{'indexed': True,
+             'internalType': 'uint256',
+             'name': 'a1',
+             'type': 'uint256'},
+            {'indexed': False,
+             'internalType': 'string',
+             'name': 'a2',
+             'type': 'string'}],
+ 'name': 'E',
+ 'type': 'event'}
 
 ```
 
@@ -584,7 +620,7 @@ In version `2.0.0` a few backwards incompatible changes were introduced.
 - Transaction methods `get_delgator`, `get_intrinsic_gas`, `get_signature`, `set_signature`, `get_origin` are deprecated in favour of properties. `Transaction.get_body` is replaced with `Transaction.body` property and `Transaction.copy_body()` method. `Transaction.is_delegated` is now a property instead of regular method.
 - Certificate `__init__` method performs basic validation, so some invalid signatures will be rejected during instantiation and not in `verify` method. Module-level functions `encode` and `verify` are deprecated in favour of `Certificate` methods.
 - `Bloom` filter has `__contains__` now (so you can use `element in bloom_filter`).
-- ABI module has changed significantly. Function and Event can now be instantiated from solidity code with `from_solidity` method. New methods were introduced for encoding and decoding. `decode` results are now custom `namedtuple`'s instead of strange dictionary format, see docs for reference.
+- ABI module has changed significantly. Function and Event can now be instantiated from solidity code with `from_solidity` method. New methods were introduced for encoding and decoding. `decode` results are now custom `namedtuple`'s instead of strange dictionary format, see docs for reference. `Event.get_signature` and `Function.get_selector` are deprecated in favour of `Event.signature` and `Function.selector` properties.
 - RLP module functions `pack` and `unpack` are now deprecated, use `BaseWrapper` or `ScalarKind` `serialize` and `deserialize` methods instead.
 - Functions with odd names `derive_publicKey` and `generate_privateKey` are deprecated in favour of `derive_public_key` and `generate_private_key`.
 - `mnemonic.validate` is deprecated, use `mnemonic.is_valid` instead.
