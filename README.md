@@ -1,7 +1,7 @@
+<!-- FIXME: Change RTD link here and in first section after RTD are published -->
 [![PyPi Version](https://img.shields.io/pypi/v/thor_devkit.svg)](https://pypi.python.org/pypi/thor_devkit/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/thor_devkit.svg)](https://pypi.python.org/pypi/thor_devkit/)
-<!-- Add after RTD are published -->
-<!-- [![Read the Docs](https://readthedocs.org/projects/thor_devkit/badge/?version=latest)](https://thor_devkit.readthedocs.io/en/latest/?badge=latest) -->
+[![Read the Docs](https://readthedocs.org/projects/thor-devkitpy-alt/badge/?version=latest)](https://thor-devkitpy-alt.readthedocs.io/en/latest/?badge=latest)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
@@ -26,6 +26,8 @@ Python 3 (``Python 3.6+``) library to assist smooth development on VeChain for d
 
 ... and will always be updated with the **newest** features on VeChain.
 
+Read our [documentation](https://thor-devkitpy-alt.readthedocs.io/en/latest/) on ReadTheDocs.
+
 # Install
 
 ```bash
@@ -40,6 +42,10 @@ Supported extras:
 - `docs`: install `sphinx`-related packages (`pip install thor-devkit[test,docs]`).
 
 # Tutorials
+
+### Validation
+
+Many modules and classes have `validate` and `is_valid` methods. They perform exactly the same validation, but the former raises exceptions for malformed inputs (returns `True` for valid), while the latter returns `False` for invalid and `True` for valid inputs.
 
 ### Private/Public Keys
 
@@ -563,3 +569,17 @@ includes `flake8` for additional validation.
 | message hash | 32    | hash of a message                              |
 | signature    | 65    | signing result, last bit as recovery parameter |
 | seed         | 64    | used to derive bip32 master key                |
+
+
+## Upgrading to version 2.0.0
+
+In version `2.0.0` a few backwards incompatible changes were introduced.
+
+- Transaction methods `get_delgator`, `get_intrinsic_gas`, `get_signature`, `set_signature`, `get_origin` are deprecated in favour of properties. `Transaction.get_body` is replaced with `Transaction.body` property and `Transaction.copy_body()` method. `Transaction.is_delegated` is now a property instead of regular method.
+- Certificate `__init__` method performs basic validation, so some invalid signatures will be rejected during instantiation and not in `verify` method. Module-level functions `encode` and `verify` are deprecated in favour of `Certificate` methods.
+- `Bloom` filter has `__contains__` now (so you can use `element in bloom_filter`).
+- ABI module has changed significantly. Function and Event can now be instantiated from solidity code with `from_solidity` method. New methods were introduced for encoding and decoding. `decode` results are now custom `namedtuple`'s instead of strange dictionary format, see docs for reference.
+- RLP module functions `pack` and `unpack` are now deprecated, use `BaseWrapper` or `ScalarKind` `serialize` and `deserialize` methods instead.
+- Functions with odd names `derive_publicKey` and `generate_privateKey` are deprecated in favour of `derive_public_key` and `generate_private_key`.
+- `mnemonic.validate` is deprecated, use `mnemonic.is_valid` instead.
+- `keystore.well_formed` is deprecated, use `keystore.validate` and `keystore.is_valid` instead.

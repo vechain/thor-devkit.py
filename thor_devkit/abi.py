@@ -863,6 +863,9 @@ class Function(Encodable[FuncParameterT]):
         :class:`typing.NamedTuple` (:func:`collections.namedtuple` return type)
         and :class:`FunctionResult`
 
+        .. versionchanged:: 2.0.0
+            Return type is not a dict anymore.
+
         Parameters
         ----------
         output_data : bytes
@@ -1358,6 +1361,9 @@ class Event(Encodable[EventParameterT]):
         r"""Decode "data" according to the "topic"s.
 
         One output can contain an array of logs.
+
+        .. versionchanged:: 2.0.0
+            Return type is not a dict anymore.
 
         Parameters
         ----------
