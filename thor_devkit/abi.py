@@ -455,7 +455,7 @@ _BaseT = TypeVar("_BaseT")
 _T = TypeVar("_T")
 _Self = TypeVar("_Self", bound="Encodable[Any]")
 
-if sys.version_info > (3, 8) or TYPE_CHECKING:
+if sys.version_info >= (3, 9) or TYPE_CHECKING:
     _PathT = Union[str, os.PathLike[str]]
 else:
     _PathT = Union[str, os.PathLike]
