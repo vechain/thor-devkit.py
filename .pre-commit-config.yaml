@@ -42,6 +42,11 @@ repos:
 -   repo: local
     hooks:
       # We could use mypy-mirror, but it has some unconvenient limitations.
+      - id: doctest
+        name: doctest
+        entry: python -m doctest
+        language: system
+        files: "README.md"
       - id: mypy
         name: mypy
         entry: mypy --config=pyproject.toml --cache-dir=/dev/null --no-incremental
