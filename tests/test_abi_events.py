@@ -1,4 +1,8 @@
+import os
+from tempfile import mkstemp
+
 import pytest
+from solcx.exceptions import SolcError
 
 from thor_devkit import cry
 from thor_devkit.abi import EVENT, Coder, Event
@@ -26,8 +30,18 @@ def anonymous_event_no_hash():
         {
             "anonymous": True,
             "inputs": [
-                {"indexed": True, "name": "a1", "type": "uint256"},
-                {"indexed": False, "name": "a2", "type": "string"},
+                {
+                    "indexed": True,
+                    "name": "a1",
+                    "type": "uint256",
+                    "internalType": "uint256",
+                },
+                {
+                    "indexed": False,
+                    "name": "a2",
+                    "type": "string",
+                    "internalType": "string",
+                },
             ],
             "name": "E2",
             "type": "event",
@@ -913,3 +927,58 @@ def test_encode_data(multi_inputs_event):
 
     enc = event.encode_data({"value": 256, "value2": 129})
     assert enc.hex() == "100".rjust(64, "0") + "81".rjust(64, "0")
+
+
+def test_from_text_ok(anonymous_event_no_hash):
+    code = R"""
+    contract A {
+        event E2(uint indexed a1, string a2) anonymous;
+    }
+    """
+    e = Event.from_solidity(text=code)
+    assert e._definition == anonymous_event_no_hash
+
+
+def test_from_file_ok(anonymous_event_no_hash):
+    code = R"""
+    contract A {
+        event E2(uint indexed a1, string a2) anonymous;
+    }
+    """
+    fd, fpath = mkstemp(text=True)
+    with os.fdopen(fd, "w") as f:
+        f.write(code)
+
+    e = Event.from_solidity(file=fpath)
+    assert e._definition == anonymous_event_no_hash
+
+
+def test_missing_kind(anonymous_event_no_hash):
+    code = R"""
+    contract A {
+        function f() public pure returns (int) {}
+    }
+    """
+    with pytest.raises(ValueError, match="Missing value"):
+        Event.from_solidity(text=code)
+
+
+def test_mulitple_kind(anonymous_event_no_hash):
+    code = R"""
+    contract A {
+        event E1(uint indexed a1, string a2) anonymous;
+        event E2(uint indexed a1, string a2) anonymous;
+    }
+    """
+    with pytest.raises(ValueError, match="Ambiguous input"):
+        Event.from_solidity(text=code)
+
+
+def test_invalid_code(anonymous_event_no_hash):
+    code = R"""
+    contract A {
+        event E1(uint indexed a1, string a2) anonymous ?;
+    }
+    """
+    with pytest.raises(SolcError):
+        Event.from_solidity(text=code)

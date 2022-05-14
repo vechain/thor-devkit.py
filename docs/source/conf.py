@@ -72,4 +72,5 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3/", None),
     "voluptuous": ("http://alecthomas.github.io/voluptuous/docs/_build/html/", None),
     "bip_utils": ("https://bip-utils.readthedocs.io/en/latest/", None),
+    "solcx": ("https://solcx.readthedocs.io/en/latest/", None),
 }

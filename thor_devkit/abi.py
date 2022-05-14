@@ -1,5 +1,6 @@
 r"""ABI encoding module."""
 
+import os
 import re
 import sys
 import warnings
@@ -30,6 +31,7 @@ from typing import (
 import eth_abi
 import eth_utils
 import voluptuous
+from solcx import compile_files, compile_source
 from voluptuous import Schema
 
 from thor_devkit.cry import keccak256
@@ -451,6 +453,7 @@ class Coder:
 _ParamT = TypeVar("_ParamT", bound=_ParameterT)
 _BaseT = TypeVar("_BaseT")
 _T = TypeVar("_T")
+_Self = TypeVar("_Self", bound="Encodable[Any]")
 
 
 class Encodable(Generic[_ParamT], ABC):
@@ -460,6 +463,10 @@ class Encodable(Generic[_ParamT], ABC):
     """
 
     _definition: Union[FunctionT, EventT]
+
+    @abstractmethod
+    def __init__(self, definition: Any) -> None:
+        raise NotImplementedError()
 
     @property
     def name(self) -> str:
@@ -639,6 +646,55 @@ class Encodable(Generic[_ParamT], ABC):
             )
         )
 
+    @classmethod
+    def from_solidity(
+        cls: Type[_Self],
+        *,
+        text: Optional[str] = None,
+        file: Union[str, os.PathLike[str], None] = None,
+        version: Optional[str] = None,
+    ) -> _Self:
+        """Instantiate Encodable from solidity definition.
+
+        Parameters
+        ----------
+        text: str or None (keyword-only)
+            Program text.
+        file: os.PathLike or Path or None (keyword-only)
+            File with program source.
+        version: str or None (keyword-only)
+            Solidity version (supported by :mod:`solcx`) or ``None`` to use default.
+
+        Raises
+        ------
+        ValueError
+            If required type (event or function) cannot be uniquely extracted.
+        :exc:`~solcx.exceptions.SolcError`
+            If input is not a valid solidity code.
+
+        See Also
+        --------
+        :external+solcx:doc:`index`: underlying library reference.
+        """
+        if file is not None:
+            result = compile_files([file], output_values=["abi"], solc_version=version)
+        elif text is not None:
+            result = compile_source(text, output_values=["abi"], solc_version=version)
+        else:  # pragma: no cover
+            raise TypeError("Please specify either file or text.")
+
+        all_items = [e for g in result.values() for e in g["abi"]]  # Flatten
+        given = [e for e in all_items if e["type"] == cls.__name__.lower()]
+
+        if not given:
+            raise ValueError("Missing value of expected type.")
+        elif len(given) > 1:
+            raise ValueError(
+                f"Ambiguous input: more than one {cls.__name__.lower()} given."
+            )
+
+        return cls(given[0])
+
 
 _dummy = object()
 
@@ -646,16 +702,19 @@ _dummy = object()
 class Function(Encodable[FuncParameterT]):
     """ABI Function."""
 
-    def __init__(self, f_definition: FunctionT) -> None:
+    def __init__(self, definition: FunctionT) -> None:
         """Initialize a function by definition.
+
+        .. versionchanged:: 2.0.0
+            Argument renamed from ``f_definition`` to ``definition``.
 
         Parameters
         ----------
-        f_definition : FunctionT
+        definition : FunctionT
             A dict with style of :const:`FUNCTION`
         """
-        self._definition: FunctionT = FUNCTION(f_definition)  # Protect.
-        self._selector: bytes = calc_function_selector(f_definition)  # first 4 bytes.
+        self._definition: FunctionT = FUNCTION(definition)  # Protect.
+        self._selector: bytes = calc_function_selector(self._definition)
 
     @property
     def selector(self) -> bytes:
@@ -891,8 +950,11 @@ class Function(Encodable[FuncParameterT]):
 class Event(Encodable[EventParameterT]):
     """ABI Event."""
 
-    def __init__(self, e_definition: EventT) -> None:
+    def __init__(self, definition: EventT) -> None:
         """Initialize an Event with definition.
+
+        .. versionchanged:: 2.0.0
+            Argument renamed from ``e_definition`` to ``definition``.
 
         Parameters
         ----------
@@ -904,7 +966,7 @@ class Event(Encodable[EventParameterT]):
         ValueError
             Number of indexed parameters exceeds the limit.
         """
-        self._definition: EventT = EVENT(e_definition)
+        self._definition: EventT = EVENT(definition)
         self._signature: bytes = calc_event_topic(self._definition)
 
         self.indexed_params: List[EventParameterT] = [
