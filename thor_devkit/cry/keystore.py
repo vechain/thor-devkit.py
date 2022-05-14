@@ -220,7 +220,7 @@ class KeyStoreT(TypedDict):
     address: str
     """Address used."""
     id: str  # noqa: A003
-    """36 chars, format: ``x{8}-x{4}-x{4}-x{4}-x{12}``, ``x`` is any hex digit."""
+    """36 chars, ``x{8}-x{4}-x{4}-x{4}-x{12}``, ``x`` is any hex digit."""
     version: Literal[3]
     """Version used. Other are not supported."""
     crypto: CryptoParamsT

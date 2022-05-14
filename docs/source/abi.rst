@@ -74,4 +74,4 @@ API documentation
 -----------------
 
 .. automodule:: thor_devkit.abi
-   :inherited-members: from_solidity
+   :inherited-members: dict

@@ -475,7 +475,10 @@ class Encodable(Generic[_ParamT], ABC):
 
     @property
     def name(self) -> str:
-        """Get name of object."""
+        """Get name of object.
+
+        .. versionadded:: 2.0.0
+        """
         return self._definition["name"]
 
     @deprecated_to_property
@@ -659,7 +662,9 @@ class Encodable(Generic[_ParamT], ABC):
         file: Optional[_PathT] = None,
         version: Optional[str] = None,
     ) -> _Self:
-        """Instantiate Encodable from solidity definition.
+        """Instantiate :class:`Encodable` from solidity definition.
+
+        .. versionadded:: 2.0.0
 
         Parameters
         ----------
@@ -668,7 +673,8 @@ class Encodable(Generic[_ParamT], ABC):
         file: os.PathLike or Path or None (keyword-only)
             File with program source.
         version: str or None (keyword-only)
-            Solidity version (supported by :mod:`solcx`) or ``None`` to use default.
+            Solidity version (supported by :func:`~solcx.install_solc`)
+            or ``None`` to use default.
 
         Raises
         ------
@@ -954,6 +960,82 @@ class Function(Encodable[FuncParameterT]):
         my_types = [self.make_proper_type(x) for x in outputs]
 
         return Coder.encode_list(my_types, self._normalize_values(values, outputs))
+
+    @classmethod
+    def from_solidity(
+        cls,
+        *,
+        text: Optional[str] = None,
+        file: Optional[_PathT] = None,
+        version: Optional[str] = None,
+    ) -> "Function":
+        """Instantiate :class:`Function` from solidity definition.
+
+        .. versionadded:: 2.0.0
+
+        Parameters
+        ----------
+        text: str or None (keyword-only)
+            Program text.
+        file: os.PathLike or Path or None (keyword-only)
+            File with program source.
+        version: str or None (keyword-only)
+            Solidity version (supported by :func:`~solcx.install_solc`)
+            or ``None`` to use default.
+
+        Raises
+        ------
+        ValueError
+            If required type (event or function) cannot be uniquely extracted.
+        :exc:`~solcx.exceptions.SolcError`
+            If input is not a valid solidity code.
+
+        See Also
+        --------
+        :external+solcx:doc:`index`: underlying library reference.
+
+        Examples
+        --------
+        >>> from pprint import pprint
+        >>> contract = '''
+        ...     contract A {
+        ...         function f(uint x) public returns(bool) {}
+        ...     }
+        ... '''
+        >>> func = Function.from_solidity(text=contract)
+        >>> pprint(func._definition)
+        {'inputs': [{'internalType': 'uint256', 'name': 'x', 'type': 'uint256'}],
+         'name': 'f',
+         'outputs': [{'internalType': 'bool', 'name': '', 'type': 'bool'}],
+         'stateMutability': 'nonpayable',
+         'type': 'function'}
+
+        No matching function:
+
+        >>> Function.from_solidity(text='contract A { event E(int x); }')
+        Traceback (most recent call last):
+        ValueError: Missing value of expected type.
+
+        Many matching functions:
+
+        >>> Function.from_solidity(text='''
+        ...     contract A {
+        ...         function f1(int x) public {}
+        ...         function f2() public {}
+        ...     }
+        ... ''')
+        Traceback (most recent call last):
+        ValueError: Ambiguous input: more than one function given.
+
+        Syntax error:
+
+        >>> Function.from_solidity(
+        ...     text='contract A { function x() {} }'
+        ... )  # doctest:+IGNORE_EXCEPTION_DETAIL
+        Traceback (most recent call last):
+        solcx.exceptions.SolcError: An error occurred during execution
+        """
+        return super().from_solidity(text=text, file=file, version=version)
 
     @deprecated_to_property
     def get_selector(self) -> bytes:
@@ -1529,6 +1611,84 @@ class Event(Encodable[EventParameterT]):
 
         NewType = self._make_output_namedtuple_type("OutType", inputs)
         return NewType(*r)
+
+    @classmethod
+    def from_solidity(
+        cls,
+        *,
+        text: Optional[str] = None,
+        file: Optional[_PathT] = None,
+        version: Optional[str] = None,
+    ) -> "Event":
+        """Instantiate :class:`Event` from solidity definition.
+
+        .. versionadded:: 2.0.0
+
+        Parameters
+        ----------
+        text: str or None (keyword-only)
+            Program text.
+        file: os.PathLike or Path or None (keyword-only)
+            File with program source.
+        version: str or None (keyword-only)
+            Solidity version (supported by :func:`~solcx.install_solc`)
+            or ``None`` to use default.
+
+        Raises
+        ------
+        ValueError
+            If required type (event or function) cannot be uniquely extracted.
+        :exc:`~solcx.exceptions.SolcError`
+            If input is not a valid solidity code.
+
+        See Also
+        --------
+        :external+solcx:doc:`index`: underlying library reference.
+
+        Examples
+        --------
+        >>> from pprint import pprint
+        >>> contract = '''
+        ...     contract A {
+        ...         event E(uint x) anonymous;
+        ...     }
+        ... '''
+        >>> func = Event.from_solidity(text=contract)
+        >>> pprint(func._definition)
+        {'anonymous': True,
+         'inputs': [{'indexed': False,
+                     'internalType': 'uint256',
+                     'name': 'x',
+                     'type': 'uint256'}],
+         'name': 'E',
+         'type': 'event'}
+
+        No matching events:
+
+        >>> Event.from_solidity(text='contract A { function f(int x) public {} }')
+        Traceback (most recent call last):
+        ValueError: Missing value of expected type.
+
+        Many matching events:
+
+        >>> Event.from_solidity(text='''
+        ...     contract A {
+        ...         event E1(int x) anonymous;
+        ...         event E2() ;
+        ...     }
+        ... ''')
+        Traceback (most recent call last):
+        ValueError: Ambiguous input: more than one event given.
+
+        Syntax error:
+
+        >>> Event.from_solidity(
+        ...     text='contract A { event E() {} }'
+        ... )  # doctest:+IGNORE_EXCEPTION_DETAIL
+        Traceback (most recent call last):
+        solcx.exceptions.SolcError: An error occurred during execution
+        """
+        return super().from_solidity(text=text, file=file, version=version)
 
     @deprecated_to_property
     def get_signature(self) -> bytes:

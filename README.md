@@ -465,7 +465,6 @@ Create function from solidity code:
 ... }
 ... '''
 >>> func = Function.from_solidity(text=contract)
->>>
 >>> pprint(func._definition)
 {'inputs': [{'internalType': 'uint256', 'name': 'x', 'type': 'uint256'}],
  'name': 'f',

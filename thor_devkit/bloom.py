@@ -72,8 +72,10 @@ class Bloom:
             Leave it :class:`None` to create an empty bloom filter.
         """
         self.k: int = k
+        """The number of different hash functions used."""
         if bits is None:
             self.bits: bytes = bytes(self.BITS_LENGTH // 8)
+            """Actual storage."""
         else:
             self.bits = bits
 

@@ -120,7 +120,10 @@ class CertificateT(TypedDict):
     signer: str
     """Signer address, in ``0x...`` format."""
     signature: NotRequired[str]
-    """Signature in ``0x...`` format, 65 bytes (as from :func:`cry.secp256k1.sign`)."""
+    """
+    Signature in ``0x...`` format, 65 bytes
+    (as from :func:`cry.secp256k1.secp256k1.sign`).
+    """
 
 
 class Certificate:

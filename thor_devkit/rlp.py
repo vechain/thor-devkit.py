@@ -166,6 +166,7 @@ class NumericKind(BigEndianInt, ScalarKind[int]):
     """
 
     max_bytes: Optional[int]
+    """Maximal allowed size of number, in bytes."""
 
     def __init__(self, max_bytes: Optional[int] = None) -> None:
         """Initialize a NumericKind.
@@ -318,6 +319,7 @@ class FixedBlobKind(BlobKind):
     """
 
     byte_length: int
+    """Length of blob, in bytes."""
 
     def __init__(self, byte_length: int) -> None:
         self.byte_length = byte_length
@@ -524,7 +526,9 @@ class DictWrapper(BaseWrapper[Mapping[str, Any]]):
     """DictWrapper is a container for parsing dict like objects."""
 
     keys: Sequence[str]
+    """Field names."""
     codecs: Sequence[AbstractSerializer[Any]]
+    """Codecs to use for each field."""
 
     def __init__(
         self,
@@ -623,6 +627,7 @@ class ListWrapper(BaseWrapper[Sequence[Any]]):
     """
 
     codecs: Sequence[AbstractSerializer[Any]]
+    """Codecs to use for each element of sequence."""
 
     def __init__(self, codecs: Sequence[AbstractSerializer[Any]]) -> None:
         """Create wrapper from items.
@@ -705,6 +710,7 @@ class HomoListWrapper(BaseWrapper[Sequence[Any]]):
     """
 
     codec: AbstractSerializer[Any]
+    """Codec to use for each element of array."""
 
     def __init__(self, codec: AbstractSerializer[Any]) -> None:
         """Create wrapper from items.
@@ -884,6 +890,7 @@ class ComplexCodec:
     """
 
     wrapper: AbstractSerializer[Any]
+    """:class:`BaseWrapper` or :class:`ScalarKind` to use for serialization."""
 
     def __init__(self, wrapper: AbstractSerializer[Any]) -> None:
         self.wrapper = wrapper
