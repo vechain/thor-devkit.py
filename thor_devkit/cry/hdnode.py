@@ -32,7 +32,7 @@ The following is the "first" key pair on the "external" node chain:
 .. _BIP44: https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki
 """
 import sys
-from typing import Iterable
+from typing import Iterable, Type, TypeVar
 
 from bip_utils import Base58Encoder, Bip32
 from eth_keys import KeyAPI
@@ -72,6 +72,8 @@ FINGER_PRINT_MASTER_KEY: Final = bytes.fromhex("00000000")
 CHILD_NUMBER_MASTER_KEY: Final = bytes.fromhex("00000000")
 """Child number of a master key."""
 
+_Self = TypeVar("_Self", bound="HDNode")
+
 
 class HDNode:
     """Hierarchically deterministic (HD) node that is able to derive child HD Node.
@@ -80,6 +82,32 @@ class HDNode:
     ----
     Please use static methods provided in this class to construct
     new instances rather than instantiate one by hand.
+    """
+
+    VERSION_MAINNET_PUBLIC: bytes = VERSION_MAINNET_PUBLIC
+    """Version bytes for public main network.
+
+    .. versionadded:: 2.0.0
+    """
+    VERSION_MAINNET_PRIVATE: bytes = VERSION_MAINNET_PRIVATE
+    """Version bytes for private main network.
+
+    .. versionadded:: 2.0.0
+    """
+    DEPTH_MASTER_NODE: bytes = DEPTH_MASTER_NODE
+    """Depth for master node.
+
+    .. versionadded:: 2.0.0
+    """
+    FINGER_PRINT_MASTER_KEY: bytes = FINGER_PRINT_MASTER_KEY
+    """Fingerprint of a master key.
+
+    .. versionadded:: 2.0.0
+    """
+    CHILD_NUMBER_MASTER_KEY: bytes = CHILD_NUMBER_MASTER_KEY
+    """Child number of a master key.
+
+    .. versionadded:: 2.0.0
     """
 
     def __init__(self, bip32_ctx: Bip32) -> None:
@@ -94,12 +122,16 @@ class HDNode:
         """
         self.bip32_ctx: Bip32 = bip32_ctx
 
-    @staticmethod
-    def from_seed(seed: bytes, init_path: str = VET_EXTERNAL_PATH) -> "HDNode":
+    @classmethod
+    def from_seed(
+        cls: Type[_Self], seed: bytes, init_path: str = VET_EXTERNAL_PATH
+    ) -> _Self:
         """Construct an HD Node from a seed (64 bytes).
 
-        The seed will be further developed into
-        an "m" secret key and "chain code".
+        The seed will be further developed into an "m" secret key and "chain code".
+
+        .. versionchanged:: 2.0.0
+            Is ``classmethod`` now.
 
         Parameters
         ----------
@@ -114,16 +146,19 @@ class HDNode:
             A new HDNode.
         """
         bip32_ctx = Bip32.FromSeedAndPath(seed, init_path)
-        return HDNode(bip32_ctx)
+        return cls(bip32_ctx)
 
-    @staticmethod
+    @classmethod
     def from_mnemonic(
-        words: Iterable[str], init_path: str = VET_EXTERNAL_PATH
-    ) -> "HDNode":
+        cls: Type[_Self], words: Iterable[str], init_path: str = VET_EXTERNAL_PATH
+    ) -> _Self:
         """Construct an HD Node from a mnemonic (set of words).
 
         The words will generate a seed, which will be further developed into
         an "m" secret key and "chain code".
+
+        .. versionchanged:: 2.0.0
+            Is ``classmethod`` now.
 
         Parameters
         ----------
@@ -139,11 +174,14 @@ class HDNode:
         """
         seed = derive_seed(words)  # 64 bytes
         bip32_ctx = Bip32.FromSeedAndPath(seed, init_path)
-        return HDNode(bip32_ctx)
+        return cls(bip32_ctx)
 
-    @staticmethod
-    def from_public_key(pub: bytes, chain_code: bytes) -> "HDNode":
+    @classmethod
+    def from_public_key(cls: Type[_Self], pub: bytes, chain_code: bytes) -> _Self:
         """Construct an HD Node from an uncompressed public key.
+
+        .. versionchanged:: 2.0.0
+            Is ``classmethod`` now.
 
         Parameters
         ----------
@@ -159,10 +197,10 @@ class HDNode:
         """
         all_bytes = b"".join(
             [
-                VERSION_MAINNET_PUBLIC,
-                DEPTH_MASTER_NODE,
-                FINGER_PRINT_MASTER_KEY,
-                CHILD_NUMBER_MASTER_KEY,
+                cls.VERSION_MAINNET_PUBLIC,
+                cls.DEPTH_MASTER_NODE,
+                cls.FINGER_PRINT_MASTER_KEY,
+                cls.CHILD_NUMBER_MASTER_KEY,
                 chain_code,
                 KeyAPI.PublicKey(strip_0x04(pub)).to_compressed_bytes(),
             ]
@@ -171,11 +209,14 @@ class HDNode:
         # double sha-256 checksum
         xpub_str = Base58Encoder.CheckEncode(all_bytes)
         bip32_ctx = Bip32.FromExtendedKey(xpub_str)
-        return HDNode(bip32_ctx)
+        return cls(bip32_ctx)
 
-    @staticmethod
-    def from_private_key(priv: bytes, chain_code: bytes) -> "HDNode":
+    @classmethod
+    def from_private_key(cls: Type[_Self], priv: bytes, chain_code: bytes) -> _Self:
         """Construct an HD Node from a private key.
+
+        .. versionchanged:: 2.0.0
+            Is ``classmethod`` now.
 
         Parameters
         ----------
@@ -191,10 +232,10 @@ class HDNode:
         """
         all_bytes = b"".join(
             [
-                VERSION_MAINNET_PRIVATE,
-                DEPTH_MASTER_NODE,
-                FINGER_PRINT_MASTER_KEY,
-                CHILD_NUMBER_MASTER_KEY,
+                cls.VERSION_MAINNET_PRIVATE,
+                cls.DEPTH_MASTER_NODE,
+                cls.FINGER_PRINT_MASTER_KEY,
+                cls.CHILD_NUMBER_MASTER_KEY,
                 chain_code,
                 b"\x00" + priv,
             ]
@@ -204,7 +245,7 @@ class HDNode:
         xpriv = Base58Encoder.CheckEncode(all_bytes)
         bip32_ctx = Bip32.FromExtendedKey(xpriv)
 
-        return HDNode(bip32_ctx)
+        return cls(bip32_ctx)
 
     def derive(self, index: int) -> "HDNode":
         """Derive the child HD Node from current HD Node.
