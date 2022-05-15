@@ -509,7 +509,7 @@ class BaseWrapper(AbstractSerializer[_T]):
     def serialize(self, __obj: _T) -> _PackedSequenceT:
         """Serialize the object into a RLP encodable "item".
 
-        ..versionadded:: 2.0.0
+        .. versionadded:: 2.0.0
         """
         raise NotImplementedError
 
@@ -517,7 +517,7 @@ class BaseWrapper(AbstractSerializer[_T]):
     def deserialize(self, __serial: _PackedSequenceT) -> _T:
         """Deserialize given bytes into higher-level object.
 
-        ..versionadded:: 2.0.0
+        .. versionadded:: 2.0.0
         """
         raise NotImplementedError
 
