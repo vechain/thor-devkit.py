@@ -143,4 +143,3 @@ API documentation
 -----------------
 
 .. automodule:: thor_devkit.rlp
-    :autosummary-no-nesting:

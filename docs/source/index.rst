@@ -10,6 +10,7 @@ Welcome to thor-devkit.py's documentation!
    :maxdepth: 3
    :caption: Contents:
 
+   installation
    abi
    rlp
    transaction
