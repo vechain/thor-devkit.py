@@ -236,7 +236,6 @@ Verify:
 
 [`chainTag` explained](https://docs.vechain.org/others/miscellaneous.html#network-identifier)
 
-http POST transaction to send the encoded_bytes to VeChain...
 See the VeChain net REST API details (e.g. post transaction):
 [testnet](https://sync-testnet.vechain.org/doc/swagger-ui/),
 [mainnet](https://sync-mainnet.vechain.org/doc/swagger-ui/)
@@ -411,7 +410,6 @@ Encode function name and parameters according to ABI.
 >>> from pprint import pprint
 >>> from thor_devkit.abi import Function
 >>> abi_dict = {
-...     "constant": False,
 ...     "inputs": [
 ...         {
 ...             "name": "a1",
@@ -433,7 +431,6 @@ Encode function name and parameters according to ABI.
 ...             "type": "bytes"
 ...         }
 ...     ],
-...     "payable": False,
 ...     "stateMutability": "nonpayable",
 ...     "type": "function"
 ... }
