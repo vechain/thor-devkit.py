@@ -613,7 +613,7 @@ includes `flake8` for additional validation.
 
 In version `2.0.0` a few backwards incompatible changes were introduced.
 
-- Transaction methods `get_delgator`, `get_intrinsic_gas`, `get_signature`, `set_signature`, `get_origin` are deprecated in favour of properties. `Transaction.get_body` is replaced with `Transaction.body` property and `Transaction.copy_body()` method. `Transaction.is_delegated` is now a property instead of regular method.
+- Transaction methods `get_delegator`, `get_intrinsic_gas`, `get_signature`, `set_signature`, `get_origin` are deprecated in favour of properties. `Transaction.get_body` is replaced with `Transaction.body` property and `Transaction.copy_body()` method. `Transaction.is_delegated` is now a property instead of regular method.
 - Certificate `__init__` method performs basic validation, so some invalid signatures will be rejected during instantiation and not in `verify` method. Module-level functions `encode` and `verify` are deprecated in favour of `Certificate` methods.
 - `Bloom` filter has `__contains__` now (so you can use `element in bloom_filter`).
 - ABI module has changed significantly. Function and Event can now be instantiated from solidity code with `from_solidity` method. New methods were introduced for encoding and decoding. `decode` results are now custom `namedtuple`'s instead of strange dictionary format, see docs for reference. `Event.get_signature` and `Function.get_selector` are deprecated in favour of `Event.signature` and `Function.selector` properties.
