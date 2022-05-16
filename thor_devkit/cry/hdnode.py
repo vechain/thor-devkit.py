@@ -34,7 +34,17 @@ The following is the "first" key pair on the "external" node chain:
 import sys
 from typing import Iterable, Type, TypeVar
 
-from bip_utils import Base58Encoder, Bip32
+from bip_utils import Base58Encoder
+
+try:
+    from bip_utils import Bip32Secp256k1 as Bip32
+
+    IS_OLD_BIP_UTILS = False
+except ImportError:
+    from bip_utils import Bip32
+
+    IS_OLD_BIP_UTILS = True
+
 from eth_keys import KeyAPI
 
 from thor_devkit.cry.address import public_key_to_address
@@ -282,7 +292,8 @@ class HDNode:
         bytes
             The uncompressed public key (starts with ``0x04``)
         """
-        return b"\x04" + self.bip32_ctx.PublicKey().RawUncompressed().ToBytes()
+        pk = self.bip32_ctx.PublicKey().RawUncompressed().ToBytes()
+        return b"\x04" + strip_0x04(pk)
 
     @property
     def private_key(self) -> bytes:
@@ -303,19 +314,37 @@ class HDNode:
         """
         return self.bip32_ctx.PrivateKey().Raw().ToBytes()
 
-    @property
-    def chain_code(self) -> bytes:
-        """Get the chain code of current HD node.
+    if not IS_OLD_BIP_UTILS:
 
-        .. versionchanged:: 2.0.0
-            Regular method turned into property.
+        @property
+        def chain_code(self) -> bytes:
+            """Get the chain code of current HD node.
 
-        Returns
-        -------
-        bytes
-            32 bytes of chain code.
-        """
-        return self.bip32_ctx.Chain()
+            .. versionchanged:: 2.0.0
+                Regular method turned into property.
+
+            Returns
+            -------
+            bytes
+                32 bytes of chain code.
+            """
+            return self.bip32_ctx.ChainCode().ToBytes()
+
+    else:
+
+        @property
+        def chain_code(self) -> bytes:
+            """Get the chain code of current HD node.
+
+            .. versionchanged:: 2.0.0
+                Regular method turned into property.
+
+            Returns
+            -------
+            bytes
+                32 bytes of chain code.
+            """
+            return self.bip32_ctx.Chain()
 
     @property
     def address(self) -> bytes:

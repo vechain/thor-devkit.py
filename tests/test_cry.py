@@ -295,6 +295,16 @@ def test_hdnode(seed_phrase):
     priv = hd_node.private_key
     pub = hd_node.public_key
     cc = hd_node.chain_code
+    assert (
+        priv.hex() == "e4a2687ec443f4d23b6ba9e7d904a31acdda90032b34aa0e642e6dd3fd36f682"
+    )
+    assert pub.hex() == (
+        "04dc40b4324626eb393dbf77b6930e915dcca6297b42508adb743674a8ad5c69a0"
+        "46010f801a62cb945a6cb137a050cefaba0572429fc4afc57df825bfca2f219a"
+    )
+    assert (
+        cc.hex() == "105da5578eb3228655a8abe70bf4c317e525c7f7bb333634f5b7d1f70e111a33"
+    )
 
     hd_node.finger_print
 

@@ -15,7 +15,15 @@ Documentation:
 import sys
 from typing import Iterable, List, Tuple
 
-from bip_utils import Bip32
+try:
+    from bip_utils import Bip32Secp256k1 as Bip32
+
+    IS_OLD_BIP_UTILS = False
+except ImportError:
+    from bip_utils import Bip32
+
+    IS_OLD_BIP_UTILS = True
+
 from mnemonic import Mnemonic
 
 from thor_devkit.deprecation import renamed_function
