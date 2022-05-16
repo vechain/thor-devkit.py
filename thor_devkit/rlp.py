@@ -241,14 +241,8 @@ class NumericKind(BigEndianInt, ScalarKind[int]):
 
         # add leading 0 to bytes sequence if width is set.
         if self.max_bytes:
-            byte_list = list(serial)
-            missed = self.max_bytes - len(byte_list)
-            if missed:
-                byte_list = [0] * missed + byte_list
-            serial2 = bytes(byte_list)
-        else:
-            serial2 = serial
-        return super().deserialize(serial2)
+            serial = serial.rjust(self.max_bytes, b"\x00")
+        return super().deserialize(serial)
 
 
 class BlobKind(ScalarKind[str]):
