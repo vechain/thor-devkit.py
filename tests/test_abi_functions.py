@@ -2,7 +2,7 @@ from typing import Any
 
 import pytest
 
-from thor_devkit.abi import Function, FunctionT
+from thor_devkit.abi import Constructor, ConstructorT, Function, FunctionT
 
 # *********************** FIXTURES **************************
 
@@ -568,3 +568,33 @@ def test_odd(f_in_struct_odd: Function, f_in_struct_data, f_in_struct_enc: bytes
     assert f_in_struct_odd.decode_parameters(selector + f_in_struct_enc).to_dict() == {
         "args": tuple(f_in_struct_data["args"].values())
     }
+
+
+# ***********************************************************
+
+
+def test_constructor():
+    contract = R"""
+        contract A {
+            constructor(uint val, bool flag) {}
+        }
+    """
+    c = Constructor.from_solidity(text=contract)
+
+    assert not c.selector
+    assert c.encode((8, True)).hex() == "08".rjust(64, "0") + "1".rjust(64, "0")
+
+    with pytest.raises(AttributeError):
+        c.decode(b"\x04")
+
+
+def test_constructor_2():
+    data: ConstructorT = {
+        "type": "constructor",
+        "inputs": [{"type": "address", "name": ""}],
+        "stateMutability": "pure",
+    }
+    c = Constructor(data)
+
+    addr = "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed"
+    assert c.encode([addr]).hex() == addr[2:].rjust(64, "0").lower()

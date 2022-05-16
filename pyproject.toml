@@ -156,6 +156,7 @@ extend_ignore = [
     "D401",  # Imperative mood of first docstring line is not always encouraged
     "RST306",  # Plugin can't resolve links defined in other docstrings.
     "RST304",  # No builtin roles, so too much to do manually.
+    "E203",  # Invalid. Expressions like `[len(x) :]` conform with PEP8, but raise this.
 ]
 # Ignore
 per-file-ignores = [

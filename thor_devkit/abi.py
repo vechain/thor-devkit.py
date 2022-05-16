@@ -54,6 +54,7 @@ else:
 __all__ = [
     # Main
     "Function",
+    "Constructor",
     "Event",
     "Coder",
     # Types
@@ -61,12 +62,14 @@ __all__ = [
     "StateMutabilityT",
     "FuncParameterT",
     "FunctionT",
+    "ConstructorT",
     "EventParameterT",
     "EventT",
     # Schemas
     "MUTABILITY",
     "FUNC_PARAMETER",
     "FUNCTION",
+    "CONSTRUCTOR",
     "EVENT_PARAMETER",
     "EVENT",
     # Other
@@ -74,6 +77,7 @@ __all__ = [
     "calc_function_selector",
     "FunctionResult",
     "Encodable",
+    "FunctionBase",
 ]
 
 MUTABILITY: Final = Schema(voluptuous.Any("pure", "view", "payable", "nonpayable"))
@@ -178,6 +182,39 @@ class FunctionT(TypedDict):
     """Function parameters."""
     outputs: Sequence["FuncParameterT"]
     """Function returns."""
+
+
+CONSTRUCTOR: Final = Schema(
+    {
+        "type": "constructor",
+        "stateMutability": MUTABILITY,
+        "inputs": [FUNC_PARAMETER],
+    },
+    required=True,
+    extra=voluptuous.REMOVE_EXTRA,
+)
+"""Validation :external:class:`~voluptuous.schema_builder.Schema` for ABI constructor.
+
+Constructor is a special function case that doesn't produce outputs and is unnamed.
+
+:meta hide-value:
+
+.. versionadded:: 2.0.0
+"""
+
+
+class ConstructorT(TypedDict):
+    """Type of ABI function dictionary representation.
+
+    .. versionadded:: 2.0.0
+    """
+
+    type: Literal["constructor"]  # noqa: A003
+    """Always ``function``."""
+    stateMutability: StateMutabilityT  # noqa: N815
+    r"""Mutability (pure, view, payable or nonpayable)."""
+    inputs: Sequence["FuncParameterT"]
+    """Constructor parameters."""
 
 
 EVENT_PARAMETER: Final = Schema(
@@ -461,17 +498,8 @@ else:
     _PathT = Union[str, os.PathLike]
 
 
-class Encodable(Generic[_ParamT], ABC):
-    """Base class for :class:`Function` and :class:`Event`.
-
-    .. versionadded:: 2.0.0
-    """
-
-    _definition: Union[FunctionT, EventT]
-
-    @abstractmethod
-    def __init__(self, definition: Any) -> None:
-        raise NotImplementedError()
+class _WithName:
+    _definition: Union[EventT, FunctionT]
 
     @property
     def name(self) -> str:
@@ -491,6 +519,19 @@ class Encodable(Generic[_ParamT], ABC):
             Use :attr:`name` property instead.
         """
         return self.name
+
+
+class Encodable(Generic[_ParamT], ABC):
+    """Base class for :class:`Function` and :class:`Event`.
+
+    .. versionadded:: 2.0.0
+    """
+
+    _definition: Union[FunctionT, ConstructorT, EventT]
+
+    @abstractmethod
+    def __init__(self, definition: Any) -> None:
+        raise NotImplementedError()
 
     @abstractmethod
     def encode(
@@ -724,10 +765,111 @@ class Encodable(Generic[_ParamT], ABC):
         return cls(given[0])
 
 
+class FunctionBase(Encodable[FuncParameterT]):
+    """Base class for ABI functions (function itself and constructor).
+
+    .. versionadded:: 2.0.0
+    """
+
+    _definition: Union[FunctionT, ConstructorT]
+
+    def encode(self, parameters: Union[Sequence[Any], Mapping[str, Any]]) -> bytes:
+        r"""Encode the parameters according to the function definition.
+
+        Parameters
+        ----------
+        parameters : Sequence[Any] or Mapping[str, Any]
+            A list of parameters waiting to be encoded,
+            or a mapping from names to values.
+
+        Returns
+        -------
+        bytes
+            Encoded value
+        """
+        inputs = self._definition["inputs"]
+        my_types = [self.make_proper_type(x) for x in inputs]
+
+        norm_parameters = self._normalize_values(parameters, inputs)
+
+        return self.selector + Coder.encode_list(my_types, norm_parameters)
+
+    def decode_parameters(self, value: bytes) -> FunctionResult:
+        """Decode parameters back to values.
+
+        .. versionadded:: 2.0.0
+
+        Parameters
+        ----------
+        value: bytes
+            Data to decode.
+
+        Returns
+        -------
+        FunctionResult
+            Decoded values.
+        """
+        my_types = [self.make_proper_type(x) for x in self._definition["inputs"]]
+        # Strip signature
+        result_list = Coder.decode_list(my_types, value[len(self.selector) :])
+
+        return self._to_final_type("InType", result_list, self._definition["inputs"])
+
+    @property
+    @abstractmethod
+    def selector(self) -> bytes:
+        """Selector to prepend to encoded data."""
+        raise NotImplementedError()
+
+
+class Constructor(FunctionBase):
+    """ABI constructor function.
+
+    .. versionadded:: 2.0.0
+
+    Examples
+    --------
+    >>> body = {
+    ...     'type': 'constructor',
+    ...     'inputs': [{'type': 'int', 'name': 'x'}],
+    ...     'stateMutability': 'nonpayable',
+    ... }
+    >>> Constructor(body)  # doctest:+ELLIPSIS
+    <thor_devkit.abi.Constructor object at ...>
+
+    Or create from contract:
+
+    >>> contract = r'contract A { constructor(int x) {} }'
+    >>> Constructor.from_solidity(text=contract)  # doctest:+ELLIPSIS
+    <thor_devkit.abi.Constructor object at ...>
+    """
+
+    def __init__(self, definition: ConstructorT) -> None:
+        """Initialize a constructor by definition.
+
+        .. versionadded:: 2.0.0
+
+        Parameters
+        ----------
+        definition : ConstructorT
+            A dict with style of :const:`CONSTRUCTOR`
+        """
+        self._definition: ConstructorT = CONSTRUCTOR(definition)  # Protect.
+
+    @property
+    def selector(self) -> bytes:
+        """Empty bytes, because constructor is unnamed."""
+        return b""
+
+    def decode(self, data: bytes) -> NoReturn:
+        """Constructor does not have outputs, so nothing to decode."""
+        raise AttributeError("Constructor cannot have outputs!")
+
+
 _dummy = object()
 
 
-class Function(Encodable[FuncParameterT]):
+class Function(_WithName, FunctionBase):
     """ABI Function."""
 
     def __init__(self, definition: FunctionT) -> None:
@@ -828,12 +970,8 @@ class Function(Encodable[FuncParameterT]):
         ...     + b'foo'.ljust(32, b'\x00')  # String itself
         ... )
         """
-        inputs = self._definition["inputs"]
-        my_types = [self.make_proper_type(x) for x in inputs]
+        my_bytes = super().encode(parameters)
 
-        norm_parameters = self._normalize_values(parameters, inputs)
-
-        my_bytes = self.selector + Coder.encode_list(my_types, norm_parameters)
         if to_hex is not _dummy:
             warnings.warn(
                 DeprecationWarning(
@@ -845,27 +983,6 @@ class Function(Encodable[FuncParameterT]):
             return "0x" + my_bytes.hex()
         else:
             return my_bytes
-
-    def decode_parameters(self, value: bytes) -> FunctionResult:
-        """Decode parameters back to values.
-
-        .. versionadded:: 2.0.0
-
-        Parameters
-        ----------
-        value: bytes
-            Data to decode.
-
-        Returns
-        -------
-        FunctionResult
-            Decoded values.
-        """
-        my_types = [self.make_proper_type(x) for x in self._definition["inputs"]]
-        # Strip signature
-        result_list = Coder.decode_list(my_types, value[4:])
-
-        return self._to_final_type("InType", result_list, self._definition["inputs"])
 
     def decode(self, output_data: bytes) -> FunctionResult:
         """Decode function call output data back into human readable results.
@@ -1074,7 +1191,7 @@ class Function(Encodable[FuncParameterT]):
         return self.selector
 
 
-class Event(Encodable[EventParameterT]):
+class Event(_WithName, Encodable[EventParameterT]):
     """ABI Event."""
 
     def __init__(self, definition: EventT) -> None:
