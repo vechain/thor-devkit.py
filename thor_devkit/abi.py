@@ -660,6 +660,7 @@ class Encodable(Generic[_ParamT], ABC):
         *,
         text: Optional[str] = None,
         file: Optional[_PathT] = None,
+        name: Optional[str] = None,
         version: Optional[str] = None,
     ) -> _Self:
         """Instantiate :class:`Encodable` from solidity definition.
@@ -672,6 +673,8 @@ class Encodable(Generic[_ParamT], ABC):
             Program text.
         file: os.PathLike or Path or None (keyword-only)
             File with program source.
+        name: str or None
+            Name of encodable to extract.
         version: str or None (keyword-only)
             Solidity version (supported by :func:`~solcx.install_solc`)
             or ``None`` to use default.
@@ -708,6 +711,8 @@ class Encodable(Generic[_ParamT], ABC):
 
         all_items = [e for g in result.values() for e in g["abi"]]  # Flatten
         given = [e for e in all_items if e["type"] == cls.__name__.lower()]
+        if name is not None:
+            given = [e for e in given if e.get("name") == name]
 
         if not given:
             raise ValueError("Missing value of expected type.")
@@ -967,6 +972,7 @@ class Function(Encodable[FuncParameterT]):
         *,
         text: Optional[str] = None,
         file: Optional[_PathT] = None,
+        name: Optional[str] = None,
         version: Optional[str] = None,
     ) -> "Function":
         """Instantiate :class:`Function` from solidity definition.
@@ -979,6 +985,8 @@ class Function(Encodable[FuncParameterT]):
             Program text.
         file: os.PathLike or Path or None (keyword-only)
             File with program source.
+        name: str or None
+            Name of function to select. Do not filter by name if ``None``.
         version: str or None (keyword-only)
             Solidity version (supported by :func:`~solcx.install_solc`)
             or ``None`` to use default.
@@ -1018,14 +1026,31 @@ class Function(Encodable[FuncParameterT]):
 
         Many matching functions:
 
-        >>> Function.from_solidity(text='''
+        >>> contract = '''
         ...     contract A {
         ...         function f1(int x) public {}
         ...         function f2() public {}
         ...     }
-        ... ''')
+        ... '''
+        >>> Function.from_solidity(text=contract)
         Traceback (most recent call last):
         ValueError: Ambiguous input: more than one function given.
+
+        Many matching functions, select by name:
+
+        >>> contract = '''
+        ...     contract A {
+        ...         function f1(int x) public {}
+        ...         function f2() public {}
+        ...     }
+        ... '''
+        >>> func = Function.from_solidity(text=contract, name='f2')
+        >>> pprint(func._definition)
+        {'inputs': [],
+         'name': 'f2',
+         'outputs': [],
+         'stateMutability': 'nonpayable',
+         'type': 'function'}
 
         Syntax error:
 
@@ -1035,7 +1060,7 @@ class Function(Encodable[FuncParameterT]):
         Traceback (most recent call last):
         solcx.exceptions.SolcError: An error occurred during execution
         """
-        return super().from_solidity(text=text, file=file, version=version)
+        return super().from_solidity(text=text, file=file, name=name, version=version)
 
     @deprecated_to_property
     def get_selector(self) -> bytes:
@@ -1618,6 +1643,7 @@ class Event(Encodable[EventParameterT]):
         *,
         text: Optional[str] = None,
         file: Optional[_PathT] = None,
+        name: Optional[str] = None,
         version: Optional[str] = None,
     ) -> "Event":
         """Instantiate :class:`Event` from solidity definition.
@@ -1630,6 +1656,8 @@ class Event(Encodable[EventParameterT]):
             Program text.
         file: os.PathLike or Path or None (keyword-only)
             File with program source.
+        name: str or None
+            Name of event to select. Do not filter by name if ``None``.
         version: str or None (keyword-only)
             Solidity version (supported by :func:`~solcx.install_solc`)
             or ``None`` to use default.
@@ -1653,8 +1681,8 @@ class Event(Encodable[EventParameterT]):
         ...         event E(uint x) anonymous;
         ...     }
         ... '''
-        >>> func = Event.from_solidity(text=contract)
-        >>> pprint(func._definition)
+        >>> ev = Event.from_solidity(text=contract)
+        >>> pprint(ev._definition)
         {'anonymous': True,
          'inputs': [{'indexed': False,
                      'internalType': 'uint256',
@@ -1671,14 +1699,21 @@ class Event(Encodable[EventParameterT]):
 
         Many matching events:
 
-        >>> Event.from_solidity(text='''
+        >>> contract = '''
         ...     contract A {
         ...         event E1(int x) anonymous;
         ...         event E2() ;
         ...     }
-        ... ''')
+        ... '''
+        >>> Event.from_solidity(text=contract)
         Traceback (most recent call last):
         ValueError: Ambiguous input: more than one event given.
+
+        Many matching events, use name:
+
+        >>> ev = Event.from_solidity(text=contract, name='E2')
+        >>> pprint(ev._definition)
+        {'anonymous': False, 'inputs': [], 'name': 'E2', 'type': 'event'}
 
         Syntax error:
 
@@ -1688,7 +1723,7 @@ class Event(Encodable[EventParameterT]):
         Traceback (most recent call last):
         solcx.exceptions.SolcError: An error occurred during execution
         """
-        return super().from_solidity(text=text, file=file, version=version)
+        return super().from_solidity(text=text, file=file, name=name, version=version)
 
     @deprecated_to_property
     def get_signature(self) -> bytes:
