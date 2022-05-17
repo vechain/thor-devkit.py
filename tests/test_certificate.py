@@ -1,91 +1,103 @@
-import copy
 import pytest
-from thor_devkit import certificate
-from thor_devkit import cry
+from voluptuous.error import Invalid
 
-PRIV_KEY = bytes.fromhex(
-    '7582be841ca040aa940fff6c05773129e135623e41acce3e0b8ba520dc1ae26a')
-SIGNER = '0x' + \
-    cry.public_key_to_address(cry.secp256k1.derive_publicKey(PRIV_KEY)).hex()
+from thor_devkit.certificate import Certificate, CertificateT
+from thor_devkit.cry import blake2b256, public_key_to_address, secp256k1
+from thor_devkit.exceptions import BadSignature
 
-cert_dict = {
-    'purpose': 'identification',
-    'payload': {
-        'type': 'text',
-        'content': 'fyi'
-    },
-    'domain': 'localhost',
-    'timestamp': 1545035330,
-    'signer': SIGNER
-}
-cert = certificate.Certificate(**cert_dict)
 
-cert2_dict = {
-    'domain': 'localhost',
-    'timestamp': 1545035330,
-    'purpose': 'identification',
-    'signer': SIGNER,
-    'payload': {
-        'content': 'fyi',
-        'type': 'text'
+@pytest.fixture()
+def private_key():
+    return bytes.fromhex(
+        "7582be841ca040aa940fff6c05773129e135623e41acce3e0b8ba520dc1ae26a"
+    )
+
+
+@pytest.fixture()
+def signer(private_key):
+    return "0x" + public_key_to_address(secp256k1.derive_public_key(private_key)).hex()
+
+
+@pytest.fixture()
+def cert_1(signer):
+    data: CertificateT = {
+        "purpose": "identification",
+        "payload": {"type": "text", "content": "fyi"},
+        "domain": "localhost",
+        "timestamp": 1545035330,
+        "signer": signer,
     }
-}
-cert2 = certificate.Certificate(**cert2_dict)
+    return Certificate(**data)
 
 
-def test_encode():
-    assert certificate.encode(cert) == certificate.encode(cert2)
-
-    temp = copy.deepcopy(cert_dict)
-    temp['signer'] = temp['signer'].upper()
-    temp_cert = certificate.Certificate(**temp)
-    assert certificate.encode(cert) == certificate.encode(temp_cert)
-
-    sig_bytes = cry.secp256k1.sign(
-        cry.blake2b256([
-            certificate.encode(cert).encode('utf-8')
-        ])[0],
-        PRIV_KEY
-    )
-
-    sig = '0x' + sig_bytes.hex()
-
-    temp2 = copy.deepcopy(cert_dict)
-    temp2['signature'] = sig
-    temp2_cert = certificate.Certificate(**temp2)
-
-    temp3 = copy.deepcopy(cert_dict)
-    temp3['signature'] = sig.upper()
-    temp3_cert = certificate.Certificate(**temp3)
-
-    assert certificate.encode(temp2_cert) == certificate.encode(temp3_cert)
+@pytest.fixture()
+def cert_2(signer):
+    data: CertificateT = {
+        "domain": "localhost",
+        "timestamp": 1545035330,
+        "purpose": "identification",
+        "signer": signer,
+        "payload": {"content": "fyi", "type": "text"},
+    }
+    return Certificate(**data)
 
 
-def test_verify():
-    to_be_signed, _ = cry.blake2b256([
-        certificate.encode(cert).encode('utf-8')
-    ])
+def test_encode_basic(cert_1, cert_2):
+    assert cert_1.encode() == cert_1.encode()
+    assert cert_1.encode() == cert_2.encode()
 
-    sig_bytes = cry.secp256k1.sign(
-        to_be_signed,
-        PRIV_KEY
-    )
 
-    sig = '0x' + sig_bytes.hex()
+def test_signer_is_case_insensitive(cert_1):
+    data = cert_1.to_dict()
+    data["signer"] = data["signer"].lower()
+    assert cert_1.encode() == Certificate(**data).encode()
+
+
+def test_signature_is_case_insensitive(cert_1, private_key):
+    sig_bytes = secp256k1.sign(blake2b256([cert_1.encode().encode()])[0], private_key)
+    sig = "0x" + sig_bytes.hex()
+    sig_lower_cert = Certificate(**cert_1.to_dict(), signature=sig)
+    sig_upper_cert = Certificate(**cert_1.to_dict(), signature=sig.upper())
+    assert sig_lower_cert.encode() == sig_upper_cert.encode()
+
+
+def test_verify(cert_1, private_key):
+    to_be_signed, _ = blake2b256([cert_1.encode().encode()])
+
+    sig_bytes = secp256k1.sign(to_be_signed, private_key)
+    sig = "0x" + sig_bytes.hex()
+
+    # Everything is fine.
+    Certificate(**cert_1.to_dict(), signature=sig).verify()
+    Certificate(**cert_1.to_dict(), signature=sig.upper()).verify()
+
+    # Invalid signer
+    temp = cert_1.to_dict()
+    temp["signer"] = "0x"
+    with pytest.raises(Invalid):
+        c = Certificate(**temp, signature=sig)
 
     # Signature doesn't match.
-    with pytest.raises(Exception, match='signature does not match with the signer.'):
-        temp = copy.copy(cert_dict)
-        temp['signature'] = sig
-        temp['signer'] = '0x'
-        certificate.verify(certificate.Certificate(**temp))
+    temp = cert_1.to_dict()
+    temp["signer"] = "0x" + "0" * 40
+    c = Certificate(**temp, signature=sig)
+    with pytest.raises(BadSignature):
+        c.verify()
+    assert not c.is_valid()
 
-    # Everything is fine.
-    temp2 = copy.copy(cert_dict)
-    temp2['signature'] = sig
-    certificate.verify(certificate.Certificate(**temp2))
+    # Signature missing.
+    temp = cert_1.to_dict()
+    c = Certificate(**temp)
+    with pytest.raises(ValueError, match=r"needs.*signature"):
+        c.verify()
+    assert not c.is_valid()
 
-    # Everything is fine.
-    temp3 = copy.copy(cert_dict)
-    temp3['signature'] = sig.upper()
-    certificate.verify(certificate.Certificate(**temp3))
+    # Signature of wrong length.
+    temp = cert_1.to_dict()
+    with pytest.raises(Invalid):
+        Certificate(**temp, signature=sig[:-2])
+
+    # Signature not a hex string.
+    temp = cert_1.to_dict()
+    with pytest.raises(Invalid):
+        Certificate(**temp, signature=sig[:-1] + "z")

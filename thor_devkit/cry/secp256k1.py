@@ -1,82 +1,148 @@
-'''
-secp256k1 Elliptic Curve related functions.
+"""Elliptic curve ``secp256k1`` related functions.
 
-1) Generate a private Key.
-2) Derive uncompressed public key from private key.
-3) Sign a message hash using the private key, generate signature.
-4) Given the message hash and signature, recover the uncompressed public key.
-'''
+- Generate a private key.
+- Derive uncompressed public key from private key.
+- Sign a message hash using the private key, generate signature.
+- Given the message hash and signature, recover the uncompressed public key.
+"""
+import sys
 
-from ecdsa import SigningKey, SECP256k1
+import eth_keys.exceptions
+from ecdsa import SECP256k1, SigningKey
 from eth_keys import KeyAPI
 
+from thor_devkit.deprecation import renamed_function
 
-MAX = bytes.fromhex(
-    'fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141')
-ZERO = bytes.fromhex('0' * 64)
+if sys.version_info < (3, 8):
+    from typing_extensions import Final, Literal
+else:
+    from typing import Final, Literal
+
+__all__ = [
+    "is_valid_private_key",
+    "generate_private_key",
+    "derive_public_key",
+    "sign",
+    "recover",
+]
+
+MAX: Final = bytes.fromhex(
+    "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"
+)
+"""Maximal allowed private key."""
+
+ZERO: Final = bytes(32)
+"""32-bit zero in bytes form."""
 
 
-def _is_valid_private_key(priv_key: bytes) -> bool:
-    '''
-    Verify if a private key is good.
+def validate_private_key(priv_key: bytes) -> Literal[True]:
+    """Validate given private key.
+
+    .. versionadded:: 2.0.0
+
+    Returns
+    -------
+    Literal[True]
+        Always True.
+
+    Raises
+    ------
+    ValueError
+        If key is not valid.
+    """
+    try:
+        priv_key = bytes(priv_key)
+    except TypeError as e:
+        raise ValueError("Given key is not convertible to bytes.") from e
+
+    if priv_key == ZERO:
+        raise ValueError("Private key must not be zero.")
+    if priv_key >= MAX:
+        raise ValueError("Private key must be less than MAX.")
+    if len(priv_key) != 32:
+        raise ValueError("Length of private key must be equal to 32.")
+    return True
+
+
+def is_valid_private_key(priv_key: bytes) -> bool:
+    """Verify if a private key is well-formed.
+
+    .. versionadded:: 2.0.0
+
+    Parameters
+    ----------
+    priv_key : bytes
+        Private key to check.
 
     Returns
     -------
     bool
         True if the private key is valid.
-    '''
-    if priv_key == ZERO:
+    """
+    try:
+        return validate_private_key(priv_key)
+    except ValueError:
         return False
 
-    if priv_key >= MAX:
-        return False
-    
-    if len(priv_key) != 32:
-        return False
 
-    return True
-
-
-def _is_valid_message_hash(msg_hash: bytes) -> bool:
-    '''
-    Verify if a message hash is in correct format.
-    (as in terms of VeChain)
+def _validate_message_hash(msg_hash: bytes) -> Literal[True]:
+    """Verify if a message hash is in correct format (as in terms of VeChain).
 
     Parameters
     ----------
-    msg_hash: bytes
-        The msg hash to be processed.
+    msg_hash : bytes
+        The message hash to be processed.
 
     Returns
     -------
     bool
-        If the message hash is in correct format or not.
-    '''
-    return len(msg_hash) == 32
+        Whether the message hash is in correct format.
+    """
+    if not isinstance(msg_hash, bytes):
+        raise ValueError("Message hash must be of type 'bytes'")
+    if len(msg_hash) != 32:
+        raise ValueError("Message hash must be 32 bytes long")
+    return True
 
 
-def generate_privateKey() -> bytes:
-    '''
-    Create a random number(32 bytes) as private key.
+def generate_private_key() -> bytes:
+    """Create a random number (32 bytes) as private key.
+
+    .. versionadded:: 2.0.0
 
     Returns
     -------
     bytes
         The private key in 32 bytes format.
-    '''
+    """
+    # We shouldn't measure coverage here, because situation "key is invalid"
+    # is almost improbable
     while True:
-        _a = SigningKey.generate(curve=SECP256k1)
-        if _is_valid_private_key(_a.to_string()):
-            return _a.to_string()
+        _a = SigningKey.generate(curve=SECP256k1).to_string()
+        if is_valid_private_key(_a):  # pragma: no cover
+            return _a
 
 
-def derive_publicKey(priv_key: bytes) -> bytes:
-    '''
-    Derive public key from a private key(uncompressed).
+@renamed_function("generate_private_key")
+def generate_privateKey() -> bytes:  # noqa: N802
+    """Create a random number (32 bytes) as private key.
+
+    .. customtox-exclude::
+
+    .. deprecated:: 2.0.0
+        Use :func:`generate_private_key` instead for naming consistency.
+    """
+    return generate_private_key()
+
+
+def derive_public_key(priv_key: bytes) -> bytes:
+    """Derive public key from a private key(uncompressed).
+
+    .. versionadded:: 2.0.0
 
     Parameters
     ----------
-    priv_key: bytes
+    priv_key : bytes
         The private key in bytes.
 
     Returns
@@ -89,24 +155,37 @@ def derive_publicKey(priv_key: bytes) -> bytes:
     ------
     ValueError
         If the private key is not valid.
-    '''
-    if not _is_valid_private_key(priv_key):
-        raise ValueError('Private Key not valid.')
+    """
+    validate_private_key(priv_key)
 
     _a = SigningKey.from_string(priv_key, curve=SECP256k1)
     return _a.verifying_key.to_string("uncompressed")
 
 
+@renamed_function("generate_public_key")
+def derive_publicKey(priv_key: bytes) -> bytes:  # noqa: N802
+    """Create a random number (32 bytes) as public key.
+
+    .. customtox-exclude::
+
+    .. deprecated:: 2.0.0
+        Use :func:`derive_public_key` instead for naming consistency.
+    """
+    return derive_public_key(priv_key)
+
+
 def sign(msg_hash: bytes, priv_key: bytes) -> bytes:
-    '''
-    Sign the message hash.
-    (not the message itself)
+    """Sign the message hash.
+
+    Note
+    ----
+    It signs **message hash**, not the message itself!
 
     Parameters
     ----------
-    msg_hash: bytes
+    msg_hash : bytes
         The message hash.
-    priv_key: bytes
+    priv_key : bytes
         The private key in bytes.
 
     Returns
@@ -118,31 +197,27 @@ def sign(msg_hash: bytes, priv_key: bytes) -> bytes:
     ------
     ValueError
         If the input is malformed.
-    '''
-    if not _is_valid_message_hash(msg_hash):
-        raise ValueError('Message hash not valid.')
-
-    if not _is_valid_private_key(priv_key):
-        raise ValueError('Private Key not valid.')
+    """
+    _validate_message_hash(msg_hash)
+    validate_private_key(priv_key)
 
     sig = KeyAPI().ecdsa_sign(msg_hash, KeyAPI.PrivateKey(priv_key))
 
-    r = sig.r.to_bytes(32, byteorder='big')
-    s = sig.s.to_bytes(32, byteorder='big')
-    v = sig.v.to_bytes(1, byteorder='big')  # public key recovery bit.
+    r = sig.r.to_bytes(32, byteorder="big")
+    s = sig.s.to_bytes(32, byteorder="big")
+    v = sig.v.to_bytes(1, byteorder="big")  # public key recovery bit.
 
-    return b''.join([r, s, v])  # 32 + 32 + 1 bytes
+    return b"".join([r, s, v])  # 32 + 32 + 1 bytes
 
 
 def recover(msg_hash: bytes, sig: bytes) -> bytes:
-    '''
-    Recover the uncompressed public key from signature.
+    """Recover the uncompressed public key from signature.
 
     Parameters
     ----------
-    msg_hash: bytes
+    msg_hash : bytes
         The message hash.
-    sig: bytes
+    sig : bytes
         The signature.
 
     Returns
@@ -156,21 +231,16 @@ def recover(msg_hash: bytes, sig: bytes) -> bytes:
         If the signature is bad,
         or recovery bit is bad,
         or cannot recover(sig and msg_hash doesn't match).
-    '''
+    """
+    _validate_message_hash(msg_hash)
 
-    if not _is_valid_message_hash(msg_hash):
-        raise ValueError('Message Hash must be 32 bytes.')
+    # This validates signature
+    try:
+        signature = KeyAPI.Signature(signature_bytes=sig)
+    except (eth_keys.exceptions.BadSignature, eth_keys.exceptions.ValidationError) as e:
+        raise ValueError("Signature is invalid.") from e
 
-    if len(sig) != 65:
-        raise ValueError('Signature must be 65 bytes.')
-
-    if not (sig[64] == 0 or sig[64] == 1):
-        raise ValueError('Signature last byte must be 0 or 1')
-
-    pk = KeyAPI().ecdsa_recover(
-        msg_hash,
-        KeyAPI.Signature(signature_bytes=sig)
-    )
+    pk = KeyAPI().ecdsa_recover(msg_hash, signature)
 
     # uncompressed should have first byte = 04
     return bytes([4]) + pk.to_bytes()
