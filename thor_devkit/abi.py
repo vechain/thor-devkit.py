@@ -847,8 +847,6 @@ class Constructor(FunctionBase):
     def __init__(self, definition: ConstructorT) -> None:
         """Initialize a constructor by definition.
 
-        .. versionadded:: 2.0.0
-
         Parameters
         ----------
         definition : ConstructorT
@@ -1208,7 +1206,9 @@ class Event(_WithName, Encodable[EventParameterT]):
         Raises
         ------
         ValueError
-            Number of indexed parameters exceeds the limit.
+            If number of indexed parameters exceeds the limit.
+        Invalid
+            If given definition is malformed.
         """
         self._definition: EventT = EVENT(definition)
         self._signature: bytes = calc_event_topic(self._definition)
@@ -1260,6 +1260,8 @@ class Event(_WithName, Encodable[EventParameterT]):
         to: Literal["r", "l"] = "l",
     ) -> bytes:
         r"""Join sequence of bytes together and pad to multiple of ``mod``.
+
+        .. versionadded:: 2.0.0
 
         Parameters
         ----------

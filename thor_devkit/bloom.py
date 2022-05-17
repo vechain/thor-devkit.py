@@ -32,10 +32,7 @@ __all__ = ["Bloom"]
 
 
 class Bloom:
-    """Bloom filter.
-
-    .. autoclasssumm:: Bloom
-    """
+    """Bloom filter."""
 
     MAX_K: int = 16
     """Maximal amount of hash functions to use."""

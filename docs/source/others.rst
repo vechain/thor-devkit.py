@@ -39,7 +39,6 @@ Various utilities and primitives
 
 .. automodule:: thor_devkit.bloom
    :special-members: __contains__
-   :no-autosummary:
 
 
 Hash and cryptography utilities

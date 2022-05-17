@@ -517,7 +517,7 @@ class BaseWrapper(AbstractSerializer[_T]):
 
 
 class DictWrapper(BaseWrapper[Mapping[str, Any]]):
-    """DictWrapper is a container for parsing dict like objects."""
+    """A container for working with dict-like objects."""
 
     keys: Sequence[str]
     """Field names."""
@@ -538,8 +538,10 @@ class DictWrapper(BaseWrapper[Mapping[str, Any]]):
         codecs : Mapping[str, BaseWrapper or ScalarKind] or its ``.values()``-like list
             Codecs to use.
             Possible values (codec is any BaseWrapper or ScalarKind):
-            - Any mapping from str to codec, e.g. {'foo': NumericKind()}
-            - Any sequence of tuples (name, codec), e.g. [('foo', NumericKind())]
+
+            - Any mapping from str to codec, e.g. ``{'foo': NumericKind()}``
+            - Any sequence of tuples ``(name, codec)``,
+              e.g. ``[('foo', NumericKind())]``
         """
         if isinstance(codecs, Mapping):
             self.keys, self.codecs = izip(*codecs.items())

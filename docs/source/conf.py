@@ -57,6 +57,7 @@ html_static_path = ["_static"]
 
 # -- Autodoc config ----------------------------------------------------------
 
+autoclass_content = "both"
 autodoc_default_options = {
     "members": True,
     "undoc-members": True,
