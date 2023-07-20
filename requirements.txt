@@ -1,4 +1,4 @@
-pysha3==1.0.2
+eth-hash==0.5.2
 pytest>=6.2.0
 pytest-cov
 ecdsa==0.16.1
