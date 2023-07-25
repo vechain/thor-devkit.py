@@ -24,7 +24,14 @@ Python 3 (Python 3.6+) library to assist smooth development on VeChain for devel
 pip3 install thor-devkit -U
 ```
 
-***Caveat: Bip32 depends on the ripemd160 hash library, which should be present on your system.***
+***Caveat: Bip32 depends on the `ripemd160` hash library, which should be present on your system within OpenSSL.***
+
+Type these in your terminal to see if they are available
+```python
+> python3
+> import hashlib
+> print('ripemd160' in hashlib.algorithms_available)
+```
 
 # Tutorials
 
