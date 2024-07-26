@@ -28,6 +28,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install openssl
+          openssl version -a
       - name: Test with pytest
         run: |
           python3 -m pytest -vv -s
