@@ -117,12 +117,12 @@ class Coder():
     @staticmethod
     def encode_list(types: List[str], values) -> bytes:
         ''' Encode a sequence of values, into a single bytes '''
-        return eth_abi.encode_abi(types, values)
+        return eth_abi.encode(types, values)
 
     @staticmethod
     def decode_list(types: List[str], data: bytes) -> List:
         ''' Decode the data, back to a (,,,) tuple '''
-        return list(eth_abi.decode_abi(types, data))
+        return list(eth_abi.decode(types, data))
     
     @staticmethod
     def encode_single(t: str, value) -> bytes:
