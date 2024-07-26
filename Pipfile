@@ -1,0 +1,23 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+eth-hash = ">=0.5.2"
+pytest = ">=6.2.0"
+pytest-cov = "*"
+ecdsa = ">=0.16.1"
+eth-keys = ">=0.3.3"
+mnemonic = ">=0.19"
+eth-keyfile = ">=0.5.1"
+rlp = ">=1.2.0"
+eth-abi = ">=2.1.1"
+voluptuous = ">=0.12.0"
+twine = "*"
+retro-bip-utils = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.12"

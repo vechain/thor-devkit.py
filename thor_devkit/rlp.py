@@ -155,7 +155,7 @@ class NumericKind(ScalarKind, BigEndianInt):
             Max bytes in the encoded result. (not enough then prepend 0)
         '''
         self.max_bytes = max_bytes
-        super().__init__(l=max_bytes)
+        super().__init__(length=max_bytes)
 
     def serialize(self, obj: Union[str, int]) -> bytes:
         '''
