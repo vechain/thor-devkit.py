@@ -6,6 +6,7 @@ This module defines data structure of a tx, and the encoding/decoding of tx data
 from voluptuous import Schema, Any, Optional, REMOVE_EXTRA
 from typing import Union, List
 from copy import deepcopy
+from enum import Enum, auto
 from .rlp import NumericKind, CompactFixedBlobKind, NoneableFixedBlobKind, BlobKind, BytesKind
 from .rlp import DictWrapper, HomoListWrapper
 from .rlp import ComplexCodec
@@ -13,12 +14,17 @@ from .cry import blake2b256
 from .cry import secp256k1
 from .cry import address
 
+class TransactionType(Enum):
+    NORMAL = 0
+    DYNAMIC_FEE = 81
+
 # Kind Definitions
 # Used for VeChain's "reserved features" kind.
 FeaturesKind = NumericKind(4)
 
+# Legacy Transactions
 # Unsigned/Signed RLP Wrapper.
-_params = [
+_legacy_params = [
     ("chainTag", NumericKind(1)),
     ("blockRef", CompactFixedBlobKind(8)),
     ("expiration", NumericKind(4)),
@@ -30,15 +36,41 @@ _params = [
     ("gasPriceCoef", NumericKind(1)),
     ("gas", NumericKind(8)),
     ("dependsOn", NoneableFixedBlobKind(32)),
-    ("nonce", NumericKind(8)),
+    ("nonce", NumericKind(32)),
     ("reserved", HomoListWrapper(codec=BytesKind()))
 ]
 
 # Unsigned Tx Wrapper
-UnsignedTxWrapper = DictWrapper(_params)
+LegacyUnsignedTxWrapper = DictWrapper(_legacy_params)
 
 # Signed Tx Wrapper
-SignedTxWrapper = DictWrapper( _params + [("signature", BytesKind())] )
+LegacySignedTxWrapper = DictWrapper( _legacy_params + [("signature", BytesKind())] )
+
+
+# Dynamic Fee Transactions
+# Unsigned/Signed RLP Wrapper.
+_eip1559_params = [
+    ("chainTag", NumericKind(1)),
+    ("blockRef", CompactFixedBlobKind(8)),
+    ("expiration", NumericKind(4)),
+    ("clauses", HomoListWrapper(codec=DictWrapper([
+        ("to", NoneableFixedBlobKind(20)),
+        ("value", NumericKind(32)),
+        ("data", BlobKind())
+    ]))),
+    ("maxPriorityFeePerGas", NumericKind(32)),
+    ("maxFeePerGas", NumericKind(32)),
+    ("gas", NumericKind(8)),
+    ("dependsOn", NoneableFixedBlobKind(32)),
+    ("nonce", NumericKind(32)),
+    ("reserved", HomoListWrapper(codec=BytesKind()))
+]
+
+# Unsigned Tx Wrapper
+EIP1559UnsignedTxWrapper = DictWrapper(_eip1559_params)
+
+# Signed Tx Wrapper
+EIP1559SignedTxWrapper = DictWrapper( _eip1559_params + [("signature", BytesKind())] )
 
 CLAUSE = Schema(
     {
@@ -50,6 +82,15 @@ CLAUSE = Schema(
     extra=REMOVE_EXTRA
 )
 
+META = Schema(
+    {
+        "blockID": str,
+        "blockNumber": int,
+        "blockTimestamp": int
+    },
+    required=True,
+    extra=REMOVE_EXTRA
+)
 
 RESERVED = Schema(
     {
@@ -71,11 +112,17 @@ BODY = Schema(
         "blockRef": str,
         "expiration": int,
         "clauses": [CLAUSE],
-        "gasPriceCoef": int,
         "gas": Any(str, int),
         "dependsOn": Any(str, None),
-        "nonce": Any(str, int),
-        Optional("reserved"): RESERVED
+        Optional("size"): int,
+        Optional("nonce"): str,
+        Optional("meta"): META,
+        Optional("delegator"): str,
+        Optional("maxFeePerGas"): str,
+        Optional("maxPriorityFeePerGas"): str,
+        Optional("gasPriceCoef"): int,
+        Optional("reserved"): RESERVED,
+        Optional("type"): int
     },
     required=True,
     extra=REMOVE_EXTRA
@@ -204,7 +251,12 @@ class Transaction():
         _temp.update({
             "reserved": reserved_list
         })
-        buff = ComplexCodec(UnsignedTxWrapper).encode(_temp)
+        
+        if self.get_type() == TransactionType.DYNAMIC_FEE:
+            buff = ComplexCodec(EIP1559UnsignedTxWrapper).encode(_temp)
+        else:
+            buff = ComplexCodec(LegacyUnsignedTxWrapper).encode(_temp)
+            
         h, _ = blake2b256([buff])
 
         if delegate_for:
@@ -218,6 +270,24 @@ class Transaction():
     def get_intrinsic_gas(self) -> int:
         ''' Get the rough gas this tx will consume'''
         return intrinsic_gas(self.body['clauses'])
+
+    def get_gas_price_coef(self) -> Union[None, int]:
+        ''' Get the gas of current transaction.'''
+        return self.body.get('gasPriceCoef', 0)
+
+    def get_max_fee_per_gas(self) -> Union[None, int]:
+        ''' Get the max fee per gas of current transaction.'''
+        value = self.body.get('maxFeePerGas', 0)
+        if isinstance(value, str):
+            return int(value, 16)
+        return value
+
+    def get_max_priority_fee_per_gas(self) -> Union[None, int]:
+        ''' Get the max priority fee per gas of current transaction.'''
+        value = self.body.get('maxPriorityFeePerGas', 0)
+        if isinstance(value, str):
+            return int(value, 16)
+        return value
 
     def get_signature(self) -> Union[None, bytes]:
         ''' Get the signature of current transaction.'''
@@ -303,9 +373,15 @@ class Transaction():
             temp.update({
                 'signature': self.signature
             })
-            return ComplexCodec(SignedTxWrapper).encode(temp)
+            if self.get_type() == TransactionType.DYNAMIC_FEE:
+                return ComplexCodec(EIP1559SignedTxWrapper).encode(temp)
+            else:
+                return ComplexCodec(LegacySignedTxWrapper).encode(temp)
         else:
-            return ComplexCodec(UnsignedTxWrapper).encode(temp)
+            if self.get_type() == TransactionType.DYNAMIC_FEE:
+                return ComplexCodec(EIP1559UnsignedTxWrapper).encode(temp)
+            else:
+                return ComplexCodec(LegacyUnsignedTxWrapper).encode(temp)
 
     @staticmethod
     def decode(raw: bytes, unsigned: bool):
@@ -313,13 +389,34 @@ class Transaction():
         body = None
         sig = None
 
-        if unsigned:
-            body = ComplexCodec(UnsignedTxWrapper).decode(raw)
-        else:
-            decoded = ComplexCodec(SignedTxWrapper).decode(raw)
-            sig = decoded['signature']  # bytes
-            del decoded['signature']
-            body = decoded
+        # First try to decode as dynamic fee transaction
+        try:
+            if unsigned:
+                body = ComplexCodec(EIP1559UnsignedTxWrapper).decode(raw)
+            else:
+                decoded = ComplexCodec(EIP1559SignedTxWrapper).decode(raw)
+                sig = decoded['signature']  # bytes
+                del decoded['signature']
+                body = decoded
+            body['type'] = TransactionType.DYNAMIC_FEE.value
+        except:
+            # If that fails, try legacy transaction
+            if unsigned:
+                body = ComplexCodec(LegacyUnsignedTxWrapper).decode(raw)
+            else:
+                decoded = ComplexCodec(LegacySignedTxWrapper).decode(raw)
+                sig = decoded['signature']  # bytes
+                del decoded['signature']
+                body = decoded
+            body['type'] = TransactionType.NORMAL.value
+
+        # Convert numeric values to hex strings
+        if 'nonce' in body:
+            body['nonce'] = hex(body['nonce'])
+        if 'maxFeePerGas' in body:
+            body['maxFeePerGas'] = hex(body['maxFeePerGas'])
+        if 'maxPriorityFeePerGas' in body:
+            body['maxPriorityFeePerGas'] = hex(body['maxPriorityFeePerGas'])
 
         r = body.get('reserved', [])  # list of bytes
         if len(r) > 0:
@@ -361,3 +458,10 @@ class Transaction():
         flag_1 = (self.signature == other.signature)
         flag_2 = self.encode() == other.encode() # only because of ["reserved"]["unused"] may glitch.
         return flag_1 and flag_2
+
+    def get_type(self) -> TransactionType:
+        ''' Get the type of the transaction.'''
+        tx_type = self.body.get('type', 0)
+        if tx_type == 81:
+            return TransactionType.DYNAMIC_FEE
+        return TransactionType.NORMAL

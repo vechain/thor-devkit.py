@@ -2,7 +2,34 @@ import copy
 import pytest
 from thor_devkit import cry, transaction
 
-body = {
+dynamic_fee_transaction_body = {
+  "id": '0xf47542ebf813c723fa087b342db4c5f67866cc1b03b362c37a1b1766cac5c53a',
+  "type": 81,
+  "chainTag": 228,
+  "blockRef": '0x0001c400b93e3f87',
+  "expiration": 30,
+  "clauses": [
+    {
+      "to": '0x17c5fab5980157d0f2c14e1056e8ad828b43bb52',
+      "value": '0x0',
+      "data": '0xaecb29bf00000000000000000000000000000000000000000000000000000000000000977b7b81982ec56e3763f3a525d3675aacae0184a2fbeca967b8f5a979d6480e8a1c40ecc470246fba5958922b2554f93d946680a434f161b8e6cb5d63dfc1cdf5'
+    }
+  ],
+  "gas": 946888,
+  "maxFeePerGas": '0x33f2aa320fbd',
+  "maxPriorityFeePerGas": '0x1f0',
+  "origin": '0xa7d07b0176e8ec925f59bc3e75a4044f56991d3a',
+  "nonce": '0xb7643a8f91b25566',
+  "size": 5150,
+  "dependsOn": None,
+  "meta": {
+    "blockID": '0x0001c4016673373aac9a43f3730e32ef019ec22e055524f9417b2486ee958a57',
+    "blockNumber": 115713,
+    "blockTimestamp": 1748289731
+  }
+}
+
+normal_transaction_body = {
     "chainTag": 1,
     "blockRef": '0x00000000aabbccdd',
     "expiration": 32,
@@ -18,29 +45,39 @@ body = {
             "data": '0x000000606060'
         }
     ],
+    "size": 100,
     "gasPriceCoef": 128,
     "gas": 21000,
     "dependsOn": None,
-    "nonce": 12345678
+    "nonce": '0x08'
 }
 
-unsigned = transaction.Transaction(body)
-unsigned_encoded = bytes.fromhex('f8540184aabbccdd20f840df947567d83b7b8d80addcb281a71d54fc7b3364ffed82271086000000606060df947567d83b7b8d80addcb281a71d54fc7b3364ffed824e208600000060606081808252088083bc614ec0')
+unsigned = transaction.Transaction(normal_transaction_body)
+unsigned_encoded = bytes.fromhex('f8510184aabbccdd20f840df947567d83b7b8d80addcb281a71d54fc7b3364ffed82271086000000606060df947567d83b7b8d80addcb281a71d54fc7b3364ffed824e208600000060606081808252088008c0')
 
-signed = transaction.Transaction(body)
-signed_encoded = bytes.fromhex('f8970184aabbccdd20f840df947567d83b7b8d80addcb281a71d54fc7b3364ffed82271086000000606060df947567d83b7b8d80addcb281a71d54fc7b3364ffed824e208600000060606081808252088083bc614ec0b841f76f3c91a834165872aa9464fc55b03a13f46ea8d3b858e528fcceaf371ad6884193c3f313ff8effbb57fe4d1adc13dceb933bedbf9dbb528d2936203d5511df00')
+signed = transaction.Transaction(normal_transaction_body)
+signed_encoded = bytes.fromhex('f8940184aabbccdd20f840df947567d83b7b8d80addcb281a71d54fc7b3364ffed82271086000000606060df947567d83b7b8d80addcb281a71d54fc7b3364ffed824e208600000060606081808252088008c0b84159a0d8ff585bb9e44b05e96859302d43d060fde2266db8e7c75ba1a9721001883aba41c2866aa69fab1099f6e31d2bee58a970074e02f89c6072b00d32cf2f2400')
 priv_key = bytes.fromhex('7582be841ca040aa940fff6c05773129e135623e41acce3e0b8ba520dc1ae26a')
 _a, _ = cry.blake2b256([signed.encode()])
 _b = cry.secp256k1.sign(_a, priv_key)
 signed.set_signature(_b)
 signer = cry.public_key_to_address(cry.secp256k1.derive_publicKey(priv_key))
 
+
+unsinged_dynamic_fee = transaction.Transaction(dynamic_fee_transaction_body)
+unsinged_dynamic_fee_encoded = bytes.fromhex('f8a481e48701c400b93e3f871ef87ef87c9417c5fab5980157d0f2c14e1056e8ad828b43bb5280b864aecb29bf00000000000000000000000000000000000000000000000000000000000000977b7b81982ec56e3763f3a525d3675aacae0184a2fbeca967b8f5a979d6480e8a1c40ecc470246fba5958922b2554f93d946680a434f161b8e6cb5d63dfc1cdf58201f08633f2aa320fbd830e72c88088b7643a8f91b25566c0')
+
+signed_dynamic_fee = transaction.Transaction(dynamic_fee_transaction_body)
+signed_dynamic_fee_encoded = bytes.fromhex('f8e781e48701c400b93e3f871ef87ef87c9417c5fab5980157d0f2c14e1056e8ad828b43bb5280b864aecb29bf00000000000000000000000000000000000000000000000000000000000000977b7b81982ec56e3763f3a525d3675aacae0184a2fbeca967b8f5a979d6480e8a1c40ecc470246fba5958922b2554f93d946680a434f161b8e6cb5d63dfc1cdf58201f08633f2aa320fbd830e72c88088b7643a8f91b25566c0b841f720378109a9c077d85c041afa6e2f5b3ac08903fc5dcb0d3b337d77e91a4a7c27aa16974677ed6f24d76096291325614a54ab0f150821e3663562bb45e494f300')
+message_hash = signed_dynamic_fee.get_signing_hash()
+signed_dynamic_fee.set_signature(cry.secp256k1.sign(message_hash, priv_key))
+
 def test_unsigned():
     x = unsigned.encode()
     signing_hash, _ = cry.blake2b256([x])
-    assert signing_hash.hex() == '2a1c25ce0d66f45276a5f308b99bf410e2fc7d5b6ea37a49f2ab9f1da9446478'
+    assert signing_hash.hex() == '747453dfcba210d8bb4786c211a177909d109c87669bc0755fb25072a44150cf'
 
-    assert unsigned.get_signing_hash().hex() == '2a1c25ce0d66f45276a5f308b99bf410e2fc7d5b6ea37a49f2ab9f1da9446478'
+    assert unsigned.get_signing_hash().hex() == '747453dfcba210d8bb4786c211a177909d109c87669bc0755fb25072a44150cf'
 
     assert unsigned.get_id() is None
 
@@ -54,12 +91,12 @@ def test_unsigned():
 
     assert transaction.Transaction.decode(unsigned_encoded, True) == unsigned
 
-    body_1 = copy.deepcopy(body)
+    body_1 = copy.deepcopy(normal_transaction_body)
     body_1['clauses'] = []
 
     assert transaction.Transaction(body_1).get_intrinsic_gas() == 21000
 
-    body_2 = copy.deepcopy(body)
+    body_2 = copy.deepcopy(normal_transaction_body)
     body_2['clauses'] = [
         {
             "to": None,
@@ -72,82 +109,84 @@ def test_unsigned():
 
 
 def test_empty_data():
-    body_1 = copy.deepcopy(body)
+    body_1 = copy.deepcopy(normal_transaction_body)
     body_1['clauses'][0]['data'] = '0x'
     transaction.Transaction(body_1).encode()
 
 
 def test_invalid_body():
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(body)
+        body_1 = copy.deepcopy(normal_transaction_body)
         body_1["chainTag"] = 256
         transaction.Transaction(body_1).encode()
     
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(body)
+        body_1 = copy.deepcopy(normal_transaction_body)
         body_1["chainTag"] = -1
         transaction.Transaction(body_1).encode()
     
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(body)
+        body_1 = copy.deepcopy(normal_transaction_body)
         body_1["chainTag"] = 1.1
         transaction.Transaction(body_1).encode()
     
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(body)
+        body_1 = copy.deepcopy(normal_transaction_body)
         body_1['blockRef'] = '0x'
         transaction.Transaction(body_1).encode()
     
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(body)
+        body_1 = copy.deepcopy(normal_transaction_body)
         body_1['blockRef'] = '0x' + '0' * 18
         transaction.Transaction(body_1).encode()
     
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(body)
+        body_1 = copy.deepcopy(normal_transaction_body)
         body_1['expiration'] = 2 ** 32
         transaction.Transaction(body_1).encode()
     
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(body)
+        body_1 = copy.deepcopy(normal_transaction_body)
         body_1['expiration'] = -1
         transaction.Transaction(body_1).encode()
     
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(body)
+        body_1 = copy.deepcopy(normal_transaction_body)
         body_1['expiration'] = 1.1
         transaction.Transaction(body_1).encode()
 
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(body)
+        body_1 = copy.deepcopy(normal_transaction_body)
         body_1['gasPriceCoef'] = 256
         transaction.Transaction(body_1).encode()
     
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(body)
+        body_1 = copy.deepcopy(normal_transaction_body)
         body_1['gasPriceCoef'] = -1
         transaction.Transaction(body_1).encode()
 
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(body)
+        body_1 = copy.deepcopy(normal_transaction_body)
         body_1['gasPriceCoef'] = 1.1
         transaction.Transaction(body_1).encode()
 
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(body)
+        body_1 = copy.deepcopy(normal_transaction_body)
         body_1['gas'] = '0x10000000000000000'
         transaction.Transaction(body_1).encode()
     
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(body)
-        body_1['nonce'] = '0x10000000000000000'
+        body_1 = copy.deepcopy(normal_transaction_body)
+        body_1['nonce'] = 123
         transaction.Transaction(body_1).encode()
 
 def test_signed():
-    assert signed.get_signature().hex() == 'f76f3c91a834165872aa9464fc55b03a13f46ea8d3b858e528fcceaf371ad6884193c3f313ff8effbb57fe4d1adc13dceb933bedbf9dbb528d2936203d5511df00'
+    assert signed.get_signature().hex() == '59a0d8ff585bb9e44b05e96859302d43d060fde2266db8e7c75ba1a9721001883aba41c2866aa69fab1099f6e31d2bee58a970074e02f89c6072b00d32cf2f2400'
     assert signed.get_origin() == '0x' + signer.hex()
-    assert signed.get_id() == '0xda90eaea52980bc4bb8d40cb2ff84d78433b3b4a6e7d50b75736c5e3e77b71ec'
-    assert signed.get_signing_hash('0x' + signer.hex()).hex() == 'da90eaea52980bc4bb8d40cb2ff84d78433b3b4a6e7d50b75736c5e3e77b71ec'
+    assert signed.get_id() == '0x0d9e5937b4e9fa2d7284a9653c7f15417d3f71c9b4dd8bf51f2c88f5f99b0a8e'
+    assert signed.get_signing_hash('0x' + signer.hex()).hex() == '0d9e5937b4e9fa2d7284a9653c7f15417d3f71c9b4dd8bf51f2c88f5f99b0a8e'
+    assert signed.get_type() == transaction.TransactionType.NORMAL
+
 
 def test_encode_decode():
     assert signed.encode().hex() == signed_encoded.hex()
@@ -161,7 +200,7 @@ def test_encode_decode():
     #     transaction.Transaction.decode(signed_encoded, True)
 
 def test_incorrectly_signed():
-    tx = transaction.Transaction(body)
+    tx = transaction.Transaction(normal_transaction_body)
     tx.set_signature(bytes([1,2,3]))
     assert tx.get_origin() == None
     assert tx.get_id() == None
@@ -182,10 +221,11 @@ delegated_body = {
             "data": '0x000000606060'
         }
     ],
+    "size": 100,
     "gasPriceCoef": 128,
     "gas": 21000,
     "dependsOn": None,
-    "nonce": 12345678,
+    "nonce": '0x08',
     "reserved": {
         "features": 1,
         "unused": [b'1234']
@@ -241,10 +281,40 @@ def test_unused():
     assert transaction.Transaction.decode(delegated_tx_3.encode(), True) == delegated_tx_3
 
 def test_body_copy():
-    b1 = copy.deepcopy(body)
+    b1 = copy.deepcopy(normal_transaction_body)
     tx = transaction.Transaction(b1)
     b2 = tx.get_body(False)
     b3 = tx.get_body(True)
 
     assert id(b2) != id(b3) # id should be different
     assert b2 == b3 # content should be the same
+
+def test_dynamic_fee_transaction():
+    # Create a dynamic fee transaction
+    tx = transaction.Transaction(dynamic_fee_transaction_body)
+    
+    assert tx.get_type() == transaction.TransactionType.DYNAMIC_FEE
+    
+    assert tx.get_max_fee_per_gas() == int('0x33f2aa320fbd', 16) 
+    assert tx.get_max_priority_fee_per_gas() == int('0x1f0', 16) 
+    
+    assert 'gasPriceCoef' not in tx.get_body()
+    
+    assert tx.get_intrinsic_gas() > 0
+    assert tx.get_max_fee_per_gas() == int('0x33f2aa320fbd', 16)
+    assert tx.get_max_priority_fee_per_gas() == int('0x1f0', 16)
+    
+    body = tx.get_body()
+    assert 'meta' in body
+    assert body['meta']['blockID'] == dynamic_fee_transaction_body['meta']['blockID']
+    assert body['meta']['blockNumber'] == dynamic_fee_transaction_body['meta']['blockNumber']
+    assert body['meta']['blockTimestamp'] == dynamic_fee_transaction_body['meta']['blockTimestamp']
+
+def test_dynamic_fee_transaction_encoding():
+    tx = transaction.Transaction(dynamic_fee_transaction_body)
+    encoded = tx.encode()
+    
+    decoded = transaction.Transaction.decode(encoded, True)
+    assert decoded.get_type() == transaction.TransactionType.DYNAMIC_FEE
+    assert decoded.get_max_fee_per_gas() == tx.get_max_fee_per_gas()
+    assert decoded.get_max_priority_fee_per_gas() == tx.get_max_priority_fee_per_gas()
