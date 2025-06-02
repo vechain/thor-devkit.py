@@ -13,6 +13,8 @@ from .rlp import ComplexCodec
 from .cry import blake2b256
 from .cry import secp256k1
 from .cry import address
+from .gas import Gas
+from .block import Block
 
 class TransactionType(Enum):
     NORMAL = 0
@@ -209,11 +211,59 @@ class Transaction():
     # The reserved feature of delegated (vip-191) is 1.
     DELEGATED_MASK = 1
 
-    def __init__(self, body: dict):
-        ''' Construct a transaction from a given body. '''
+    def __init__(self, body: dict, gas_module: Gas = None, block_module: Block = None):
+        ''' 
+        Construct a transaction from a given body.
+        
+        Parameters
+        ----------
+        body : dict
+            The transaction body
+        gas_module : Gas, optional
+            The gas module for handling gas-related operations
+        block_module : Block, optional
+            The block module for handling block-related operations
+        '''
         self.body = BODY(body)
         self.signature = None
-    
+        self.gas_module = gas_module
+        self.block_module = block_module
+
+    async def fill_default_body_options(self) -> None:
+        """
+        Fill default values for transaction body options.
+        This includes setting default gas values and other optional fields.
+        """
+        # If we have a gas module, get the max priority fee per gas
+        if self.gas_module:
+            try:
+                max_priority_fee = self.gas_module.get_max_priority_fee_per_gas()
+                print("max_priority_fee", max_priority_fee)
+                self.body['maxPriorityFeePerGas'] = max_priority_fee
+            except Exception:
+                pass  # If we can't get the max priority fee, continue without it
+
+        # If we have a block module, get the base fee per gas
+        if self.block_module:
+            try:
+                base_fee = self.block_module.get_best_block_base_fee_per_gas()
+                if base_fee:
+                    # Calculate max fee per gas as 2 * base fee + max priority fee
+                    base_fee_int = int(base_fee, 16)
+                    max_priority_fee_int = int(self.body.get('maxPriorityFeePerGas', '0x0'), 16)
+                    max_fee = hex(base_fee_int * 2 + max_priority_fee_int)
+                    self.body['maxFeePerGas'] = max_fee
+            except Exception:
+                pass  # If we can't get the base fee, continue without it
+
+        # Set default gas price coefficient if not present
+        if 'gasPriceCoef' not in self.body:
+            self.body['gasPriceCoef'] = 0
+
+        # Set default gas limit if not present
+        if 'gas' not in self.body:
+            self.body['gas'] = self.get_intrinsic_gas()
+
     def get_body(self, as_copy:bool = True):
         '''
         Get a dict of the body represents the transaction.
