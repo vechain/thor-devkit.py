@@ -19,7 +19,7 @@ dynamic_fee_transaction_body = {
   "maxFeePerGas": '0x33f2aa320fbd',
   "maxPriorityFeePerGas": '0x1f0',
   "origin": '0xa7d07b0176e8ec925f59bc3e75a4044f56991d3a',
-  "nonce": '0xb7643a8f91b25566',
+  "nonce": 13214751594910995814,
   "size": 5150,
   "dependsOn": None,
   "meta": {
@@ -49,7 +49,7 @@ body = {
     "gasPriceCoef": 128,
     "gas": 21000,
     "dependsOn": None,
-    "nonce": '0x08'
+    "nonce": 8
 }
 
 unsigned = transaction.Transaction(body)
@@ -225,7 +225,7 @@ delegated_body = {
     "gasPriceCoef": 128,
     "gas": 21000,
     "dependsOn": None,
-    "nonce": '0x08',
+    "nonce": 8,
     "reserved": {
         "features": 1,
         "unused": [b'1234']
@@ -314,3 +314,29 @@ def test_dynamic_fee_transaction_encoding():
     assert decoded.get_type() == transaction.TransactionType.DYNAMIC_FEE
     assert decoded.get_max_fee_per_gas() == tx.get_max_fee_per_gas()
     assert decoded.get_max_priority_fee_per_gas() == tx.get_max_priority_fee_per_gas()
+
+def test_unsigned_transaction_type_detection():
+    """Test that transaction type is correctly detected from RLP for unsigned transactions"""
+    # Test normal transaction type detection
+    normal_tx_type = transaction.Transaction.determine_transaction_type_from_rlp(unsigned_encoded)
+    assert normal_tx_type == transaction.TransactionType.NORMAL
+    
+    # Test dynamic fee transaction type detection
+    dynamic_fee_tx_type = transaction.Transaction.determine_transaction_type_from_rlp(unsinged_dynamic_fee_encoded)
+    assert dynamic_fee_tx_type == transaction.TransactionType.DYNAMIC_FEE
+
+def test_unsigned_transaction_roundtrip():
+    """Test roundtrip encoding/decoding for unsigned transactions"""
+    # Test normal transaction roundtrip
+    normal_encoded = unsigned.encode()
+    normal_decoded = transaction.Transaction.decode(normal_encoded, True)
+    normal_re_encoded = normal_decoded.encode()
+    assert normal_encoded.hex() == normal_re_encoded.hex()
+    assert normal_decoded == unsigned
+    
+    # Test dynamic fee transaction roundtrip
+    dynamic_fee_encoded = unsinged_dynamic_fee.encode()
+    dynamic_fee_decoded = transaction.Transaction.decode(dynamic_fee_encoded, True)
+    dynamic_fee_re_encoded = dynamic_fee_decoded.encode()
+    assert dynamic_fee_encoded.hex() == dynamic_fee_re_encoded.hex()
+    assert dynamic_fee_decoded == unsinged_dynamic_fee

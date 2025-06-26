@@ -9,7 +9,7 @@ from copy import deepcopy
 from enum import Enum, auto
 from .rlp import NumericKind, CompactFixedBlobKind, NoneableFixedBlobKind, BlobKind, BytesKind
 from .rlp import DictWrapper, HomoListWrapper
-from .rlp import ComplexCodec, FallbackCodec
+from .rlp import ComplexCodec
 from .cry import blake2b256
 from .cry import secp256k1
 from .cry import address
@@ -64,7 +64,7 @@ _eip1559_params = [
     ("maxFeePerGas", NumericKind(32)),
     ("gas", NumericKind(8)),
     ("dependsOn", NoneableFixedBlobKind(32)),
-    ("nonce", NumericKind(32)),
+    ("nonce", NumericKind(8)),
     ("reserved", HomoListWrapper(codec=BytesKind()))
 ]
 
@@ -427,27 +427,31 @@ class Transaction():
         body = None
         sig = None
 
-        # Select appropriate wrappers based on unsigned parameter
-        if unsigned:
-            eip1559_wrapper = EIP1559UnsignedTxWrapper
-            normal_wrapper = UnsignedTxWrapper
+        # Determine transaction type from RLP structure
+        tx_type = Transaction.determine_transaction_type_from_rlp(raw)
+        
+        # Select appropriate wrappers based on transaction type and unsigned parameter
+        if tx_type == TransactionType.DYNAMIC_FEE:
+            if unsigned:
+                wrapper = EIP1559UnsignedTxWrapper
+            else:
+                wrapper = EIP1559SignedTxWrapper
         else:
-            eip1559_wrapper = EIP1559SignedTxWrapper
-            normal_wrapper = SignedTxWrapper
+            if unsigned:
+                wrapper = UnsignedTxWrapper
+            else:
+                wrapper = SignedTxWrapper
 
-        # Use FallbackCodec to try dynamic fee first, then legacy transaction
-        decoded = FallbackCodec(eip1559_wrapper, normal_wrapper).decode(raw)
+        # Decode using the appropriate wrapper
+        decoded = ComplexCodec(wrapper).decode(raw)
         
         if not unsigned:
             sig = decoded['signature']  # bytes
             del decoded['signature']
         
         body = decoded
-        # Determine transaction type based on which codec succeeded
-        if 'maxFeePerGas' in body or 'maxPriorityFeePerGas' in body:
-            body['type'] = TransactionType.DYNAMIC_FEE.value
-        else:
-            body['type'] = TransactionType.NORMAL.value
+        # Set transaction type based on RLP structure
+        body['type'] = tx_type.value
 
         r = body.get('reserved', [])  # list of bytes
         if len(r) > 0:
@@ -496,3 +500,48 @@ class Transaction():
         if tx_type == 81:
             return TransactionType.DYNAMIC_FEE
         return TransactionType.NORMAL
+
+    @staticmethod
+    def determine_transaction_type_from_rlp(raw: bytes) -> TransactionType:
+        """
+        Determine transaction type from raw RLP data by examining the field structure.
+        
+        Parameters
+        ----------
+        raw : bytes
+            Raw RLP-encoded transaction data
+            
+        Returns
+        -------
+        TransactionType
+            The determined transaction type
+        """
+        try:
+            # Decode the RLP to get the list of fields
+            from rlp import decode as rlp_decode
+            decoded = rlp_decode(raw)
+            
+            # Remove signature if present (last field for signed transactions)
+            if len(decoded) > 0 and isinstance(decoded[-1], bytes) and len(decoded[-1]) == 65:
+                # This looks like a signature, remove it for field count
+                fields = decoded[:-1]
+            else:
+                fields = decoded
+                
+            # EIP1559 transactions have 10 fields (including reserved)
+            # Legacy transactions have 9 fields (including reserved)
+            if len(fields) == 10:
+                return TransactionType.DYNAMIC_FEE
+            elif len(fields) == 9:
+                return TransactionType.NORMAL
+            else:
+                # Fallback: try to determine by examining specific fields
+                # Check if field 5 (index 4) looks like maxPriorityFeePerGas (32 bytes)
+                if len(fields) > 4 and isinstance(fields[4], bytes) and len(fields[4]) <= 32:
+                    # Check if field 6 (index 5) looks like maxFeePerGas (32 bytes)
+                    if len(fields) > 5 and isinstance(fields[5], bytes) and len(fields[5]) <= 32:
+                        return TransactionType.DYNAMIC_FEE
+                return TransactionType.NORMAL
+        except:
+            # If we can't determine from RLP structure, default to NORMAL
+            return TransactionType.NORMAL
