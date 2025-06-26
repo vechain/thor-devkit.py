@@ -106,11 +106,11 @@ BODY = Schema(
         "clauses": [CLAUSE],
         "gas": Any(str, int),
         "dependsOn": Any(str, None),
-        "nonce": str,
+        "nonce": Any(str, int),
         Optional("delegator"): str,
-        Optional("maxFeePerGas"): str,
-        Optional("maxPriorityFeePerGas"): str,
-        Optional("gasPriceCoef"): int,
+        Optional("maxFeePerGas"): Any(str, int),
+        Optional("maxPriorityFeePerGas"): Any(str, int),
+        Optional("gasPriceCoef"): Any(str, int),
         Optional("reserved"): RESERVED,
         Optional("type"): int
     },
@@ -447,14 +447,6 @@ class Transaction():
                 del decoded['signature']
                 body = decoded
             body['type'] = TransactionType.NORMAL.value
-
-        # Convert numeric values to hex strings
-        if 'nonce' in body:
-            body['nonce'] = hex(body['nonce'])
-        if 'maxFeePerGas' in body:
-            body['maxFeePerGas'] = hex(body['maxFeePerGas'])
-        if 'maxPriorityFeePerGas' in body:
-            body['maxPriorityFeePerGas'] = hex(body['maxPriorityFeePerGas'])
 
         r = body.get('reserved', [])  # list of bytes
         if len(r) > 0:

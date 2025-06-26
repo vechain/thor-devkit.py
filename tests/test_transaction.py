@@ -177,7 +177,7 @@ def test_invalid_body():
     
     with pytest.raises(Exception):
         body_1 = copy.deepcopy(body)
-        body_1['nonce'] = 123
+        body_1['nonce'] = '0x10000000000000000'
         transaction.Transaction(body_1).encode()
 
 def test_signed():
