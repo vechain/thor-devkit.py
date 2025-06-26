@@ -611,3 +611,40 @@ class ComplexCodec(object):
     def decode(self, data: bytes):
         to_be_unpacked = rlp_decode(data)
         return unpack(to_be_unpacked, self.wrapper)
+
+
+class FallbackCodec(ComplexCodec):
+    def __init__(self, main_codec: BaseWrapper, fallback_codec: BaseWrapper):
+        """
+        Initialize a FallbackCodec with main and fallback codecs.
+        
+        Parameters
+        ----------
+        main_codec : BaseWrapper
+            The primary codec to try first
+        fallback_codec : BaseWrapper
+            The fallback codec to try if main codec fails
+        """
+        self.main_codec = ComplexCodec(main_codec)
+        self.fallback_codec = ComplexCodec(fallback_codec)
+        # Initialize with main codec for compatibility
+        super().__init__(main_codec)
+
+    def decode(self, data: bytes):
+        """
+        Try to decode with main codec first, fallback to fallback codec if it fails.
+        
+        Parameters
+        ----------
+        data : bytes
+            The data to decode
+            
+        Returns
+        -------
+        Any
+            The decoded data from either main or fallback codec
+        """
+        try:
+            return self.main_codec.decode(data)
+        except:
+            return self.fallback_codec.decode(data)

@@ -9,7 +9,7 @@ from copy import deepcopy
 from enum import Enum, auto
 from .rlp import NumericKind, CompactFixedBlobKind, NoneableFixedBlobKind, BlobKind, BytesKind
 from .rlp import DictWrapper, HomoListWrapper
-from .rlp import ComplexCodec
+from .rlp import ComplexCodec, FallbackCodec
 from .cry import blake2b256
 from .cry import secp256k1
 from .cry import address
@@ -427,25 +427,26 @@ class Transaction():
         body = None
         sig = None
 
-        # First try to decode as dynamic fee transaction
-        try:
-            if unsigned:
-                body = ComplexCodec(EIP1559UnsignedTxWrapper).decode(raw)
-            else:
-                decoded = ComplexCodec(EIP1559SignedTxWrapper).decode(raw)
-                sig = decoded['signature']  # bytes
-                del decoded['signature']
-                body = decoded
+        # Select appropriate wrappers based on unsigned parameter
+        if unsigned:
+            eip1559_wrapper = EIP1559UnsignedTxWrapper
+            normal_wrapper = UnsignedTxWrapper
+        else:
+            eip1559_wrapper = EIP1559SignedTxWrapper
+            normal_wrapper = SignedTxWrapper
+
+        # Use FallbackCodec to try dynamic fee first, then legacy transaction
+        decoded = FallbackCodec(eip1559_wrapper, normal_wrapper).decode(raw)
+        
+        if not unsigned:
+            sig = decoded['signature']  # bytes
+            del decoded['signature']
+        
+        body = decoded
+        # Determine transaction type based on which codec succeeded
+        if 'maxFeePerGas' in body or 'maxPriorityFeePerGas' in body:
             body['type'] = TransactionType.DYNAMIC_FEE.value
-        except:
-            # If that fails, try legacy transaction
-            if unsigned:
-                body = ComplexCodec(UnsignedTxWrapper).decode(raw)
-            else:
-                decoded = ComplexCodec(SignedTxWrapper).decode(raw)
-                sig = decoded['signature']  # bytes
-                del decoded['signature']
-                body = decoded
+        else:
             body['type'] = TransactionType.NORMAL.value
 
         r = body.get('reserved', [])  # list of bytes
