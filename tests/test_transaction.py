@@ -29,7 +29,8 @@ dynamic_fee_transaction_body = {
   }
 }
 
-normal_transaction_body = {
+# Pre-galactica format (normal transaction)
+body = {
     "chainTag": 1,
     "blockRef": '0x00000000aabbccdd',
     "expiration": 32,
@@ -45,17 +46,16 @@ normal_transaction_body = {
             "data": '0x000000606060'
         }
     ],
-    "size": 100,
     "gasPriceCoef": 128,
     "gas": 21000,
     "dependsOn": None,
     "nonce": '0x08'
 }
 
-unsigned = transaction.Transaction(normal_transaction_body)
+unsigned = transaction.Transaction(body)
 unsigned_encoded = bytes.fromhex('f8510184aabbccdd20f840df947567d83b7b8d80addcb281a71d54fc7b3364ffed82271086000000606060df947567d83b7b8d80addcb281a71d54fc7b3364ffed824e208600000060606081808252088008c0')
 
-signed = transaction.Transaction(normal_transaction_body)
+signed = transaction.Transaction(body)
 signed_encoded = bytes.fromhex('f8940184aabbccdd20f840df947567d83b7b8d80addcb281a71d54fc7b3364ffed82271086000000606060df947567d83b7b8d80addcb281a71d54fc7b3364ffed824e208600000060606081808252088008c0b84159a0d8ff585bb9e44b05e96859302d43d060fde2266db8e7c75ba1a9721001883aba41c2866aa69fab1099f6e31d2bee58a970074e02f89c6072b00d32cf2f2400')
 priv_key = bytes.fromhex('7582be841ca040aa940fff6c05773129e135623e41acce3e0b8ba520dc1ae26a')
 _a, _ = cry.blake2b256([signed.encode()])
@@ -91,12 +91,12 @@ def test_unsigned():
 
     assert transaction.Transaction.decode(unsigned_encoded, True) == unsigned
 
-    body_1 = copy.deepcopy(normal_transaction_body)
+    body_1 = copy.deepcopy(body)
     body_1['clauses'] = []
 
     assert transaction.Transaction(body_1).get_intrinsic_gas() == 21000
 
-    body_2 = copy.deepcopy(normal_transaction_body)
+    body_2 = copy.deepcopy(body)
     body_2['clauses'] = [
         {
             "to": None,
@@ -109,74 +109,74 @@ def test_unsigned():
 
 
 def test_empty_data():
-    body_1 = copy.deepcopy(normal_transaction_body)
+    body_1 = copy.deepcopy(body)
     body_1['clauses'][0]['data'] = '0x'
     transaction.Transaction(body_1).encode()
 
 
 def test_invalid_body():
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(normal_transaction_body)
+        body_1 = copy.deepcopy(body)
         body_1["chainTag"] = 256
         transaction.Transaction(body_1).encode()
     
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(normal_transaction_body)
+        body_1 = copy.deepcopy(body)
         body_1["chainTag"] = -1
         transaction.Transaction(body_1).encode()
     
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(normal_transaction_body)
+        body_1 = copy.deepcopy(body)
         body_1["chainTag"] = 1.1
         transaction.Transaction(body_1).encode()
     
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(normal_transaction_body)
+        body_1 = copy.deepcopy(body)
         body_1['blockRef'] = '0x'
         transaction.Transaction(body_1).encode()
     
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(normal_transaction_body)
+        body_1 = copy.deepcopy(body)
         body_1['blockRef'] = '0x' + '0' * 18
         transaction.Transaction(body_1).encode()
     
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(normal_transaction_body)
+        body_1 = copy.deepcopy(body)
         body_1['expiration'] = 2 ** 32
         transaction.Transaction(body_1).encode()
     
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(normal_transaction_body)
+        body_1 = copy.deepcopy(body)
         body_1['expiration'] = -1
         transaction.Transaction(body_1).encode()
     
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(normal_transaction_body)
+        body_1 = copy.deepcopy(body)
         body_1['expiration'] = 1.1
         transaction.Transaction(body_1).encode()
 
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(normal_transaction_body)
+        body_1 = copy.deepcopy(body)
         body_1['gasPriceCoef'] = 256
         transaction.Transaction(body_1).encode()
     
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(normal_transaction_body)
+        body_1 = copy.deepcopy(body)
         body_1['gasPriceCoef'] = -1
         transaction.Transaction(body_1).encode()
 
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(normal_transaction_body)
+        body_1 = copy.deepcopy(body)
         body_1['gasPriceCoef'] = 1.1
         transaction.Transaction(body_1).encode()
 
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(normal_transaction_body)
+        body_1 = copy.deepcopy(body)
         body_1['gas'] = '0x10000000000000000'
         transaction.Transaction(body_1).encode()
     
     with pytest.raises(Exception):
-        body_1 = copy.deepcopy(normal_transaction_body)
+        body_1 = copy.deepcopy(body)
         body_1['nonce'] = 123
         transaction.Transaction(body_1).encode()
 
@@ -200,7 +200,7 @@ def test_encode_decode():
     #     transaction.Transaction.decode(signed_encoded, True)
 
 def test_incorrectly_signed():
-    tx = transaction.Transaction(normal_transaction_body)
+    tx = transaction.Transaction(body)
     tx.set_signature(bytes([1,2,3]))
     assert tx.get_origin() == None
     assert tx.get_id() == None
@@ -281,7 +281,7 @@ def test_unused():
     assert transaction.Transaction.decode(delegated_tx_3.encode(), True) == delegated_tx_3
 
 def test_body_copy():
-    b1 = copy.deepcopy(normal_transaction_body)
+    b1 = copy.deepcopy(body)
     tx = transaction.Transaction(b1)
     b2 = tx.get_body(False)
     b3 = tx.get_body(True)
@@ -305,10 +305,6 @@ def test_dynamic_fee_transaction():
     assert tx.get_max_priority_fee_per_gas() == int('0x1f0', 16)
     
     body = tx.get_body()
-    assert 'meta' in body
-    assert body['meta']['blockID'] == dynamic_fee_transaction_body['meta']['blockID']
-    assert body['meta']['blockNumber'] == dynamic_fee_transaction_body['meta']['blockNumber']
-    assert body['meta']['blockTimestamp'] == dynamic_fee_transaction_body['meta']['blockTimestamp']
 
 def test_dynamic_fee_transaction_encoding():
     tx = transaction.Transaction(dynamic_fee_transaction_body)

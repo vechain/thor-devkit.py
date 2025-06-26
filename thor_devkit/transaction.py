@@ -26,7 +26,7 @@ FeaturesKind = NumericKind(4)
 
 # Legacy Transactions
 # Unsigned/Signed RLP Wrapper.
-_legacy_params = [
+_params = [
     ("chainTag", NumericKind(1)),
     ("blockRef", CompactFixedBlobKind(8)),
     ("expiration", NumericKind(4)),
@@ -38,15 +38,15 @@ _legacy_params = [
     ("gasPriceCoef", NumericKind(1)),
     ("gas", NumericKind(8)),
     ("dependsOn", NoneableFixedBlobKind(32)),
-    ("nonce", NumericKind(32)),
+    ("nonce", NumericKind(8)),
     ("reserved", HomoListWrapper(codec=BytesKind()))
 ]
 
 # Unsigned Tx Wrapper
-LegacyUnsignedTxWrapper = DictWrapper(_legacy_params)
+UnsignedTxWrapper = DictWrapper(_params)
 
 # Signed Tx Wrapper
-LegacySignedTxWrapper = DictWrapper( _legacy_params + [("signature", BytesKind())] )
+SignedTxWrapper = DictWrapper( _params + [("signature", BytesKind())] )
 
 
 # Dynamic Fee Transactions
@@ -84,16 +84,6 @@ CLAUSE = Schema(
     extra=REMOVE_EXTRA
 )
 
-META = Schema(
-    {
-        "blockID": str,
-        "blockNumber": int,
-        "blockTimestamp": int
-    },
-    required=True,
-    extra=REMOVE_EXTRA
-)
-
 RESERVED = Schema(
     {
         Optional("features"): int, # int.
@@ -116,9 +106,7 @@ BODY = Schema(
         "clauses": [CLAUSE],
         "gas": Any(str, int),
         "dependsOn": Any(str, None),
-        Optional("size"): int,
-        Optional("nonce"): str,
-        Optional("meta"): META,
+        "nonce": str,
         Optional("delegator"): str,
         Optional("maxFeePerGas"): str,
         Optional("maxPriorityFeePerGas"): str,
@@ -305,7 +293,7 @@ class Transaction():
         if self.get_type() == TransactionType.DYNAMIC_FEE:
             buff = ComplexCodec(EIP1559UnsignedTxWrapper).encode(_temp)
         else:
-            buff = ComplexCodec(LegacyUnsignedTxWrapper).encode(_temp)
+            buff = ComplexCodec(UnsignedTxWrapper).encode(_temp)
             
         h, _ = blake2b256([buff])
 
@@ -323,18 +311,22 @@ class Transaction():
 
     def get_gas_price_coef(self) -> Union[None, int]:
         ''' Get the gas of current transaction.'''
-        return self.body.get('gasPriceCoef', 0)
+        return self.body.get('gasPriceCoef')
 
     def get_max_fee_per_gas(self) -> Union[None, int]:
         ''' Get the max fee per gas of current transaction.'''
-        value = self.body.get('maxFeePerGas', 0)
+        value = self.body.get('maxFeePerGas')
+        if value is None:
+            return None
         if isinstance(value, str):
             return int(value, 16)
         return value
 
     def get_max_priority_fee_per_gas(self) -> Union[None, int]:
         ''' Get the max priority fee per gas of current transaction.'''
-        value = self.body.get('maxPriorityFeePerGas', 0)
+        value = self.body.get('maxPriorityFeePerGas')
+        if value is None:
+            return None
         if isinstance(value, str):
             return int(value, 16)
         return value
@@ -423,15 +415,11 @@ class Transaction():
             temp.update({
                 'signature': self.signature
             })
-            if self.get_type() == TransactionType.DYNAMIC_FEE:
-                return ComplexCodec(EIP1559SignedTxWrapper).encode(temp)
-            else:
-                return ComplexCodec(LegacySignedTxWrapper).encode(temp)
+            codec = EIP1559SignedTxWrapper if self.get_type() == TransactionType.DYNAMIC_FEE else SignedTxWrapper
         else:
-            if self.get_type() == TransactionType.DYNAMIC_FEE:
-                return ComplexCodec(EIP1559UnsignedTxWrapper).encode(temp)
-            else:
-                return ComplexCodec(LegacyUnsignedTxWrapper).encode(temp)
+            codec = EIP1559UnsignedTxWrapper if self.get_type() == TransactionType.DYNAMIC_FEE else UnsignedTxWrapper
+
+        return ComplexCodec(codec).encode(temp)
 
     @staticmethod
     def decode(raw: bytes, unsigned: bool):
@@ -452,9 +440,9 @@ class Transaction():
         except:
             # If that fails, try legacy transaction
             if unsigned:
-                body = ComplexCodec(LegacyUnsignedTxWrapper).decode(raw)
+                body = ComplexCodec(UnsignedTxWrapper).decode(raw)
             else:
-                decoded = ComplexCodec(LegacySignedTxWrapper).decode(raw)
+                decoded = ComplexCodec(SignedTxWrapper).decode(raw)
                 sig = decoded['signature']  # bytes
                 del decoded['signature']
                 body = decoded
