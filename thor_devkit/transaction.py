@@ -6,17 +6,25 @@ This module defines data structure of a tx, and the encoding/decoding of tx data
 from voluptuous import Schema, Any, Optional, REMOVE_EXTRA
 from typing import Union, List
 from copy import deepcopy
+from enum import Enum, auto
 from .rlp import NumericKind, CompactFixedBlobKind, NoneableFixedBlobKind, BlobKind, BytesKind
 from .rlp import DictWrapper, HomoListWrapper
 from .rlp import ComplexCodec
 from .cry import blake2b256
 from .cry import secp256k1
 from .cry import address
+from .gas import Gas
+from .block import Block
+
+class TransactionType(Enum):
+    NORMAL = 0
+    DYNAMIC_FEE = 81
 
 # Kind Definitions
 # Used for VeChain's "reserved features" kind.
 FeaturesKind = NumericKind(4)
 
+# Legacy Transactions
 # Unsigned/Signed RLP Wrapper.
 _params = [
     ("chainTag", NumericKind(1)),
@@ -40,6 +48,32 @@ UnsignedTxWrapper = DictWrapper(_params)
 # Signed Tx Wrapper
 SignedTxWrapper = DictWrapper( _params + [("signature", BytesKind())] )
 
+
+# Dynamic Fee Transactions
+# Unsigned/Signed RLP Wrapper.
+_eip1559_params = [
+    ("chainTag", NumericKind(1)),
+    ("blockRef", CompactFixedBlobKind(8)),
+    ("expiration", NumericKind(4)),
+    ("clauses", HomoListWrapper(codec=DictWrapper([
+        ("to", NoneableFixedBlobKind(20)),
+        ("value", NumericKind(32)),
+        ("data", BlobKind())
+    ]))),
+    ("maxPriorityFeePerGas", NumericKind(32)),
+    ("maxFeePerGas", NumericKind(32)),
+    ("gas", NumericKind(8)),
+    ("dependsOn", NoneableFixedBlobKind(32)),
+    ("nonce", NumericKind(8)),
+    ("reserved", HomoListWrapper(codec=BytesKind()))
+]
+
+# Unsigned Tx Wrapper
+EIP1559UnsignedTxWrapper = DictWrapper(_eip1559_params)
+
+# Signed Tx Wrapper
+EIP1559SignedTxWrapper = DictWrapper( _eip1559_params + [("signature", BytesKind())] )
+
 CLAUSE = Schema(
     {
         "to": Any(str, None), # Destination contract address, or set to None to create contract.
@@ -49,7 +83,6 @@ CLAUSE = Schema(
     required=True,
     extra=REMOVE_EXTRA
 )
-
 
 RESERVED = Schema(
     {
@@ -71,11 +104,15 @@ BODY = Schema(
         "blockRef": str,
         "expiration": int,
         "clauses": [CLAUSE],
-        "gasPriceCoef": int,
         "gas": Any(str, int),
         "dependsOn": Any(str, None),
         "nonce": Any(str, int),
-        Optional("reserved"): RESERVED
+        Optional("delegator"): str,
+        Optional("maxFeePerGas"): Any(str, int),
+        Optional("maxPriorityFeePerGas"): Any(str, int),
+        Optional("gasPriceCoef"): Any(str, int),
+        Optional("reserved"): RESERVED,
+        Optional("type"): int
     },
     required=True,
     extra=REMOVE_EXTRA
@@ -162,11 +199,59 @@ class Transaction():
     # The reserved feature of delegated (vip-191) is 1.
     DELEGATED_MASK = 1
 
-    def __init__(self, body: dict):
-        ''' Construct a transaction from a given body. '''
+    def __init__(self, body: dict, gas_module: Gas = None, block_module: Block = None):
+        ''' 
+        Construct a transaction from a given body.
+        
+        Parameters
+        ----------
+        body : dict
+            The transaction body
+        gas_module : Gas, optional
+            The gas module for handling gas-related operations
+        block_module : Block, optional
+            The block module for handling block-related operations
+        '''
         self.body = BODY(body)
         self.signature = None
-    
+        self.gas_module = gas_module
+        self.block_module = block_module
+
+    async def fill_default_body_options(self) -> None:
+        """
+        Fill default values for transaction body options.
+        This includes setting default gas values and other optional fields.
+        """
+        # If we have a gas module, get the max priority fee per gas
+        if self.gas_module:
+            try:
+                max_priority_fee = self.gas_module.get_max_priority_fee_per_gas()
+                print("max_priority_fee", max_priority_fee)
+                self.body['maxPriorityFeePerGas'] = max_priority_fee
+            except Exception:
+                pass  # If we can't get the max priority fee, continue without it
+
+        # If we have a block module, get the base fee per gas
+        if self.block_module:
+            try:
+                base_fee = self.block_module.get_best_block_base_fee_per_gas()
+                if base_fee:
+                    # Calculate max fee per gas as 2 * base fee + max priority fee
+                    base_fee_int = int(base_fee, 16)
+                    max_priority_fee_int = int(self.body.get('maxPriorityFeePerGas', '0x0'), 16)
+                    max_fee = hex(base_fee_int * 2 + max_priority_fee_int)
+                    self.body['maxFeePerGas'] = max_fee
+            except Exception:
+                pass  # If we can't get the base fee, continue without it
+
+        # Set default gas price coefficient if not present
+        if 'gasPriceCoef' not in self.body:
+            self.body['gasPriceCoef'] = 0
+
+        # Set default gas limit if not present
+        if 'gas' not in self.body:
+            self.body['gas'] = self.get_intrinsic_gas()
+
     def get_body(self, as_copy:bool = True):
         '''
         Get a dict of the body represents the transaction.
@@ -204,7 +289,12 @@ class Transaction():
         _temp.update({
             "reserved": reserved_list
         })
-        buff = ComplexCodec(UnsignedTxWrapper).encode(_temp)
+        
+        if self.get_type() == TransactionType.DYNAMIC_FEE:
+            buff = ComplexCodec(EIP1559UnsignedTxWrapper).encode(_temp)
+        else:
+            buff = ComplexCodec(UnsignedTxWrapper).encode(_temp)
+            
         h, _ = blake2b256([buff])
 
         if delegate_for:
@@ -218,6 +308,28 @@ class Transaction():
     def get_intrinsic_gas(self) -> int:
         ''' Get the rough gas this tx will consume'''
         return intrinsic_gas(self.body['clauses'])
+
+    def get_gas_price_coef(self) -> Union[None, int]:
+        ''' Get the gas of current transaction.'''
+        return self.body.get('gasPriceCoef')
+
+    def get_max_fee_per_gas(self) -> Union[None, int]:
+        ''' Get the max fee per gas of current transaction.'''
+        value = self.body.get('maxFeePerGas')
+        if value is None:
+            return None
+        if isinstance(value, str):
+            return int(value, 16)
+        return value
+
+    def get_max_priority_fee_per_gas(self) -> Union[None, int]:
+        ''' Get the max priority fee per gas of current transaction.'''
+        value = self.body.get('maxPriorityFeePerGas')
+        if value is None:
+            return None
+        if isinstance(value, str):
+            return int(value, 16)
+        return value
 
     def get_signature(self) -> Union[None, bytes]:
         ''' Get the signature of current transaction.'''
@@ -303,9 +415,11 @@ class Transaction():
             temp.update({
                 'signature': self.signature
             })
-            return ComplexCodec(SignedTxWrapper).encode(temp)
+            codec = EIP1559SignedTxWrapper if self.get_type() == TransactionType.DYNAMIC_FEE else SignedTxWrapper
         else:
-            return ComplexCodec(UnsignedTxWrapper).encode(temp)
+            codec = EIP1559UnsignedTxWrapper if self.get_type() == TransactionType.DYNAMIC_FEE else UnsignedTxWrapper
+
+        return ComplexCodec(codec).encode(temp)
 
     @staticmethod
     def decode(raw: bytes, unsigned: bool):
@@ -313,13 +427,31 @@ class Transaction():
         body = None
         sig = None
 
-        if unsigned:
-            body = ComplexCodec(UnsignedTxWrapper).decode(raw)
+        # Determine transaction type from RLP structure
+        tx_type = Transaction.determine_transaction_type_from_rlp(raw)
+        
+        # Select appropriate wrappers based on transaction type and unsigned parameter
+        if tx_type == TransactionType.DYNAMIC_FEE:
+            if unsigned:
+                wrapper = EIP1559UnsignedTxWrapper
+            else:
+                wrapper = EIP1559SignedTxWrapper
         else:
-            decoded = ComplexCodec(SignedTxWrapper).decode(raw)
+            if unsigned:
+                wrapper = UnsignedTxWrapper
+            else:
+                wrapper = SignedTxWrapper
+
+        # Decode using the appropriate wrapper
+        decoded = ComplexCodec(wrapper).decode(raw)
+        
+        if not unsigned:
             sig = decoded['signature']  # bytes
             del decoded['signature']
-            body = decoded
+        
+        body = decoded
+        # Set transaction type based on RLP structure
+        body['type'] = tx_type.value
 
         r = body.get('reserved', [])  # list of bytes
         if len(r) > 0:
@@ -361,3 +493,55 @@ class Transaction():
         flag_1 = (self.signature == other.signature)
         flag_2 = self.encode() == other.encode() # only because of ["reserved"]["unused"] may glitch.
         return flag_1 and flag_2
+
+    def get_type(self) -> TransactionType:
+        ''' Get the type of the transaction.'''
+        tx_type = self.body.get('type', 0)
+        if tx_type == 81:
+            return TransactionType.DYNAMIC_FEE
+        return TransactionType.NORMAL
+
+    @staticmethod
+    def determine_transaction_type_from_rlp(raw: bytes) -> TransactionType:
+        """
+        Determine transaction type from raw RLP data by examining the field structure.
+        
+        Parameters
+        ----------
+        raw : bytes
+            Raw RLP-encoded transaction data
+            
+        Returns
+        -------
+        TransactionType
+            The determined transaction type
+        """
+        try:
+            # Decode the RLP to get the list of fields
+            from rlp import decode as rlp_decode
+            decoded = rlp_decode(raw)
+            
+            # Remove signature if present (last field for signed transactions)
+            if len(decoded) > 0 and isinstance(decoded[-1], bytes) and len(decoded[-1]) == 65:
+                # This looks like a signature, remove it for field count
+                fields = decoded[:-1]
+            else:
+                fields = decoded
+                
+            # EIP1559 transactions have 10 fields (including reserved)
+            # Legacy transactions have 9 fields (including reserved)
+            if len(fields) == 10:
+                return TransactionType.DYNAMIC_FEE
+            elif len(fields) == 9:
+                return TransactionType.NORMAL
+            else:
+                # Fallback: try to determine by examining specific fields
+                # Check if field 5 (index 4) looks like maxPriorityFeePerGas (32 bytes)
+                if len(fields) > 4 and isinstance(fields[4], bytes) and len(fields[4]) <= 32:
+                    # Check if field 6 (index 5) looks like maxFeePerGas (32 bytes)
+                    if len(fields) > 5 and isinstance(fields[5], bytes) and len(fields[5]) <= 32:
+                        return TransactionType.DYNAMIC_FEE
+                return TransactionType.NORMAL
+        except:
+            # If we can't determine from RLP structure, default to NORMAL
+            return TransactionType.NORMAL
