@@ -6,10 +6,10 @@ with open("README.md", "r") as fh:
 assert long_description
 
 setuptools.setup(
-    name="thor-devkit",
-    version="1.0.14",
-    author="A Byte Ahead",
-    author_email="laalaguer@gmail.com",
+    name="vechain-thor-devkit",
+    version="1.1.0",
+    author="vechain",
+    author_email="sdk@vechain.org",
     description="SDK to interact with VeChain Thor public blockchain.",
     keywords="vechain thor blockchain sdk",
     long_description=long_description,
@@ -21,11 +21,11 @@ setuptools.setup(
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         "Operating System :: OS Independent",
     ],
-    url="https://github.com/laalaguer/thor-devkit.py",
+    url="https://github.com/vechain/thor-devkit.py",
     project_urls={
-        'Documentation': 'https://github.com/laalaguer/thor-devkit.py',
-        'Source': 'https://github.com/laalaguer/thor-devkit.py',
-        'Issue Tracker': 'https://github.com/laalaguer/thor-devkit.py/issues',
+        'Documentation': 'https://github.com/vechain/thor-devkit.py',
+        'Source': 'https://github.com/vechain/thor-devkit.py',
+        'Issue Tracker': 'https://github.com/vechain/thor-devkit.py/issues',
     },
     python_requires='>=3.6',
     install_requires=[x.strip() for x in open('requirements.txt')],
