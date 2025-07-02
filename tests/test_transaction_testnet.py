@@ -9,7 +9,7 @@ pytestmark = pytest.mark.asyncio
 @pytest.fixture
 def http_client():
     session = requests.Session()
-    session.base_url = 'https://galactica.live.dev.node.vechain.org'
+    session.base_url = 'https://testnet.vechain.org'
     def request_with_base_url(method, url, *args, **kwargs):
         if not url.startswith('http'):
             url = f"{session.base_url}{url}"

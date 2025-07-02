@@ -3,6 +3,8 @@ Transaction class defines VeChain's multi-clause transaction (tx).
 
 This module defines data structure of a tx, and the encoding/decoding of tx data.
 '''
+import this
+
 from voluptuous import Schema, Any, Optional, REMOVE_EXTRA
 from typing import Union, List
 from copy import deepcopy
@@ -419,7 +421,11 @@ class Transaction():
         else:
             codec = EIP1559UnsignedTxWrapper if self.get_type() == TransactionType.DYNAMIC_FEE else UnsignedTxWrapper
 
-        return ComplexCodec(codec).encode(temp)
+        encoded_bytes =  ComplexCodec(codec).encode(temp)
+        if self.get_type() == TransactionType.DYNAMIC_FEE:
+            prefix = bytes([0x51])
+            encoded_bytes = prefix + encoded_bytes
+        return encoded_bytes
 
     @staticmethod
     def decode(raw: bytes, unsigned: bool):
@@ -427,8 +433,10 @@ class Transaction():
         body = None
         sig = None
 
-        # Determine transaction type from RLP structure
-        tx_type = Transaction.determine_transaction_type_from_rlp(raw)
+        # Determine transaction type from prefix
+        tx_type = Transaction._determine_transaction_type_from_prefix(raw)
+        if tx_type == TransactionType.DYNAMIC_FEE:
+            raw = raw[1:]
         
         # Select appropriate wrappers based on transaction type and unsigned parameter
         if tx_type == TransactionType.DYNAMIC_FEE:
@@ -496,52 +504,31 @@ class Transaction():
 
     def get_type(self) -> TransactionType:
         ''' Get the type of the transaction.'''
-        tx_type = self.body.get('type', 0)
-        if tx_type == 81:
-            return TransactionType.DYNAMIC_FEE
-        return TransactionType.NORMAL
+        if 'type' in self.body:
+            tx_type = self.body.get('type', 0)
+            if tx_type == 81:
+                return TransactionType.DYNAMIC_FEE
+            return TransactionType.NORMAL
+        else:
+            return self._determine_transaction_type_from_body()
+
 
     @staticmethod
-    def determine_transaction_type_from_rlp(raw: bytes) -> TransactionType:
+    def _determine_transaction_type_from_prefix(raw: bytes) -> TransactionType:
         """
-        Determine transaction type from raw RLP data by examining the field structure.
-        
-        Parameters
-        ----------
-        raw : bytes
-            Raw RLP-encoded transaction data
-            
-        Returns
-        -------
-        TransactionType
-            The determined transaction type
+        Determine the transaction type from raw transaction prefix
         """
-        try:
-            # Decode the RLP to get the list of fields
-            from rlp import decode as rlp_decode
-            decoded = rlp_decode(raw)
-            
-            # Remove signature if present (last field for signed transactions)
-            if len(decoded) > 0 and isinstance(decoded[-1], bytes) and len(decoded[-1]) == 65:
-                # This looks like a signature, remove it for field count
-                fields = decoded[:-1]
-            else:
-                fields = decoded
-                
-            # EIP1559 transactions have 10 fields (including reserved)
-            # Legacy transactions have 9 fields (including reserved)
-            if len(fields) == 10:
-                return TransactionType.DYNAMIC_FEE
-            elif len(fields) == 9:
-                return TransactionType.NORMAL
-            else:
-                # Fallback: try to determine by examining specific fields
-                # Check if field 5 (index 4) looks like maxPriorityFeePerGas (32 bytes)
-                if len(fields) > 4 and isinstance(fields[4], bytes) and len(fields[4]) <= 32:
-                    # Check if field 6 (index 5) looks like maxFeePerGas (32 bytes)
-                    if len(fields) > 5 and isinstance(fields[5], bytes) and len(fields[5]) <= 32:
-                        return TransactionType.DYNAMIC_FEE
-                return TransactionType.NORMAL
-        except:
-            # If we can't determine from RLP structure, default to NORMAL
+        prefix = bytes([0x51])
+        if raw.startswith(prefix):
+            return TransactionType.DYNAMIC_FEE
+        else:
+            return TransactionType.NORMAL
+
+    def _determine_transaction_type_from_body(self) -> TransactionType:
+        """
+        Determine the transaction type using the body fields
+        """
+        if "maxFeePerGas" in self.body and "maxPriorityFeePerGas" in self.body:
+            return TransactionType.DYNAMIC_FEE
+        else:
             return TransactionType.NORMAL
