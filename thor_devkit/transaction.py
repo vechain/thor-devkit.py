@@ -294,9 +294,10 @@ class Transaction():
         
         if self.get_type() == TransactionType.DYNAMIC_FEE:
             buff = ComplexCodec(EIP1559UnsignedTxWrapper).encode(_temp)
+            prefix = bytes([0x51])
+            buff = prefix + buff
         else:
             buff = ComplexCodec(UnsignedTxWrapper).encode(_temp)
-            
         h, _ = blake2b256([buff])
 
         if delegate_for:
