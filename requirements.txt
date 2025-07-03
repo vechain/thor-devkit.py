@@ -1,5 +1,6 @@
 eth-hash==0.5.2
 pytest>=6.2.0
+pytest-asyncio>=0.21.2
 pytest-cov
 ecdsa==0.16.1
 eth-keys==0.3.3

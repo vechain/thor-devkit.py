@@ -1,6 +1,8 @@
 # VeChain Thor Devkit (SDK) in Python 3
 
-Python 3 (Python 3.6+) library to assist smooth development on VeChain for developers and hobbyists.
+Python 3 library to assist smooth development on VeChain for developers and hobbyists.
+Python versions compatible:
+3.6 -> 3.10 (inclusive)
 
 |                          Content                          |
 | --------------------------------------------------------- |

@@ -50,6 +50,7 @@ dynamic_fee_transaction_body = {
   }
 }
 
+@pytest.mark.asyncio
 async def test_fill_default_body_options_testnet(gas_client, block_client):
     tx = transaction.Transaction(dynamic_fee_transaction_body, gas_module=gas_client, block_module=block_client)
     
