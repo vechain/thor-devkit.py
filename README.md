@@ -1,6 +1,8 @@
 # VeChain Thor Devkit (SDK) in Python 3
 
-Python 3 (Python 3.6+) library to assist smooth development on VeChain for developers and hobbyists.
+Python 3 library to assist smooth development on VeChain for developers and hobbyists.
+Python versions compatible:
+3.6 -> 3.10 (inclusive)
 
 |                          Content                          |
 | --------------------------------------------------------- |
@@ -20,8 +22,17 @@ Python 3 (Python 3.6+) library to assist smooth development on VeChain for devel
 ... and will always be updated with the **newest** features on VeChain.
 
 # Install
+
+Prior to version 1.1.0:
+
 ```bash
 pip3 install thor-devkit -U
+```
+
+For 1.1.0 and newer:
+
+```bash
+pip3 install vechain-thor-devkit -U
 ```
 
 ***Caveat: Bip32 depends on the `ripemd160` hash library, which should be present on your system within OpenSSL.***

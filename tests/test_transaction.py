@@ -4,7 +4,6 @@ from thor_devkit import cry, transaction
 
 dynamic_fee_transaction_body = {
   "id": '0xf47542ebf813c723fa087b342db4c5f67866cc1b03b362c37a1b1766cac5c53a',
-  "type": 81,
   "chainTag": 228,
   "blockRef": '0x0001c400b93e3f87',
   "expiration": 30,
@@ -65,7 +64,7 @@ signer = cry.public_key_to_address(cry.secp256k1.derive_publicKey(priv_key))
 
 
 unsinged_dynamic_fee = transaction.Transaction(dynamic_fee_transaction_body)
-unsinged_dynamic_fee_encoded = bytes.fromhex('f8a481e48701c400b93e3f871ef87ef87c9417c5fab5980157d0f2c14e1056e8ad828b43bb5280b864aecb29bf00000000000000000000000000000000000000000000000000000000000000977b7b81982ec56e3763f3a525d3675aacae0184a2fbeca967b8f5a979d6480e8a1c40ecc470246fba5958922b2554f93d946680a434f161b8e6cb5d63dfc1cdf58201f08633f2aa320fbd830e72c88088b7643a8f91b25566c0')
+unsinged_dynamic_fee_encoded = bytes.fromhex('51f8a481e48701c400b93e3f871ef87ef87c9417c5fab5980157d0f2c14e1056e8ad828b43bb5280b864aecb29bf00000000000000000000000000000000000000000000000000000000000000977b7b81982ec56e3763f3a525d3675aacae0184a2fbeca967b8f5a979d6480e8a1c40ecc470246fba5958922b2554f93d946680a434f161b8e6cb5d63dfc1cdf58201f08633f2aa320fbd830e72c88088b7643a8f91b25566c0')
 
 signed_dynamic_fee = transaction.Transaction(dynamic_fee_transaction_body)
 signed_dynamic_fee_encoded = bytes.fromhex('f8e781e48701c400b93e3f871ef87ef87c9417c5fab5980157d0f2c14e1056e8ad828b43bb5280b864aecb29bf00000000000000000000000000000000000000000000000000000000000000977b7b81982ec56e3763f3a525d3675aacae0184a2fbeca967b8f5a979d6480e8a1c40ecc470246fba5958922b2554f93d946680a434f161b8e6cb5d63dfc1cdf58201f08633f2aa320fbd830e72c88088b7643a8f91b25566c0b841f720378109a9c077d85c041afa6e2f5b3ac08903fc5dcb0d3b337d77e91a4a7c27aa16974677ed6f24d76096291325614a54ab0f150821e3663562bb45e494f300')
@@ -308,6 +307,7 @@ def test_dynamic_fee_transaction():
 
 def test_dynamic_fee_transaction_encoding():
     tx = transaction.Transaction(dynamic_fee_transaction_body)
+    assert tx.get_type() == transaction.TransactionType.DYNAMIC_FEE
     encoded = tx.encode()
     
     decoded = transaction.Transaction.decode(encoded, True)
@@ -318,11 +318,11 @@ def test_dynamic_fee_transaction_encoding():
 def test_unsigned_transaction_type_detection():
     """Test that transaction type is correctly detected from RLP for unsigned transactions"""
     # Test normal transaction type detection
-    normal_tx_type = transaction.Transaction.determine_transaction_type_from_rlp(unsigned_encoded)
+    normal_tx_type = transaction.Transaction._determine_transaction_type_from_prefix(unsigned_encoded)
     assert normal_tx_type == transaction.TransactionType.NORMAL
     
     # Test dynamic fee transaction type detection
-    dynamic_fee_tx_type = transaction.Transaction.determine_transaction_type_from_rlp(unsinged_dynamic_fee_encoded)
+    dynamic_fee_tx_type = transaction.Transaction._determine_transaction_type_from_prefix(unsinged_dynamic_fee_encoded)
     assert dynamic_fee_tx_type == transaction.TransactionType.DYNAMIC_FEE
 
 def test_unsigned_transaction_roundtrip():
