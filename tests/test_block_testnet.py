@@ -5,7 +5,7 @@ from thor_devkit.block import Block, CompressedBlockDetail
 @pytest.fixture
 def http_client():
     session = requests.Session()
-    session.base_url = 'https://galactica.live.dev.node.vechain.org' 
+    session.base_url = 'https://testnet.vechain.org' 
     return session
 
 @pytest.fixture

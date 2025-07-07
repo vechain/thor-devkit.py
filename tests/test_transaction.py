@@ -52,6 +52,9 @@ body = {
 }
 
 unsigned = transaction.Transaction(body)
+# Trying to decode an unsigned transaction on https://devtools.vet/transactions
+# Will always throw an error, expected 10 items, but got 9
+# Same for unsinged_dynamic_fee_encoded
 unsigned_encoded = bytes.fromhex('f8510184aabbccdd20f840df947567d83b7b8d80addcb281a71d54fc7b3364ffed82271086000000606060df947567d83b7b8d80addcb281a71d54fc7b3364ffed824e208600000060606081808252088008c0')
 
 signed = transaction.Transaction(body)
@@ -67,7 +70,7 @@ unsinged_dynamic_fee = transaction.Transaction(dynamic_fee_transaction_body)
 unsinged_dynamic_fee_encoded = bytes.fromhex('51f8a481e48701c400b93e3f871ef87ef87c9417c5fab5980157d0f2c14e1056e8ad828b43bb5280b864aecb29bf00000000000000000000000000000000000000000000000000000000000000977b7b81982ec56e3763f3a525d3675aacae0184a2fbeca967b8f5a979d6480e8a1c40ecc470246fba5958922b2554f93d946680a434f161b8e6cb5d63dfc1cdf58201f08633f2aa320fbd830e72c88088b7643a8f91b25566c0')
 
 signed_dynamic_fee = transaction.Transaction(dynamic_fee_transaction_body)
-signed_dynamic_fee_encoded = bytes.fromhex('f8e781e48701c400b93e3f871ef87ef87c9417c5fab5980157d0f2c14e1056e8ad828b43bb5280b864aecb29bf00000000000000000000000000000000000000000000000000000000000000977b7b81982ec56e3763f3a525d3675aacae0184a2fbeca967b8f5a979d6480e8a1c40ecc470246fba5958922b2554f93d946680a434f161b8e6cb5d63dfc1cdf58201f08633f2aa320fbd830e72c88088b7643a8f91b25566c0b841f720378109a9c077d85c041afa6e2f5b3ac08903fc5dcb0d3b337d77e91a4a7c27aa16974677ed6f24d76096291325614a54ab0f150821e3663562bb45e494f300')
+signed_dynamic_fee_encoded = bytes.fromhex('51f8e781e48701c400b93e3f871ef87ef87c9417c5fab5980157d0f2c14e1056e8ad828b43bb5280b864aecb29bf00000000000000000000000000000000000000000000000000000000000000977b7b81982ec56e3763f3a525d3675aacae0184a2fbeca967b8f5a979d6480e8a1c40ecc470246fba5958922b2554f93d946680a434f161b8e6cb5d63dfc1cdf58201f08633f2aa320fbd830e72c88088b7643a8f91b25566c0b841f720378109a9c077d85c041afa6e2f5b3ac08903fc5dcb0d3b337d77e91a4a7c27aa16974677ed6f24d76096291325614a54ab0f150821e3663562bb45e494f300')
 message_hash = signed_dynamic_fee.get_signing_hash()
 signed_dynamic_fee.set_signature(cry.secp256k1.sign(message_hash, priv_key))
 
@@ -340,3 +343,215 @@ def test_unsigned_transaction_roundtrip():
     dynamic_fee_re_encoded = dynamic_fee_decoded.encode()
     assert dynamic_fee_encoded.hex() == dynamic_fee_re_encoded.hex()
     assert dynamic_fee_decoded == unsinged_dynamic_fee
+
+def test_transaction_type_detection_from_prefix():
+    """Test _determine_transaction_type_from_prefix method with various inputs"""
+    
+    # Test normal transaction (no prefix)
+    normal_tx_bytes = bytes.fromhex('f8940184aabbccdd20f840df947567d83b7b8d80addcb281a71d54fc7b3364ffed82271086000000606060df947567d83b7b8d80addcb281a71d54fc7b3364ffed824e208600000060606081808252088008c0b84159a0d8ff585bb9e44b05e96859302d43d060fde2266db8e7c75ba1a9721001883aba41c2866aa69fab1099f6e31d2bee58a970074e02f89c6072b00d32cf2f2400')
+    tx_type = transaction.Transaction._determine_transaction_type_from_prefix(normal_tx_bytes)
+    assert tx_type == transaction.TransactionType.NORMAL
+    
+    # Test dynamic fee transaction (with 0x51 prefix)
+    dynamic_fee_tx_bytes = bytes.fromhex('51f8e781e48701c400b93e3f871ef87ef87c9417c5fab5980157d0f2c14e1056e8ad828b43bb5280b864aecb29bf00000000000000000000000000000000000000000000000000000000000000977b7b81982ec56e3763f3a525d3675aacae0184a2fbeca967b8f5a979d6480e8a1c40ecc470246fba5958922b2554f93d946680a434f161b8e6cb5d63dfc1cdf58201f08633f2aa320fbd830e72c88088b7643a8f91b25566c0b841f720378109a9c077d85c041afa6e2f5b3ac08903fc5dcb0d3b337d77e91a4a7c27aa16974677ed6f24d76096291325614a54ab0f150821e3663562bb45e494f300')
+    tx_type = transaction.Transaction._determine_transaction_type_from_prefix(dynamic_fee_tx_bytes)
+    assert tx_type == transaction.TransactionType.DYNAMIC_FEE
+    
+    # Test with empty bytes
+    empty_bytes = bytes()
+    tx_type = transaction.Transaction._determine_transaction_type_from_prefix(empty_bytes)
+    assert tx_type == transaction.TransactionType.NORMAL
+    
+    # Test with single byte that's not 0x51
+    single_byte = bytes([0x50])
+    tx_type = transaction.Transaction._determine_transaction_type_from_prefix(single_byte)
+    assert tx_type == transaction.TransactionType.NORMAL
+    
+    # Test with single byte that is 0x51
+    single_byte_51 = bytes([0x51])
+    tx_type = transaction.Transaction._determine_transaction_type_from_prefix(single_byte_51)
+    assert tx_type == transaction.TransactionType.DYNAMIC_FEE
+
+def test_transaction_type_detection_from_body():
+    """Test _determine_transaction_type_from_body method with various inputs"""
+    
+    # Test normal transaction body (no maxFeePerGas or maxPriorityFeePerGas)
+    normal_body = {
+        "chainTag": 1,
+        "blockRef": '0x00000000aabbccdd',
+        "expiration": 32,
+        "clauses": [
+            {
+                "to": '0x7567d83b7b8d80addcb281a71d54fc7b3364ffed',
+                "value": 10000,
+                "data": '0x000000606060'
+            }
+        ],
+        "gasPriceCoef": 128,
+        "gas": 21000,
+        "dependsOn": None,
+        "nonce": 8
+    }
+    tx = transaction.Transaction(normal_body)
+    tx_type = tx._determine_transaction_type_from_body()
+    assert tx_type == transaction.TransactionType.NORMAL
+    
+    # Test dynamic fee transaction body (with both maxFeePerGas and maxPriorityFeePerGas)
+    dynamic_fee_body = {
+        "chainTag": 228,
+        "blockRef": '0x0001c400b93e3f87',
+        "expiration": 30,
+        "clauses": [
+            {
+                "to": '0x17c5fab5980157d0f2c14e1056e8ad828b43bb52',
+                "value": '0x0',
+                "data": '0xaecb29bf00000000000000000000000000000000000000000000000000000000000000977b7b81982ec56e3763f3a525d3675aacae0184a2fbeca967b8f5a979d6480e8a1c40ecc470246fba5958922b2554f93d946680a434f161b8e6cb5d63dfc1cdf5'
+            }
+        ],
+        "gas": 946888,
+        "maxFeePerGas": '0x33f2aa320fbd',
+        "maxPriorityFeePerGas": '0x1f0',
+        "nonce": 13214751594910995814,
+        "dependsOn": None
+    }
+    tx = transaction.Transaction(dynamic_fee_body)
+    tx_type = tx._determine_transaction_type_from_body()
+    assert tx_type == transaction.TransactionType.DYNAMIC_FEE
+    
+    # Test body with only maxFeePerGas (should still be NORMAL)
+    body_with_only_max_fee = {
+        "chainTag": 1,
+        "blockRef": '0x00000000aabbccdd',
+        "expiration": 32,
+        "clauses": [
+            {
+                "to": '0x7567d83b7b8d80addcb281a71d54fc7b3364ffed',
+                "value": 10000,
+                "data": '0x000000606060'
+            }
+        ],
+        "gasPriceCoef": 128,
+        "gas": 21000,
+        "maxFeePerGas": '0x33f2aa320fbd',
+        "dependsOn": None,
+        "nonce": 8
+    }
+    tx = transaction.Transaction(body_with_only_max_fee)
+    tx_type = tx._determine_transaction_type_from_body()
+    assert tx_type == transaction.TransactionType.NORMAL
+    
+    # Test body with only maxPriorityFeePerGas (should still be NORMAL)
+    body_with_only_max_priority_fee = {
+        "chainTag": 1,
+        "blockRef": '0x00000000aabbccdd',
+        "expiration": 32,
+        "clauses": [
+            {
+                "to": '0x7567d83b7b8d80addcb281a71d54fc7b3364ffed',
+                "value": 10000,
+                "data": '0x000000606060'
+            }
+        ],
+        "gasPriceCoef": 128,
+        "gas": 21000,
+        "maxPriorityFeePerGas": '0x1f0',
+        "dependsOn": None,
+        "nonce": 8
+    }
+    tx = transaction.Transaction(body_with_only_max_priority_fee)
+    tx_type = tx._determine_transaction_type_from_body()
+    assert tx_type == transaction.TransactionType.NORMAL
+    
+    # Test body with both fields but as integers instead of hex strings
+    body_with_int_fees = {
+        "chainTag": 1,
+        "blockRef": '0x00000000aabbccdd',
+        "expiration": 32,
+        "clauses": [
+            {
+                "to": '0x7567d83b7b8d80addcb281a71d54fc7b3364ffed',
+                "value": 10000,
+                "data": '0x000000606060'
+            }
+        ],
+        "gas": 21000,
+        "maxFeePerGas": 1000000000000,
+        "maxPriorityFeePerGas": 1000000000,
+        "dependsOn": None,
+        "nonce": 8
+    }
+    tx = transaction.Transaction(body_with_int_fees)
+    tx_type = tx._determine_transaction_type_from_body()
+    assert tx_type == transaction.TransactionType.DYNAMIC_FEE
+    
+    # Test body with empty clauses
+    body_with_empty_clauses = {
+        "chainTag": 1,
+        "blockRef": '0x00000000aabbccdd',
+        "expiration": 32,
+        "clauses": [],
+        "gasPriceCoef": 128,
+        "gas": 21000,
+        "dependsOn": None,
+        "nonce": 8
+    }
+    tx = transaction.Transaction(body_with_empty_clauses)
+    tx_type = tx._determine_transaction_type_from_body()
+    assert tx_type == transaction.TransactionType.NORMAL
+
+def test_transaction_type_detection_edge_cases():
+    """Test edge cases for transaction type detection methods"""
+    
+    # Test _determine_transaction_type_from_prefix with minimal valid data
+    minimal_normal = bytes.fromhex('f8')
+    tx_type = transaction.Transaction._determine_transaction_type_from_prefix(minimal_normal)
+    assert tx_type == transaction.TransactionType.NORMAL
+    
+    # Test _determine_transaction_type_from_prefix with 0x51 followed by minimal data
+    minimal_dynamic_fee = bytes.fromhex('51f8')
+    tx_type = transaction.Transaction._determine_transaction_type_from_prefix(minimal_dynamic_fee)
+    assert tx_type == transaction.TransactionType.DYNAMIC_FEE
+    
+    # Test _determine_transaction_type_from_body with minimal body
+    minimal_body = {
+        "chainTag": 1,
+        "blockRef": '0x00000000aabbccdd',
+        "expiration": 32,
+        "clauses": [],
+        "gas": 21000,
+        "dependsOn": None,
+        "nonce": 8
+    }
+    tx = transaction.Transaction(minimal_body)
+    tx_type = tx._determine_transaction_type_from_body()
+    assert tx_type == transaction.TransactionType.NORMAL
+    
+    # Test _determine_transaction_type_from_body with None values
+    body_with_none_fees = {
+        "chainTag": 1,
+        "blockRef": '0x00000000aabbccdd',
+        "expiration": 32,
+        "clauses": [],
+        "gas": 21000,
+        "dependsOn": None,
+        "nonce": 8
+    }
+    tx = transaction.Transaction(body_with_none_fees)
+    tx_type = tx._determine_transaction_type_from_body()
+    assert tx_type == transaction.TransactionType.NORMAL
+    
+    # Test _determine_transaction_type_from_body with zero values
+    body_with_zero_fees = {
+        "chainTag": 1,
+        "blockRef": '0x00000000aabbccdd',
+        "expiration": 32,
+        "clauses": [],
+        "gas": 21000,
+        "maxFeePerGas": 0,
+        "maxPriorityFeePerGas": 0,
+        "dependsOn": None,
+        "nonce": 8
+    }
+    tx = transaction.Transaction(body_with_zero_fees)
+    tx_type = tx._determine_transaction_type_from_body()
+    assert tx_type == transaction.TransactionType.DYNAMIC_FEE
