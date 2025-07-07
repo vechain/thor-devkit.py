@@ -7,7 +7,7 @@ assert long_description
 
 setuptools.setup(
     name="vechain-thor-devkit",
-    version="1.1.1",
+    version="1.1.2",
     author="vechain",
     author_email="sdk@vechain.org",
     description="SDK to interact with VeChain Thor public blockchain.",
